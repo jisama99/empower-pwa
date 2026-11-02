@@ -335,6 +335,8 @@ function NavBar(actif) {
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/></svg>' },
     { id: 'comptes',     hash: '#/comptes',             mobileNav: true,  lbl: 'Comptes',
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v8h4"/><path d="M18 9h2a2 2 0 0 1 2 2v11h-4"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>' },
+    { id: 'territoires', hash: '#/territoires',         mobileNav: false, lbl: 'Territoires',
+      icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>' },
     { id: 'reporting',   hash: '#/manager',             mobileNav: false, lbl: 'Reporting',
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="4" height="12" x="2" y="6" rx="1"/><rect width="4" height="16" x="9" y="2" rx="1"/><rect width="4" height="8" x="16" y="10" rx="1"/></svg>' },
     // Bloc 2 §1 — Reporting personnel CDS (tabId distinct de 'reporting' car
@@ -383,7 +385,7 @@ function NavBar(actif) {
   //   F3 photos → onglet de Mon Planning · F5 visites_fdv → idem (CHANNEL)
   // Les routes fusionnées restent valides (rétro-compat) mais sortent de la nav.
   const SECTIONS = [
-    { lbl: null,        ids: ['home', 'tracker', 'comptes'] },
+    { lbl: null,        ids: ['home', 'tracker', 'comptes', 'territoires'] },
     { lbl: 'Activité',  ids: ['a_contacter', 'visites', 'phoning', 'mailing'] },
     { lbl: 'Données',   ids: ['objectifs'] },
     { lbl: 'Admin',     ids: ['admin'] },
@@ -939,6 +941,7 @@ const PaletteCommandes = (function () {
     { id: 'home',        hash: '#/dashboard',           titre: 'Accueil' },
     { id: 'tracker',     hash: '#/empower-tracker',      titre: 'Tracker' },
     { id: 'comptes',     hash: '#/comptes',              titre: 'Comptes' },
+    { id: 'territoires', hash: '#/territoires',          titre: 'Territoires (carte)' },
     { id: 'visites',     hash: '#/visites',              titre: 'Mon Planning' },
     { id: 'phoning',     hash: '#/phoning',               titre: 'Phoning' },
     { id: 'photos',      hash: '#/photos',                titre: 'Mes Photos' },

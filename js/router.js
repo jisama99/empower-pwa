@@ -43,6 +43,7 @@ const Router = {
 
     // ── Routes auxiliaires ──
     { pattern: /^#\/photos$/,                       vue: 'VuePhotos',             auth: true  },
+    { pattern: /^#\/territoires$/,                  vue: 'VueTerritoires',        auth: true  },
     { pattern: /^#\/mailing$/,                      vue: 'VueMailing',            auth: true  },
     { pattern: /^#\/a-contacter$/,                  vue: 'VueAContacter',         auth: true  },
     { pattern: /^#\/comptes$/,                      vue: 'VueComptes',            auth: true  },

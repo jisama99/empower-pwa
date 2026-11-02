@@ -15,13 +15,13 @@
     ADMIN: [
       'home', 'tracker', 'historiques', 'phoning', 'visites',
       'objectifs', 'primes', 'comptes', 'manager', 'admin',
-      'questionnaire', 'reporting', 'photos', 'mailing', 'a_contacter',
+      'questionnaire', 'reporting', 'photos', 'mailing', 'a_contacter', 'territoires',
     ],
     // Bloc 2 §1 — 'reporting_cds' : espace d'analyse personnel distinct de
     // l'Accueil (#/dashboard), cf. VueDashboardCDS._contexteReporting().
     CDS: [
       'home', 'tracker', 'historiques', 'phoning', 'visites',
-      'objectifs', 'primes', 'questionnaire', 'comptes', 'photos', 'reporting_cds', 'mailing', 'a_contacter',
+      'objectifs', 'primes', 'questionnaire', 'comptes', 'photos', 'reporting_cds', 'mailing', 'a_contacter', 'territoires',
     ],
     // V5 BUG5 — Alexandra : conserve OBJECTIFS ; jamais Primes (raw CDS).
     // 'reporting' réactivé : #/manager affiche désormais pour elle la Vue équipe
@@ -33,11 +33,11 @@
     // quasi-admin sur le Tracker également (cf. vue-pipeline.js _peutAssigner).
     CHANNEL_MANAGER: [
       'home', 'tracker', 'comptes', 'objectifs', 'photos', 'admin',
-      'visites_fdv', 'phoning', 'reporting', 'mailing', 'a_contacter',
+      'visites_fdv', 'phoning', 'reporting', 'mailing', 'a_contacter', 'territoires',
     ],
     // Fournisseur de leads (ex-« Invité » : Flavie…) : alimente le Tracker et consulte les comptes (lecture seule).
     EXTERNE: [
-      'tracker', 'comptes',
+      'tracker', 'comptes', 'territoires',
     ],
   };
 
@@ -68,6 +68,7 @@
     if (/^#\/photos$/.test(h))                 return 'photos';
     if (/^#\/mailing$/.test(h))                return 'mailing';
     if (/^#\/a-contacter$/.test(h))            return 'a_contacter';
+    if (/^#\/territoires$/.test(h))            return 'territoires';
 
     return null;
   }
@@ -91,6 +92,7 @@
     visites_fdv:   '#/visites-fdv',
     mailing:       '#/mailing',
     a_contacter:   '#/a-contacter',
+    territoires:   '#/territoires',
   };
 
   // Libellés des sections cochables à la création d'un accès (vue-admin.js).
@@ -101,7 +103,7 @@
     manager: 'Vue manager', reporting: 'Reporting équipe',
     reporting_cds: 'Reporting personnel', admin: 'Administration',
     questionnaire: 'Questionnaire', photos: 'Photos', mailing: 'Mailing',
-    a_contacter: 'À contacter',
+    a_contacter: 'À contacter', territoires: 'Territoires (carte)',
   };
 
   // Droits propres à l'utilisateur connecté (colonne utilisateurs.droits).
