@@ -190,6 +190,7 @@ window.VueComptesHistoriques = {
       <div class="liste-comptes avec-nav" id="ch-liste-zone">${this._renderListeZone(liste)}</div>
 
       ${NavBar('historiques')}
+      ${FusionTabs.portefeuille()}
     `;
 
     const champ = document.getElementById('ch-recherche');

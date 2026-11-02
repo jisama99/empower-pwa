@@ -408,6 +408,7 @@ window.VueComptes = {
 
       ${Session.role !== 'CHANNEL_MANAGER' ? `<button class="fab" onclick="VueQuestionnaire._visitePlanifiee=null;Router.aller('#/questionnaire')" title="Nouvelle visite">＋</button>` : ''}
       ${NavBar('comptes')}
+      ${FusionTabs.portefeuille()}
       ${this.state.ficheDockee ? this._renderFicheDockee() : ''}
     `;
     const champ = document.getElementById('recherche-comptes');

@@ -539,12 +539,26 @@ function FusionTabs(defs) {
 }
 
 // Groupes de fusion (source unique — utilisée par les vues concernées)
-FusionTabs.accueil = () => FusionTabs([
+// Regroupement validé 2 nov. 2026 — « Pilotage » = Accueil + Analyse/Équipe + Objectifs + Primes
+// (une seule barre, partagée par les anciens groupes accueil et performance).
+const _peutTab = t => typeof Session !== 'undefined' && window.Permissions && Permissions.peut(Session.role, t);
+FusionTabs.pilotage = () => FusionTabs([
   { hash: '#/dashboard',     lbl: 'Accueil' },
   { hash: '#/reporting-cds', lbl: 'Analyse',
     si: typeof Session !== 'undefined' && Session.estCDS() },
   { hash: '#/manager',       lbl: 'Équipe',
     si: typeof Session !== 'undefined' && Session.voitTout() },
+  { hash: '#/objectifs',     lbl: 'Objectifs', si: _peutTab('objectifs') },
+  { hash: '#/primes',        lbl: 'Primes',
+    si: _peutTab('primes') && typeof Session !== 'undefined' && !Session.estChannel() },
+]);
+FusionTabs.accueil = FusionTabs.pilotage;
+// « Portefeuille » = Tracker (pipeline) + Comptes + Historique CA + Territoires
+FusionTabs.portefeuille = () => FusionTabs([
+  { hash: '#/empower-tracker',      lbl: 'Pipeline',    si: _peutTab('tracker') },
+  { hash: '#/comptes',              lbl: 'Comptes',     si: _peutTab('comptes') },
+  { hash: '#/comptes-historiques',  lbl: 'Historique CA', si: _peutTab('historiques') },
+  { hash: '#/territoires',          lbl: 'Territoires', si: _peutTab('territoires') },
 ]);
 FusionTabs.planning = () => FusionTabs([
   { hash: '#/visites',     lbl: 'Planning' },
@@ -552,11 +566,7 @@ FusionTabs.planning = () => FusionTabs([
   { hash: '#/visites-fdv', lbl: 'Visites FDV',
     si: typeof Session !== 'undefined' && Session.estChannel() },
 ]);
-FusionTabs.performance = () => FusionTabs([
-  { hash: '#/objectifs', lbl: 'Objectifs' },
-  { hash: '#/primes',    lbl: 'Primes',
-    si: typeof Session !== 'undefined' && !Session.estChannel() },
-]);
+FusionTabs.performance = FusionTabs.pilotage;
 
 // ═══════════════════════════════════════
 //  avatarCDS — BLOC 02 §7 : avatar d'identité commercial (V7 §1/§4).

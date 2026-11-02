@@ -886,6 +886,7 @@ window.VuePipeline = {
       ${peutSaisir ? '<button class="fab" onclick="VuePipeline.ouvrirSaisie()" title="Nouveau lead">＋</button>' : ''}
       ${(Session.estManager() || Session.estChannel()) ? `<button class="fab fab-export" onclick="VuePipeline.ouvrirExport()" title="Export Excel" style="background:var(--c-success);font-size:18px"><span class="material-symbols-outlined" aria-hidden="true">download</span></button>` : ''}
       ${NavBar('tracker')}
+      ${FusionTabs.portefeuille()}
       ${this._renderModal()}
       ${this._renderPanneauExport()}
     `;

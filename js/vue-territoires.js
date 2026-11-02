@@ -134,6 +134,7 @@ window.VueTerritoires = {
       .terr h2{font-size:15px;margin:18px 0 8px}
     </style>
     <div class="header-vue"><h1>Territoires</h1></div>
+    ${NavBar('territoires')}${FusionTabs.portefeuille()}
     <div class="terr${s.plein ? ' plein' : ''}">
       <div class="terr-bar" role="group" aria-label="Filtres">
         <select id="terr-reg" aria-label="Région"><option value="">Toutes les régions</option>${regs.map(r => `<option value="${r}"${s.reg === r ? ' selected' : ''}>${this.REG[r]}</option>`).join('')}</select>
