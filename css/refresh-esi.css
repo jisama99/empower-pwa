@@ -541,3 +541,4 @@ body[data-vue="VueComptes"] input[type="search"], body[data-vue="VueComptes"] in
   .nav-principale .nav-item:not(.nav-sidebar-only) .nav-lbl { font-size: 9px; letter-spacing: 0; overflow: visible; text-overflow: clip; }
   .nav-principale .nav-item.actif .nav-lbl { font-weight: 700; }
 }
+:root[data-theme="dark"] .mois-auj .mois-num, :root[data-theme="dark"] .mois-auj .mois-prev, :root[data-theme="dark"] .mois-auj .mois-n { color: #1B2127; }
