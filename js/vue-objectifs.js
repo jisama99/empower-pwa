@@ -113,9 +113,9 @@ window.VueObjectifs = {
   },
 
   _barreProgression(pct, pace) {
-    const couleur = pace === 'ON_TRACK' ? 'var(--c-success)' : pace === 'WATCH' ? 'var(--c-warning)' : 'var(--c-danger)';
-    return `<div style="height:8px;background:var(--c-border);border-radius:4px;overflow:hidden;margin-top:6px">
-      <div style="height:100%;width:${Math.min(pct, 100)}%;background:${couleur};transition:width .4s ease"></div>
+    const cls = pace === 'AT_RISK' ? 'pace-risk' : pace === 'WATCH' ? 'pace-watch' : 'pace-ok';
+    return `<div class="pace-barre" style="margin-top:6px" data-tip="${Math.round(pct)} % de l'objectif">
+      <div class="pace-barre-fill ${cls}" style="width:${Math.min(pct, 100)}%"></div>
     </div>`;
   },
 
@@ -325,7 +325,7 @@ window.VueObjectifs = {
       const ecartHtml = d.ecart === null ? 'n.c.'
         : `${d.ecart > 0 ? '-' : '+'}${fmtEUR(Math.abs(d.ecart))}`;
       const ecartCouleur = d.ecart === null ? 'var(--c-text-2)'
-        : d.ecart > 0 ? 'var(--c-danger)' : 'var(--c-success)';
+        : d.ecart > 0 ? 'var(--corail, #FF6D68)' : 'var(--ardoise, #343F48)';
       return `
         <div class="bloc-fiche">
           <div class="bloc-titre">${nomAffiche}

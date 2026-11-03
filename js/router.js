@@ -157,6 +157,7 @@ const Router = {
     const vue = window[vueNom];
     if (!vue) { console.error('[Router] Vue introuvable :', vueNom); return; }
 
+    document.body.dataset.vue = vueNom;
     if (window.NavWeb) NavWeb.avant(hash);
 
     const afficherVue = () => {

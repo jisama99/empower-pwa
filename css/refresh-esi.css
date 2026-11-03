@@ -425,3 +425,45 @@ svg [data-tip]:hover, svg [data-tip]:focus { opacity: .8; outline: none; }
 .eq-lien:hover { border-color: var(--ardoise); } .eq-lien b { font-size: 14px; } .eq-lien span { font-size: 12px; color: var(--text-muted); }
 .pilo-kpi.alerte strong { color: var(--alert, #B8362F); }
 .eq .v7-avatar { background: var(--ardoise) !important; color: #fff !important; }
+.phoning-base-grid { grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)) !important; }
+.phoning-base-grid > * { min-width: 0; }
+/* Objectifs / Primes / Comptes / Reporting : pastilles et mini-stats dans la palette Pilotage */
+.pace-badge.pace-ok { background: #EEF0F1; color: #343F48; }
+.pace-badge.pace-watch { background: #EEF0F1; color: #6B7580; }
+.pace-badge.pace-risk { background: #FFE9E8; color: #C23B36 !important; }
+.stat-mini { background: #F6F7F8; border: 0 !important; border-radius: 12px; }
+.objectifs-grille { gap: 8px; }
+:root[data-theme="dark"] .stat-mini { background: rgba(255,255,255,.05); }
+:root[data-theme="dark"] .pace-badge.pace-ok, :root[data-theme="dark"] .pace-badge.pace-watch { background: rgba(255,255,255,.08); color: #D8DDE1; }
+:root[data-theme="dark"] .pace-badge.pace-risk { background: rgba(255,109,104,.16); color: #FF8F8A !important; }
+/* Sémantique sobre sur Objectifs / Primes / Comptes / Reporting CDS : ardoise = ok, gris = à surveiller, corail = risque */
+body[data-vue="VueObjectifs"], body[data-vue="VuePrimes"], body[data-vue="VueComptes"], body[data-vue="VueDashboardCDS"], body[data-vue="VueAnalyse"] {
+  --c-success: #343F48; --c-warning: #6B7580; --c-danger: #C23B36;
+}
+:root[data-theme="dark"] body[data-vue="VueObjectifs"], :root[data-theme="dark"] body[data-vue="VuePrimes"], :root[data-theme="dark"] body[data-vue="VueComptes"], :root[data-theme="dark"] body[data-vue="VueDashboardCDS"], :root[data-theme="dark"] body[data-vue="VueAnalyse"] {
+  --c-success: #D8DDE1; --c-warning: #A5ADB5; --c-danger: #FF8F8A;
+}
+body[data-vue="VuePrimes"] [style*="border:1px solid var(--c-danger)"], body[data-vue="VuePrimes"] [style*="border: 1px solid var(--c-danger)"] { border-color: var(--border-medium) !important; }
+.bloc-fiche.dash-pace { border-color: var(--border-medium, #D6D6D6) !important; }
+.bloc-fiche.dash-pace .pace-chiffres strong, .bloc-fiche.dash-pace [style*="font-size:32px"] { color: var(--c-title); }
+body[data-vue="VueComptes"] input[type="search"], body[data-vue="VueComptes"] input[type="text"], body[data-vue="VueComptes"] select {
+  min-height: 40px; border: 1px solid var(--border-medium, #D6D6D6); border-radius: 10px; background: var(--bg-surface, #fff); padding: 0 12px;
+}
+/* Mobile : zones tactiles confortables (liens texte, chips, boutons-lien) */
+@media (max-width: 899px) {
+  .pilo-lien, .btn-lien, .q-chip, .pilo-fiches a, .pilo-liens a, .terr-fs { position: relative; min-height: 32px; }
+  .pilo-lien::after, .btn-lien::after, .terr-fs::after { content: ""; position: absolute; inset: -10px -6px; }
+  .pilo-hbar { min-height: 36px; }
+  .q-chip { min-height: 36px; }
+}
+@media (max-width: 899px) {
+  /* Onglets de fusion : une seule rangée défilante au lieu de 4 lignes */
+  .fusion-tabs { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; padding: 10px 14px !important; -webkit-overflow-scrolling: touch; }
+  .fusion-tabs::-webkit-scrollbar { display: none; }
+  .fusion-tabs > *, .fusion-filtres > * { flex: 0 0 auto; white-space: nowrap; }
+  .fusion-filtres { flex-wrap: nowrap; margin-left: 0; }
+  /* Tableaux comparatifs compacts */
+  .te-ligne { font-size: 12px; gap: 6px; }
+  .te-ligne .pace-badge { white-space: nowrap; font-size: 10px; padding: 2px 6px; margin-left: 0; }
+  .te-ligne[style*="1.4fr 1.4fr 0.6fr 0.8fr"] { grid-template-columns: 1fr 1.5fr .6fr 1fr !important; }
+}
