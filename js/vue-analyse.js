@@ -320,7 +320,10 @@ window.VueAnalyse = {
     const inner = box.querySelector('.an-live-in'), W = 1123, k = Math.min(1, (box.clientWidth || 520) / W);
     f.style.width = W + 'px'; f.style.height = '794px'; f.style.transform = `scale(${k})`;
     inner.style.width = Math.round(W * k) + 'px'; inner.style.height = Math.round(794 * k) + 'px';
-    f.onload = () => { try { const h = f.contentDocument.documentElement.scrollHeight; f.style.height = h + 'px'; inner.style.height = Math.round(h * k) + 'px'; } catch (e) { /* hauteur par défaut */ } };
+    f.onload = () => { try {
+      // Le cadre n'exécute aucun script : le masquage des photos cassées (onerror du PDF) est reproduit ici
+      [...f.contentDocument.images].forEach(im => { const cache = () => { if (im.parentNode) im.parentNode.style.display = 'none'; }; im.addEventListener('error', cache); if (im.complete && !im.naturalWidth) cache(); });
+      const h = f.contentDocument.documentElement.scrollHeight; f.style.height = h + 'px'; inner.style.height = Math.round(h * k) + 'px'; } catch (e) { /* hauteur par défaut */ } };
     f.srcdoc = html;
   },
 
