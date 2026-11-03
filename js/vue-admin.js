@@ -952,6 +952,31 @@ window.VueAdmin = {
   // blocages rencontrés en 09/2026 : API Drive inaccessible (mur IAM sur le
   // compte de service) et conversion Excel→Google Sheets qui perdait les
   // lignes du quarter le plus récent.
+  // Lot 6 / M4 — le serveur refuse une purge importante tant qu'elle n'est pas confirmée : on affiche le plan, puis on rappelle.
+  async _postSellIn(corps) {
+    const envoyer = async extra => {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/sync-sellin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ ...corps, token: Session.token, ...extra }),
+      });
+      return { r, data: await r.json() };
+    };
+    let { r, data } = await envoyer({});
+    if (r.status === 409 && data?.purge_a_confirmer) {
+      const p = data.purge || {};
+      const ok = await new Promise(res => ConfirmModal.demander({
+        titre: 'Cet import va supprimer des données',
+        detail: `${p.sellin || 0} ligne(s) Sell-In (${Math.round(p.sellin_ca || 0).toLocaleString('fr-FR')} € de CA) et ${p.agregats || 0} revendeur(s) absents du fichier seront supprimés. Si le fichier est incomplet, annulez.`,
+        labelConfirmer: 'Supprimer et importer', labelAnnuler: 'Annuler', danger: true,
+        onConfirm: () => res(true), onAnnuler: () => res(false),
+      }));
+      if (!ok) throw new Error('Import annulé : aucune donnée supprimée');
+      ({ r, data } = await envoyer({ confirmer_purge: true }));
+    }
+    return { r, data };
+  },
+
   async importSellInFichier(file) {
     if (!file) return;
     if (this.state.syncSellInEnCours) return;
@@ -968,12 +993,7 @@ window.VueAdmin = {
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
       if (!rows.length || rows.length < 2) throw new Error(`Onglet "${sheetName}" vide`);
 
-      const _r1 = await fetch(`${SUPABASE_URL}/functions/v1/sync-sellin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
-        body: JSON.stringify({ rows, token: Session.token }),
-      });
-      const data = await _r1.json();
+      const { r: _r1, data } = await this._postSellIn({ rows });
       if (!_r1.ok || !data?.ok) throw new Error(data?.error || `HTTP ${_r1.status}`);
       const matched  = data.comptes_maj ?? '?';
       const crees    = data.comptes_crees ?? 0;
@@ -1127,12 +1147,7 @@ window.VueAdmin = {
     this.state.syncSellInNonMatcher = [];
     this.render();
     try {
-      const _r1 = await fetch(`${SUPABASE_URL}/functions/v1/sync-sellin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
-        body: JSON.stringify({ token: Session.token }),
-      });
-      const data = await _r1.json();
+      const { r: _r1, data } = await this._postSellIn({});
       if (!_r1.ok || !data?.ok) throw new Error(data?.error || `HTTP ${_r1.status}`);
       // Bloc C (07/2026) — les noms de champs ci-dessous ne correspondaient à
       // rien dans la réponse réelle de l'edge function (comptesMisAJour/

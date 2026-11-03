@@ -80,6 +80,29 @@ Deno.serve(async (req) => {
     const session = await verifierSession()
     if (!session.ok) return Response.json({ ok: false, erreur: session.erreur }, { headers: CORS, status: 401 })
 
+    // Plafonds (lot 6 / M2) : l'IA est un outil terrain (dictée, script d'appel, qualification) ;
+    // l'Externe n'en a pas l'usage, et chacun est limité en fréquence, en taille et en volume/jour.
+    const ACTIONS_IA = ['gemini', 'groqSTT', 'groqLLM']
+    if (ACTIONS_IA.includes(action)) {
+      if (session.role === 'EXTERNE')
+        return Response.json({ ok: false, erreur: 'Fonction non disponible pour ce profil' }, { headers: CORS, status: 403 })
+      const taille = (v: unknown) => (typeof v === 'string' ? v.length : JSON.stringify(v ?? '').length)
+      const limites: Record<string, number> = { gemini: 12000, groqLLM: 20000, groqSTT: 3_500_000 }
+      const mesure = action === 'gemini' ? taille(body.prompt) + taille(body.contexte)
+        : action === 'groqLLM' ? taille(body.messages) : taille(body.audio)
+      if (mesure > limites[action])
+        return Response.json({ ok: false, erreur: 'Contenu trop volumineux' }, { headers: CORS, status: 413 })
+      const il = (min: number) => new Date(Date.now() - min * 60_000).toISOString()
+      const [r10, rJour] = await Promise.all([
+        sb.from('ai_usage').select('id', { count: 'exact', head: true }).eq('pin', session.pin).gte('created_at', il(10)),
+        sb.from('ai_usage').select('id', { count: 'exact', head: true }).eq('pin', session.pin).gte('created_at', il(1440)),
+      ])
+      if ((r10.count ?? 0) >= 40 || (rJour.count ?? 0) >= 400)
+        return Response.json({ ok: false, erreur: 'Limite d’utilisation atteinte, réessaie plus tard' }, { headers: CORS, status: 429 })
+      await sb.from('ai_usage').insert({ pin: session.pin, action })
+      if (Math.random() < 0.05) await sb.from('ai_usage').delete().lt('created_at', il(2880))
+    }
+
     if (action === 'setGeminiKey' || action === 'setGroqKey') {
       if (session.role !== 'ADMIN')
         return Response.json({ ok: false, erreur: 'Accès réservé aux administrateurs' }, { headers: CORS, status: 403 })

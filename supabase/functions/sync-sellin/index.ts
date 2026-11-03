@@ -139,11 +139,13 @@ Deno.serve(async (req) => {
     let sourceLabel: string
     let bodyRows: string[][] | null = null
     let dryRun = false
+    let purgeConfirmee = false
     if (req.method === 'POST') {
       try {
         const body = await req.json()
         if (Array.isArray(body?.rows) && body.rows.length > 1) bodyRows = body.rows
         dryRun = !!body?.dry_run
+        purgeConfirmee = body?.confirmer_purge === true
       } catch { /* body vide/non-JSON → repli Sheets */ }
     }
     if (bodyRows) {
@@ -233,6 +235,12 @@ Deno.serve(async (req) => {
         ca_par_trimestre: Object.fromEntries(Object.entries(caParTrimestre).sort().map(([q, v]) => [q, round2(v)])),
         purge: planPurge, comptes_existants_rapproches: agregats.filter(a => compteMap.has(a.norm)).length, comptes_a_creer: aCreer, quasi_doublons: quasi })
     }
+
+    // ── Garde-fou (lot 6 / M4) : une purge importante (fichier tronqué, mauvais onglet…) n'est jamais appliquée sans
+    //    confirmation explicite. Le plan est renvoyé (rien n'est écrit) ; le client doit rappeler avec confirmer_purge:true.
+    const purgeImportante = (purgeSellin.length > 25 && purgeSellin.length > sellinExistant.length * 0.05) || purgeAgregats.length > 5
+    if (purgeImportante && !purgeConfirmee)
+      return jres({ ok: false, purge_a_confirmer: true, error: 'Purge importante : confirmation requise', purge: planPurge }, 409)
 
     // ── Écritures : upsert d'abord, purge ensuite (jamais de perte si l'écriture échoue en route) ──
     const BATCH = 200

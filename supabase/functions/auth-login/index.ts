@@ -6,8 +6,13 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
-const MAX_TENTATIVES = 8
-const VERROU_MS = 15 * 60 * 1000 // 15 minutes
+// Limitation des échecs (lot 6 / M3) : fenêtre glissante de 15 min, comptée par (e-mail + IP), par IP et par e-mail.
+// Le compte n'est plus verrouillé « pour tout le monde » après 8 échecs : l'attaquant bloque sa propre IP, pas l'utilisateur légitime.
+// Le plafond global par e-mail (50) ne sert qu'à freiner un essai distribué. Mêmes règles et même message que l'e-mail existe ou non.
+const FENETRE_MS = 15 * 60 * 1000
+const MAX_PAIRE = 8
+const MAX_IP = 30
+const MAX_EMAIL = 50
 
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
@@ -65,37 +70,42 @@ Deno.serve(async (req) => {
   )
 
   try {
-    const emailNorm = String(email).trim().toLowerCase()
+    const emailNorm = String(email).trim().toLowerCase().slice(0, 200)
+    const ip = (req.headers.get('cf-connecting-ip') || (req.headers.get('x-forwarded-for') || '').split(',')[0] || 'inconnue').trim().slice(0, 64)
+    const depuis = new Date(Date.now() - FENETRE_MS).toISOString()
+    const compter = async (col: string, val: string, avec?: [string, string]) => {
+      let q = sb.from('login_echecs').select('id', { count: 'exact', head: true }).eq(col, val).gte('created_at', depuis)
+      if (avec) q = q.eq(avec[0], avec[1])
+      return (await q).count ?? 0
+    }
+    const [nPaire, nIp, nEmail] = await Promise.all([compter('email', emailNorm, ['ip', ip]), compter('ip', ip), compter('email', emailNorm)])
+    if (nPaire >= MAX_PAIRE || nIp >= MAX_IP || nEmail >= MAX_EMAIL)
+      return Response.json({ ok: false, erreur: 'Trop de tentatives échouées, réessayez dans quelques minutes' }, { headers: CORS, status: 429 })
+
     const { data: users, error } = await sb.from('utilisateurs')
-      .select('email,hash,salt,pin,nom,role,actif,droits,failed_attempts,locked_until')
+      .select('email,hash,salt,pin,nom,role,actif,droits')
       .eq('email', emailNorm)
       .limit(1)
-    if (error) return Response.json({ ok: false, erreur: error.message }, { headers: CORS, status: 500 })
-    if (!users || users.length === 0)
-      return Response.json({ ok: false, erreur: 'Email ou mot de passe incorrect' }, { headers: CORS, status: 401 })
+    if (error) return Response.json({ ok: false, erreur: 'Erreur interne' }, { headers: CORS, status: 500 })
 
-    const u = users[0]
-    if (!u.actif) return Response.json({ ok: false, erreur: 'Compte désactivé' }, { headers: CORS, status: 403 })
-
-    if (u.locked_until && Number(u.locked_until) > Date.now()) {
-      const minutes = Math.ceil((Number(u.locked_until) - Date.now()) / 60000)
-      return Response.json({ ok: false, erreur: `Trop de tentatives échouées, réessayez dans ${minutes} min` }, { headers: CORS, status: 429 })
-    }
-
+    // E-mail inconnu : même coût de calcul que pour un compte réel (pas de différence de temps de réponse).
+    const u = users && users.length ? users[0] : null
     let valide = false
-    if (typeof u.hash === 'string' && u.hash.startsWith('pbkdf2$')) {
+    if (!u) {
+      await pbkdf2(String(motdepasse), 'sel-factice-esi')
+    } else if (typeof u.hash === 'string' && u.hash.startsWith('pbkdf2$')) {
       const [, iter, attendu] = u.hash.split('$')
-      valide = egal(await pbkdf2(motdepasse, u.salt, Number(iter)), attendu)
+      valide = egal(await pbkdf2(String(motdepasse), u.salt, Number(iter)), attendu)
     } else {
       valide = egal(await sha256(motdepasse + u.salt), String(u.hash))
     }
-    if (!valide) {
-      const tentatives = (u.failed_attempts || 0) + 1
-      const patch = { failed_attempts: tentatives }
-      if (tentatives >= MAX_TENTATIVES) patch.locked_until = Date.now() + VERROU_MS
-      await sb.from('utilisateurs').update(patch).eq('email', emailNorm)
+    if (!u || !valide) {
+      await sb.from('login_echecs').insert({ email: emailNorm, ip })
+      if (Math.random() < 0.05) await sb.from('login_echecs').delete().lt('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString())
       return Response.json({ ok: false, erreur: 'Email ou mot de passe incorrect' }, { headers: CORS, status: 401 })
     }
+    // Compte désactivé : annoncé seulement à qui connaît le bon mot de passe.
+    if (!u.actif) return Response.json({ ok: false, erreur: 'Compte désactivé' }, { headers: CORS, status: 403 })
 
     const token  = randomHex()
     const expiry = Date.now() + 8 * 3600 * 1000
@@ -104,9 +114,10 @@ Deno.serve(async (req) => {
       p_pin: Number(u.pin), p_token: token, p_expire: expiry, p_ua: req.headers.get('user-agent') || '',
     })
     if (errSession) return Response.json({ ok: false, erreur: 'Session non créée' }, { headers: CORS, status: 500 })
-    const patch2: any = { failed_attempts: 0, locked_until: null }
+    const patch2: any = { failed_attempts: 0, locked_until: null }  // colonnes conservées, plus utilisées pour le verrouillage
     if (!String(u.hash).startsWith('pbkdf2$')) patch2.hash = await hasherMotdepasse(motdepasse, u.salt)   // mise à niveau du hachage
     await sb.from('utilisateurs').update(patch2).eq('email', emailNorm)
+    await sb.from('login_echecs').delete().eq('email', emailNorm).eq('ip', ip)
 
     return Response.json({
       ok: true, token, expiry,
