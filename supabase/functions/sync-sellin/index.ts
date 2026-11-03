@@ -1,4 +1,4 @@
-// sync-sellin v15 — verify_jwt: false ; v15 : CA par canal (part Empower séparée) ; v14 : authentification session ADMIN / CHANNEL_MANAGER
+// sync-sellin v16 (déployé en v17 côté Supabase) — M4 garde-fou purge ; v15 — verify_jwt: false ; v15 : CA par canal (part Empower séparée) ; v14 : authentification session ADMIN / CHANNEL_MANAGER
 // v11 : accepte des lignes envoyées par le navigateur (POST { rows: string[][] }, header en rows[0]),
 //       repli Google Sheets sans `rows`. Agrégation Q1→Q4 FY27.
 // v13 : alias manuels (sellin_alias) + CUMUL par compte (deux noms vers un même compte s'additionnent).
