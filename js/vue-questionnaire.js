@@ -153,6 +153,7 @@ window.VueQuestionnaire = {
       etape: 0, chargement: true, envoiEnCours: false,
       comptes: [], prospects: [],
       typeSource: 'EXISTANT',
+      filtreProspect: { source: 'TOUS', pin: 'TOUS', secteur: 'TOUS' },
       cible: null,
       dernieresVisites: [],
       recherche: '', suggestionsOuvertes: false,
@@ -324,10 +325,41 @@ window.VueQuestionnaire = {
   },
 
   get sourceListe() { return this.state.typeSource === 'PROSPECT' ? this.state.prospects : this.state.typeSource === 'FROID' ? [] : this.state.comptes; },
+  // Mode « Prospect » : leads du Tracker ET base de comptes, filtrables (source, commercial, secteur).
+  _poolProspects() {
+    const f = this.state.filtreProspect;
+    let pool = [];
+    if (f.source !== 'COMPTES') pool = pool.concat(this.state.prospects.map(p => Object.assign({}, p, { _src: 'LEAD' })));
+    if (f.source !== 'LEADS')   pool = pool.concat(this.state.comptes.map(c => Object.assign({}, c, { _src: 'COMPTE' })));
+    if (f.pin !== 'TOUS')     pool = pool.filter(x => String(x.PIN_CDS_Assigne || '') === String(f.pin === 'AUCUN' ? '' : f.pin));
+    if (f.secteur !== 'TOUS') pool = pool.filter(x => String(x.SECTEUR || '') === f.secteur);
+    return pool;
+  },
   get suggestions() {
     const q = normaliserNom(this.state.recherche);
+    if (this.state.typeSource === 'PROSPECT') {
+      const pool = this._poolProspects();
+      return (q.length < 2 ? pool : pool.filter(c => normaliserNom(c.Nom_Compte).includes(q))).slice(0, 8);
+    }
     if (q.length < 2) return [];
     return this.sourceListe.filter(c => normaliserNom(c.Nom_Compte).includes(q)).slice(0, 6);
+  },
+  setFiltreProspect(cle, v) {
+    this.state.filtreProspect[cle] = v;
+    this.state.suggestionsOuvertes = true;
+    this._renderSuggestions();
+  },
+  _renderFiltresProspect() {
+    const f = this.state.filtreProspect;
+    const secteurs = [...new Set(this.state.prospects.concat(this.state.comptes).map(x => x.SECTEUR).filter(Boolean))].sort();
+    const pins = [...new Set(this.state.prospects.concat(this.state.comptes).map(x => x.PIN_CDS_Assigne).filter(Boolean).map(String))];
+    const sel = (cle, lib, opts) => `<select class="q-input" style="flex:1;min-width:110px;padding:8px" aria-label="${lib}" onchange="VueQuestionnaire.setFiltreProspect('${cle}',this.value)">
+      ${opts.map(([v, l]) => `<option value="${v}" ${String(f[cle]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+    return `<div class="q-filtres-prospect" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      ${sel('source', 'Source', [['TOUS', 'Source : toutes'], ['LEADS', 'Leads Tracker'], ['COMPTES', 'Base comptes']])}
+      ${Session.voitTout() ? sel('pin', 'Commercial', [['TOUS', 'Commercial : tous'], ['AUCUN', 'Non attribué']].concat(pins.map(p => [p, window.resolveCDS ? window.resolveCDS(p) : p]))) : ''}
+      ${secteurs.length ? sel('secteur', 'Secteur', [['TOUS', 'Secteur : tous']].concat(secteurs.map(x => [x, x]))) : ''}
+    </div>`;
   },
 
   setSource(s) {
@@ -338,7 +370,9 @@ window.VueQuestionnaire = {
     } else {
       this._modeFroid = false;
     }
+    this.state.suggestionsOuvertes = s === 'PROSPECT';
     this.render();
+    if (s === 'PROSPECT') this._renderSuggestions();
   },
 
   // Générique — utilisé par le formulaire à froid ET, depuis l'audit fiche
@@ -494,7 +528,10 @@ window.VueQuestionnaire = {
   },
 
   choisirCible(idx) {
-    this.state.cible = this.suggestions[idx];
+    const choisi = this.suggestions[idx];
+    const src = choisi._src;
+    this.state.cible = Object.assign({}, choisi); delete this.state.cible._src; // jamais persisté
+    if (src === 'COMPTE') this.state.typeSource = 'EXISTANT';
     this.state.recherche = this.state.cible.Nom_Compte;
     this.state.suggestionsOuvertes = false;
     this.state.dernieresVisites = [];
@@ -522,7 +559,7 @@ window.VueQuestionnaire = {
     zone.innerHTML = (this.state.suggestionsOuvertes ? this.suggestions : []).map((c, i) => `
       <div class="q-arbre-btn" style="margin-top:4px" onclick="VueQuestionnaire.choisirCible(${i})">
         <strong>${c.Nom_Compte}</strong>
-        <span style="color:var(--c-text-2);font-size:12px"> · ${c.Ville||'n.c.'}${c.STATUT_COMPTE?' · '+c.STATUT_COMPTE:''}</span>
+        <span style="color:var(--c-text-2);font-size:12px"> · ${c.Ville||'n.c.'}${c.STATUT_COMPTE?' · '+c.STATUT_COMPTE:''}${c._src ? ' · ' + (c._src === 'LEAD' ? 'Lead Tracker' : 'Base comptes') : ''}</span>
       </div>`).join('');
   },
 
@@ -1083,7 +1120,8 @@ window.VueQuestionnaire = {
           <input class="q-input" type="email" placeholder="ex : contact@enseigne.fr" value="${s.cible?.Email || ''}"
                  oninput="VueQuestionnaire.setContactChamp('Email',this.value)"/></label>
       </div>` : verrouille ? '' : `
-      <label class="q-label">Compte ${s.typeSource==='EXISTANT'?'(base historique)':'(base prospects)'}
+      ${s.typeSource === 'PROSPECT' ? this._renderFiltresProspect() : ''}
+      <label class="q-label">Compte ${s.typeSource==='EXISTANT'?'(base historique)':'(leads Tracker et base comptes)'}
         <input class="q-input" placeholder="Rechercher…" value="${s.recherche}"
                oninput="VueQuestionnaire.setRecherche(this.value)" autocomplete="off"/>
       </label>

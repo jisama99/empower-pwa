@@ -98,19 +98,21 @@ window.VuePilotage = {
   // Actions prioritaires : règles lisibles (rappel échu, puis compte à contacter), pas de score opaque
   _actions(d) {
     const E = this._esc;
-    const rap = d.echus.slice(0, 6).map(p => ({
-      ico: 'tel', titre: 'Rappeler', nom: p.Nom_Compte || p.Enseigne || p.ID_Prospect || 'Lead', lieu: p.Ville || '',
+    const rap = d.echus.slice(0, 6).map(p => {
+      const parMail = /mail/i.test(String(p.MODE_CONTACT || '')) && p.Email;
+      return {
+      ico: parMail ? 'mail' : 'tel', titre: parMail ? 'Écrire' : 'Rappeler', nom: p.Nom_Compte || p.Enseigne || p.ID_Prospect || 'Lead', lieu: p.Ville || '',
       quand: this._fmt(p.Date_prochaine_action), raison: 'Rappel en retard', late: true,
-      to: p.ID_Compte ? '#/phoning/' + encodeURIComponent(p.ID_Compte) : '#/phoning',
-    }));
+      to: parMail ? 'mailto:' + p.Email : (p.ID_Compte || p.ID_Prospect) ? '#/phoning/' + encodeURIComponent(p.ID_Compte || p.ID_Prospect) : '#/phoning',
+    }; });
     const aco = d.ac.slice(0, Math.max(0, 8 - rap.length)).map(r => ({
       ico: 'visite', titre: r.Axe === 'P1' ? 'Relancer un compte onboardé' : 'Convertir un compte qui commande',
       nom: r.Nom_Compte, lieu: r.Ville || '', quand: r.Jours != null ? r.Jours + ' j' : '', raison: r.Axe === 'P1' ? 'Onboardé sans commande' : 'A commandé, pas encore Empower',
       to: r.ID_Compte ? '#/compte/' + encodeURIComponent(r.ID_Compte) : '#/a-contacter',
     }));
     return [...rap, ...aco].map(a => `
-      <button class="pilo-task" onclick="Router.aller('${E(a.to)}')">
-        <span class="pilo-task-ico${a.late ? ' late' : ''}">${a.ico === 'tel' ? '☎' : '⌂'}</span>
+      <button class="pilo-task" onclick="${a.to.startsWith('mailto:') ? `location.href='${E(a.to)}'` : `Router.aller('${E(a.to)}')`}">
+        <span class="pilo-task-ico${a.late ? ' late' : ''}">${a.ico === 'tel' ? '☎' : a.ico === 'mail' ? '✉' : '⌂'}</span>
         <span class="pilo-task-main"><strong>${E(a.titre)}</strong><span>${E(a.nom)}${a.lieu ? ' · ' + E(a.lieu) : ''}</span></span>
         <span class="pilo-task-why"><span class="${a.late ? 'late' : ''}">${E(a.quand)}</span><small>${E(a.raison)}</small></span>
         <span class="pilo-chev" aria-hidden="true">›</span>
