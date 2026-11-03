@@ -10,14 +10,14 @@ window.VueVisites = {
   // Bloc 3 + M6/P6-2 : vocabulaire statuts — Planifiée / En cours / Réalisée / Manquée / Annulée
   STATUTS: ['planifiée', 'en cours', 'réalisée', 'manquée', 'annulée'],
   STATUT_COULEURS: {
-    'planifiée': 'var(--c-primary)',   // 🟡 jaune
-    'en cours':  'var(--c-warning)',   // 🔵 bleu
-    'réalisée':  'var(--c-success)',   // 🟢 vert
-    'manquée':   'var(--c-danger)',    // 🔴 rouge — date passée sans synchro
-    'annulée':   'var(--c-text-2)',
-    // tolérance ancien libellé en base
-    'reportée':  'var(--c-warning)',
+    'planifiée': '#B8BEC4',   // gris moyen : à venir
+    'en cours':  '#6B7580',
+    'réalisée':  '#343F48',   // ardoise : fait
+    'manquée':   '#FF6D68',   // corail : risque, date passée sans synchro
+    'annulée':   '#D6D6D6',
+    'reportée':  '#6B7580',
   },
+
   // libellés d'affichage (capitalisés, jamais undefined)
   _labelStatut(s) {
     const v = (s || 'planifiée').toLowerCase();
@@ -768,14 +768,16 @@ window.VueVisites = {
 
   // ── Navigation dates ──
   jourPrecedent() {
-    const d = new Date(this.state.dateVue);
-    d.setDate(d.getDate() - (this.state.modeVue === 'semaine' ? 7 : 1));
+    const d = new Date(this.state.dateVue + 'T12:00:00');
+    if (this.state.modeVue === 'mois') d.setMonth(d.getMonth() - 1, 1);
+    else d.setDate(d.getDate() - (this.state.modeVue === 'semaine' ? 7 : 1));
     this.state.dateVue = dateISOLocale(d);
     this.render();
   },
   jourSuivant() {
-    const d = new Date(this.state.dateVue);
-    d.setDate(d.getDate() + (this.state.modeVue === 'semaine' ? 7 : 1));
+    const d = new Date(this.state.dateVue + 'T12:00:00');
+    if (this.state.modeVue === 'mois') d.setMonth(d.getMonth() + 1, 1);
+    else d.setDate(d.getDate() + (this.state.modeVue === 'semaine' ? 7 : 1));
     this.state.dateVue = dateISOLocale(d);
     this.render();
   },
@@ -783,6 +785,55 @@ window.VueVisites = {
     this.state.dateVue = dateISOLocale();
     this.render();
   },
+  _renderMois() {
+    const d = new Date(this.state.dateVue + 'T12:00:00');
+    const an = d.getFullYear(), m = d.getMonth();
+    const cle = `${an}-${String(m + 1).padStart(2, '0')}`;
+    const nbJ = new Date(an, m + 1, 0).getDate();
+    const decal = (new Date(an, m, 1, 12).getDay() + 6) % 7;
+    const today = dateISOLocale();
+    const sel = this.state.commercialSelectionne;
+    const parJour = {};
+    this.state.visites.forEach(v => {
+      const iso = (v.Date || v.Date_Planif || '').slice(0, 10);
+      if (iso.slice(0, 7) !== cle) return;
+      if (sel && String(v.PIN_CDS || '') !== sel) return;
+      (parJour[iso] = parJour[iso] || []).push(v);
+    });
+    const tous = Object.values(parJour).flat();
+    const nb = st => tous.filter(v => this._statutEffectif(v) === st).length;
+    const kpi = (n, l, alerte) => `<div class="pilo-kpi${alerte && n ? ' alerte' : ''}" style="cursor:default"><span>${l}</span><strong>${n}</strong></div>`;
+    const maxPrev = window.innerWidth >= 900 ? 2 : 0;
+    let cases = '';
+    for (let i = 0; i < decal; i++) cases += '<div class="mois-case mois-vide"></div>';
+    for (let j = 1; j <= nbJ; j++) {
+      const iso = `${cle}-${String(j).padStart(2, '0')}`;
+      const vs = (parJour[iso] || []).slice().sort((a, b) => (a.Heure || '').localeCompare(b.Heure || ''));
+      const dow = (decal + j - 1) % 7;
+      const statuts = [...new Set(vs.map(v => this._statutEffectif(v)))];
+      const dots = statuts.slice(0, 4).map(st => `<i style="background:${this.STATUT_COULEURS[st] || '#B8BEC4'}"></i>`).join('');
+      const prev = vs.slice(0, maxPrev).map(v => `<span class="mois-prev">${v.Heure ? v.Heure + ' ' : ''}${(v.Nom_Compte || '').slice(0, 14)}</span>`).join('');
+      cases += `<button type="button" class="mois-case${dow > 4 ? ' mois-we' : ''}${iso === today ? ' mois-auj' : ''}${iso === this.state.dateVue ? ' mois-sel' : ''}"
+        onclick="VueVisites.state.dateVue='${iso}';VueVisites.state.modeVue='jour';VueVisites.render()"
+        aria-label="${j} : ${vs.length} visite(s)" data-tip="${vs.length ? vs.length + ' visite(s)' : 'Aucune visite'}">
+        <span class="mois-num">${j}</span>${vs.length ? `<span class="mois-n">${vs.length}</span>` : ''}
+        ${prev}<span class="mois-dots">${dots}</span></button>`;
+    }
+    const jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const legende = ['planifiée', 'en cours', 'réalisée', 'manquée', 'annulée']
+      .map(st => `<span><i style="background:${this.STATUT_COULEURS[st]}"></i>${this._labelStatut(st)}</span>`).join('');
+    return `
+      ${sel ? this._boutonRetourCommerciaux() : ''}
+      <div class="pilo-kpis" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:12px">
+        ${kpi(tous.length, 'Visites du mois')}${kpi(nb('réalisée'), 'Réalisées')}${kpi(nb('planifiée') + nb('en cours'), 'À venir')}${kpi(nb('manquée'), 'Manquées', true)}
+      </div>
+      <div class="pilo-panneau mois">
+        <div class="mois-tete">${jours.map(j => `<span>${j}</span>`).join('')}</div>
+        <div class="mois-grille">${cases}</div>
+        <div class="mois-legende">${legende}</div>
+      </div>`;
+  },
+
   setModeVue(mode) { this.state.modeVue = mode; this.render(); },
 
   // ── Bloc 3 : passage Planifiée → En cours (déverrouille le questionnaire) ──
@@ -1683,6 +1734,8 @@ window.VueVisites = {
           contenu = `<div class="layout-split">${this._renderRailSemaine()}<div class="layout-split-detail">${contenu}</div></div>`;
         }
       }
+    } else if (this.state.modeVue === 'mois') {
+      contenu = this._renderMois();
     } else if (groupeActif) {
       contenu = this._renderGrilleManagerSemaine();
     } else {
@@ -1703,7 +1756,8 @@ window.VueVisites = {
               <div class="pj-label">${j.label}</div>
               <div class="pj-count">${j.visites.length ? j.visites.length + 'v' : ''}${this._resumeJour(j.visites).photos ? ` ${this._resumeJour(j.visites).photos}` : ''}</div>
               ${j.visites.slice(0, maxParJour).map(v => `
-                <div class="pj-item" style="border-left:3px solid ${this.STATUT_COULEURS[this._statutEffectif(v)] || 'var(--c-text-2)'}">
+                <div class="pj-item">
+                  <i class="pj-dot" style="background:${this.STATUT_COULEURS[this._statutEffectif(v)] || '#B8BEC4'}"></i>
                   <span class="pj-heure">${v.Heure || 'n.c.'}</span>
                   <span class="pj-nom">${(v.Nom_Compte || '').slice(0, 14)}</span>
                 </div>`).join('')}
@@ -1716,6 +1770,12 @@ window.VueVisites = {
     // Bloc 3 : export historique accessible aux CDS (sur leurs propres visites, déjà filtrées)
     // + Managers/Admin (toute l'équipe). Tout le monde a donc le bouton.
     const peutExtraire = true;
+    const _dvue = new Date(this.state.dateVue + 'T12:00:00');
+    const _lundi = new Date(_dvue); _lundi.setDate(_dvue.getDate() - ((_dvue.getDay() + 6) % 7));
+    const _vend = new Date(_lundi); _vend.setDate(_lundi.getDate() + 4);
+    const libelleDate = this.state.modeVue === 'jour' ? dateLbl
+      : this.state.modeVue === 'mois' ? _dvue.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+      : `${_lundi.getDate()} au ${_vend.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
 
     app.innerHTML = `
       <header class="header-vue">
@@ -1735,17 +1795,17 @@ window.VueVisites = {
            rendant scrollable horizontalement de bout en bout, cartes coupées des
            deux côtés en swipant. flex-wrap:wrap : la nav date passe à la ligne
            plutôt que de pousser la page hors de son viewport. -->
-      <div style="display:flex;align-items:center;gap:8px;row-gap:6px;flex-wrap:wrap;padding:10px 14px;background:var(--c-surface);">
-        <button class="btn-filtre ${this.state.modeVue === 'jour' ? 'actif' : ''}" onclick="VueVisites.setModeVue('jour')">Jour</button>
-        <button class="btn-filtre ${this.state.modeVue === 'semaine' ? 'actif' : ''}" onclick="VueVisites.setModeVue('semaine')">Semaine</button>
-        <button class="btn-filtre ${this.state.modeVue === 'historique' ? 'actif' : ''}" onclick="VueVisites.setModeVue('historique')">Historique</button>
-        <button class="btn-filtre ${this.state.modeVue === 'froid' ? 'actif' : ''}" onclick="VueVisites.setModeVue('froid')">À froid${this.state.fiches.filter(x => x.Statut === 'A_REVOIR').length ? ` (${this.state.fiches.filter(x => x.Statut === 'A_REVOIR').length})` : ''}</button>
+      <div class="vp-bar">
+        <div class="vp-seg" role="tablist" aria-label="Mode d'affichage">
+          ${[['jour', 'Jour'], ['semaine', 'Semaine'], ['mois', 'Mois'], ['historique', 'Historique'], ['froid', 'À froid' + (this.state.fiches.filter(x => x.Statut === 'A_REVOIR').length ? ` (${this.state.fiches.filter(x => x.Statut === 'A_REVOIR').length})` : '')]]
+            .map(([k, l]) => `<button type="button" role="tab" aria-selected="${this.state.modeVue === k}" class="${this.state.modeVue === k ? 'actif' : ''}" onclick="VueVisites.setModeVue('${k}')">${l}</button>`).join('')}
+        </div>
         ${this.state.modeVue !== 'historique' && this.state.modeVue !== 'froid' ? `
-        <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <button class="btn-retour" onclick="VueVisites.jourPrecedent()">‹</button>
-          <span style="font-size:13px;font-weight:600;white-space:nowrap">${this.state.modeVue === 'jour' ? dateLbl : 'Semaine en cours'}</span>
-          <button class="btn-retour" onclick="VueVisites.jourSuivant()">›</button>
-          ${!estAujd ? `<button class="btn-filtre" style="font-size:11px;padding:4px 8px" onclick="VueVisites.allerAujourdhui()">Auj.</button>` : ''}
+        <div class="vp-date">
+          <button class="btn-retour" onclick="VueVisites.jourPrecedent()" aria-label="Précédent">‹</button>
+          <span>${libelleDate}</span>
+          <button class="btn-retour" onclick="VueVisites.jourSuivant()" aria-label="Suivant">›</button>
+          ${!estAujd || this.state.modeVue !== 'jour' ? `<button class="vp-auj" onclick="VueVisites.allerAujourdhui()">Aujourd'hui</button>` : ''}
         </div>` : ''}
       </div>
 

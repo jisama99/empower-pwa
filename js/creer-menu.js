@@ -42,7 +42,43 @@ window.CreerMenu = (function () {
     b.onclick = ouvrir;
     items[Math.min(items.length >= 3 ? 1 : 0, items.length - 1)].insertAdjacentElement('afterend', b);
   }
-  new MutationObserver(monter).observe(document.body, { childList: true, subtree: true });
+  // Onglet « Plus » (barre basse mobile) : les modules qui ne tiennent pas dans la barre, selon les droits du profil.
+  function fermerPlus() { const s = document.getElementById('plus-feuille'); if (s) s.remove(); }
+  function ouvrirPlus() {
+    fermerPlus(); fermer();
+    const nav = document.querySelector('.nav-principale'); if (!nav) return;
+    const liens = [...nav.querySelectorAll('a.nav-item.nav-sidebar-only')].map(a => ({
+      href: a.getAttribute('href'), lbl: a.dataset.lbl || a.textContent.trim(), ico: (a.querySelector('.nav-icone') || {}).innerHTML || '', actif: a.classList.contains('actif'),
+    }));
+    const d = document.createElement('div'); d.id = 'plus-feuille'; d.className = 'creer-feuille-base';
+    d.innerHTML = `<div class="creer-fond" onclick="CreerMenu.fermerPlus()"></div>
+      <div class="creer-panneau" role="dialog" aria-modal="true" aria-label="Plus">
+        <div class="creer-poignee"></div><h2>Plus</h2><p>Les autres modules de votre profil.</p>
+        <div class="plus-grille">${liens.map(l => `<a class="plus-entree${l.actif ? ' actif' : ''}" href="${l.href}" onclick="CreerMenu.fermerPlus()"><span class="plus-ico">${l.ico}</span><span>${l.lbl}</span></a>`).join('')}</div>
+        <div class="plus-actions">
+          <button type="button" onclick="CreerMenu.fermerPlus();Theme.suivant()">Apparence</button>
+          <button type="button" onclick="CreerMenu.fermerPlus();DrawerMenu._synchro()">Synchroniser</button>
+          <button type="button" class="danger" onclick="CreerMenu.fermerPlus();DrawerMenu._deconnecter()">Déconnexion</button>
+        </div>
+      </div>`;
+    document.body.appendChild(d);
+  }
+  function monterPlus() {
+    const nav = document.querySelector('.nav-principale');
+    if (!nav || nav.querySelector('.nav-plus-tab')) return;
+    const autres = nav.querySelectorAll('a.nav-item.nav-sidebar-only'); if (!autres.length) return;
+    const b = document.createElement('button');
+    b.className = 'nav-item nav-plus-tab'; b.type = 'button'; b.setAttribute('aria-label', 'Plus');
+    const actifAutre = !!nav.querySelector('a.nav-item.nav-sidebar-only.actif');
+    if (actifAutre) b.classList.add('actif');
+    b.innerHTML = '<span class="nav-icone"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg></span><span class="nav-lbl">Plus</span>';
+    b.onclick = ouvrirPlus;
+    const mob = [...nav.querySelectorAll('a.nav-item:not(.nav-sidebar-only)')];
+    (mob[mob.length - 1] || nav.lastElementChild).insertAdjacentElement('afterend', b);
+  }
+  new MutationObserver(() => { monter(); monterPlus(); }).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('DOMContentLoaded', monterPlus);
+  void 0 && new MutationObserver(monter).observe(document.body, { childList: true, subtree: true });
   document.addEventListener('DOMContentLoaded', monter);
-  return { ouvrir, fermer, aller, monter };
+  return { ouvrir, fermer, aller, monter, ouvrirPlus, fermerPlus };
 })();
