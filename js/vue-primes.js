@@ -311,8 +311,8 @@ window.VuePrimes = {
         ${estManager ? this._renderManager(q) : this._renderCDS(Session.pin, q)}
         </div>
       </div>
-      ${NavBar('primes')}
-      ${FusionTabs.performance()}
+      ${NavBar(window.hebergeParAdmin && hebergeParAdmin() ? 'admin' : 'primes')}
+      ${window.hebergeParAdmin && hebergeParAdmin() ? FusionTabs.administration() : FusionTabs.performance()}
       ${this._renderModalNSB()}
       ${this._renderModalOnboarding()}
     `;

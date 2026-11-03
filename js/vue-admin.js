@@ -69,6 +69,7 @@ window.VueAdmin = {
 
   setAlexTab(tab) {
     this.state.alexTab = tab;
+    if ((tab === 'secteurs' || tab === 'equipe') && !AdminSecteurs.state.lignes) { AdminSecteurs.charger(); }
     if (tab === 'suivi' && !this.state.suivi.leads.length && !this.state.suivi.chargement) {
       this._chargerSuivi();
     } else {
@@ -1371,6 +1372,10 @@ window.VueAdmin = {
           return t >= de && t <= au;
         });
       }
+      // Lot 4 — le Channel ne voit jamais les primes : colonnes Prime_* et bonus retirées de l'export
+      if (Session.estChannel() && id === 'objectifs') {
+        data = data.map(r => Object.fromEntries(Object.entries(r).filter(([k]) => !/prime|bonus/i.test(k))));
+      }
       const rows = this._aplatirExport(id, data);
       const csv  = this._toCSV(rows);
       const date = dateISOLocale();
@@ -1565,9 +1570,10 @@ window.VueAdmin = {
           <button onclick="Router.retour()" class="btn-retour">←</button>
           <h1>Espace Alexandra</h1>
         </header>
+        ${FusionTabs.administration()}
         <!-- Onglets -->
         <div style="display:flex;border-bottom:2px solid var(--c-border);background:var(--c-surface)">
-          ${[['exports','Exports'],['leads','Leads'],['suivi','Suivi']].map(([t, l]) => `
+          ${[['exports','Exports'],['leads','Leads'],['suivi','Suivi'],['secteurs','Secteurs CP'],['equipe','Équipe']].map(([t, l]) => `
             <button onclick="VueAdmin.setAlexTab('${t}')"
                     style="flex:1;padding:12px 6px;border:none;border-bottom:${tab===t?'3px solid var(--c-primary)':'3px solid transparent'};
                            background:transparent;font-weight:${tab===t?'700':'400'};font-size:13px;
@@ -1576,6 +1582,8 @@ window.VueAdmin = {
         <div class="dash-body avec-nav">
           <div class="dash-col-main">
           ${tab === 'suivi' ? this._renderSuivi()
+          : tab === 'secteurs' ? AdminSecteurs.html()
+          : tab === 'equipe' ? EquipeContacts.html()
           : tab === 'exports' ? `
             <div class="bloc-fiche">
               <div class="bloc-titre">Exports CSV, Reporting thématique</div>
@@ -1586,7 +1594,7 @@ window.VueAdmin = {
             </div>` : this._renderFormLead()}
           </div>
         </div>
-        ${NavBar('home')}`;
+        ${NavBar('admin')}`;
       return;
     }
 
@@ -1617,6 +1625,7 @@ window.VueAdmin = {
         <span class="js-tab-label" hidden>${adminTabLabel}</span>
       </header>
 
+      ${FusionTabs.administration()}
       <!-- Bloc 8 refonte desktop : sous-navigation par onglets au lieu d'un scroll unique -->
       <div class="tabs-premium" style="padding:10px 12px;background:var(--c-surface);overflow-x:auto">
         ${ADMIN_TABS.map(([t, l]) => `

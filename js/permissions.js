@@ -16,6 +16,8 @@
       'home', 'tracker', 'historiques', 'phoning', 'visites',
       'objectifs', 'primes', 'comptes', 'manager', 'admin',
       'questionnaire', 'reporting', 'photos', 'mailing', 'a_contacter', 'territoires',
+      // Lot 4 — sous-sections d'Administration (droits distincts)
+      'admin_primes', 'admin_baremes', 'admin_reporting',
     ],
     // Bloc 2 §1 — 'reporting_cds' : espace d'analyse personnel distinct de
     // l'Accueil (#/dashboard), cf. VueDashboardCDS._contexteReporting().
@@ -34,12 +36,17 @@
     CHANNEL_MANAGER: [
       'home', 'tracker', 'comptes', 'objectifs', 'photos', 'admin',
       'visites_fdv', 'phoning', 'reporting', 'mailing', 'a_contacter', 'territoires',
+      'admin_reporting',   // Reporting seul : jamais Primes ni Barèmes (voir INTERDITS)
     ],
     // Fournisseur de leads (ex-« Invité » : Flavie…) : alimente le Tracker et consulte les comptes (lecture seule).
     EXTERNE: [
       'tracker', 'comptes', 'territoires',
     ],
   };
+
+  // Lot 4 — Règle absolue : un CHANNEL_MANAGER ne voit jamais les primes, quels que soient
+  // ses droits personnalisés (colonne utilisateurs.droits) ou la matrice.
+  const INTERDITS = { CHANNEL_MANAGER: ['primes', 'admin_primes', 'admin_baremes'] };
 
   // ── Mapping hash de route (cf js/router.js) → tabId ──
   // Chaque hash réel doit résoudre vers un tabId de la matrice.
@@ -60,7 +67,7 @@
     if (/^#\/visites(\/.*)?$/.test(h))         return 'visites';
     if (/^#\/visites-fdv$/.test(h))            return 'visites_fdv';
     if (/^#\/objectifs$/.test(h))              return 'objectifs';
-    if (/^#\/primes$/.test(h))                 return 'primes';
+    if (/^#\/primes$/.test(h))                 return ['primes', 'admin_primes'];
     if (/^#\/comptes$/.test(h) ||
         /^#\/compte\/[^/]+$/.test(h))          return 'comptes';
     if (/^#\/questionnaire(\/[^/]+)?$/.test(h))return 'questionnaire';
@@ -69,8 +76,8 @@
     if (/^#\/mailing$/.test(h))                return 'mailing';
     if (/^#\/a-contacter$/.test(h))            return 'a_contacter';
     if (/^#\/territoires$/.test(h))            return 'territoires';
-    if (/^#\/analyse$/.test(h))                return ['reporting', 'reporting_cds'];
-    if (/^#\/parametres-primes$/.test(h))      return 'admin';
+    if (/^#\/analyse$/.test(h))                return ['reporting', 'reporting_cds', 'admin_reporting'];
+    if (/^#\/parametres-primes$/.test(h))      return 'admin_baremes';
 
     return null;
   }
@@ -106,6 +113,8 @@
     reporting_cds: 'Reporting personnel', admin: 'Administration',
     questionnaire: 'Questionnaire', photos: 'Photos', mailing: 'Mailing',
     a_contacter: 'À contacter', territoires: 'Territoires (carte)',
+    admin_primes: 'Administration › Primes', admin_baremes: 'Administration › Barèmes',
+    admin_reporting: 'Administration › Reporting',
   };
 
   // Droits propres à l'utilisateur connecté (colonne utilisateurs.droits).
@@ -119,12 +128,14 @@
   }
 
   function onglets(role) {
-    return accordesPour(role).slice();
+    const interdits = INTERDITS[role] || [];
+    return accordesPour(role).filter(t => interdits.indexOf(t) === -1);
   }
 
   function peut(role, tabId) {
     if (!tabId) return true; // routes publiques (login) — pas de restriction de tab
-    const accordes = accordesPour(role);
+    const interdits = INTERDITS[role] || [];
+    const accordes = accordesPour(role).filter(t => interdits.indexOf(t) === -1);
     // tabId peut être un tableau (OR sémantique : un seul suffit).
     if (Array.isArray(tabId)) {
       return tabId.some(t => accordes.indexOf(t) !== -1);

@@ -111,7 +111,7 @@ window.VueAnalyse = {
     const [t, a, b] = s.split(':'); let titre = '', l = [];
     if (t === 'canal') { l = this._canaux()[a] || []; titre = `Comptes ${a}`; }
     if (t === 'trk') { l = (this._tracker()[a] || {})[b] || []; titre = `${this._nom(Number(a))} · ${b === 'actif' ? 'activés' : 'non activés'}`; }
-    if (t === 'obj') { return `<div class="an-det"><h3>${this._esc(this._nom(Number(a)))}</h3><p><a href="#/objectifs">Ouvrir Objectifs</a> · <a href="#/primes">Primes</a></p></div>`; }
+    if (t === 'obj') { return `<div class="an-det"><h3>${this._esc(this._nom(Number(a)))}</h3><p><a href="#/objectifs">Ouvrir Objectifs</a>${window.Permissions && Permissions.peut(Session.role, ['primes', 'admin_primes']) ? ' · <a href="#/primes">Primes</a>' : ''}</p></div>`; }
     return `<div class="an-det"><h3>${this._esc(titre)} (${l.length})</h3><ul>${l.slice(0, 60).map(c => `<li><a href="#/compte/${encodeURIComponent(c.ID_Compte || c._uuid)}">${this._esc(c.Nom_Compte)}</a> <span>${this._esc(c.Ville || '')}</span></li>`).join('')}</ul>${l.length > 60 ? `<p>60 premiers sur ${l.length}.</p>` : ''}</div>`;
   },
 
@@ -275,7 +275,7 @@ window.VueAnalyse = {
 
   render() {
     const app = document.getElementById('app'), s = this.state; if (!app) return;
-    const entete = `<header class="header-vue"><h1>Analyse et objectifs</h1></header>${NavBar('analyse')}${typeof FusionTabs === 'function' ? FusionTabs.pilotage() : ''}`;
+    const entete = `<header class="header-vue"><h1>Analyse et objectifs</h1></header>${NavBar(window.hebergeParAdmin && hebergeParAdmin() ? 'admin' : 'analyse')}${typeof FusionTabs === 'function' ? (window.hebergeParAdmin && hebergeParAdmin() ? FusionTabs.administration() : FusionTabs.pilotage()) : ''}`;
     if (s.chargement) { app.innerHTML = entete + '<p style="padding:16px">Chargement…</p>'; return; }
     if (s.erreur) { app.innerHTML = entete + `<p style="padding:16px">Erreur : ${this._esc(s.erreur)}</p>`; return; }
     const b = this._blocs();
@@ -286,7 +286,8 @@ window.VueAnalyse = {
           <h3 style="margin-top:14px">Période</h3><div class="an-seg">${this.PERIODES_RAPPORT.map(p => `<button data-xp="${p}" class="${R.per === p ? 'on' : ''}">${p}</button>`).join('')}</div>
           <h3 style="margin-top:14px">Blocs à inclure</h3>${this.BLOCS.map(x => `<label class="an-xb"><input type="checkbox" data-xb="${x[0]}" ${R.blocs.includes(x[0]) ? 'checked' : ''}><span><b>${x[1]}</b><small>${x[2]}</small></span></label>`).join('')}
           <label class="an-xb"><input type="checkbox" data-xph ${R.photos ? 'checked' : ''}><span><b>Inclure les photos des visites</b><small>Photos rattachées aux visites de la période</small></span></label></div>
-          <div><h3>Aperçu · ${R.fmt} · ${pg.length} pages</h3><div class="an-xp">${pg.map((t, i) => `<div class="an-pg"><span>${i + 1}</span><i></i><i></i><i style="width:60%"></i><small>${t}</small></div>`).join('')}</div>
+          <div><h3>Aperçu en direct · ${R.fmt} · ${pg.length} pages</h3><div id="an-live" class="an-live" aria-live="polite"><div class="an-live-in"><iframe id="an-live-f" title="Aperçu du rapport" sandbox="allow-same-origin"></iframe></div></div>
+            <p class="an-live-leg">${pg.map((t, i) => `${i + 1}. ${t}`).join(' · ')}</p>
             <p style="font-size:12px;opacity:.75;margin-top:10px">Gabarit du refresh : paysage (A4 en PDF, 16:9 en PPT), couleurs Marvesting (anthracite, corail), logos Marvesting et Norton Empower.</p></div></div>
         <button class="btn-primaire" id="an-pdf" style="margin-top:14px">Générer le ${R.fmt}</button>
         <p style="font-size:11px;opacity:.7;margin-top:8px">PDF : la fenêtre d’impression s’ouvre, choisis « Enregistrer au format PDF ». PPT : fichier .pptx 16:9 téléchargé (bibliothèque pptxgenjs 3.12.0, chargée à la demande).</p></section>`
@@ -301,9 +302,26 @@ window.VueAnalyse = {
       .an-seg{display:flex;gap:6px;flex-wrap:wrap}.an-seg button{padding:7px 14px;border-radius:999px;border:1px solid var(--border-strong,#ccd);background:transparent;color:inherit;font:inherit}.an-seg button.on{background:#FF6D68;border-color:#FF6D68;color:#fff}.an-seg button:disabled{opacity:.45;cursor:not-allowed}
       .an-xb{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--border-strong,#e3e6e9);cursor:pointer}.an-xb b{display:block;font-size:13px}.an-xb small{opacity:.65}
       .an-xp{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.an-pg{background:var(--bg-warm-white,#f2f4f5);border-radius:10px;padding:8px;aspect-ratio:16/10;position:relative;display:flex;flex-direction:column;gap:5px}.an-pg span{position:absolute;right:8px;top:6px;font-size:10px;font-weight:800;opacity:.5}.an-pg i{display:block;height:6px;background:#c9d0d6;border-radius:3px}.an-pg small{margin-top:auto;font-size:10px}
+      .an-live{border:1px solid var(--border-strong,#d5dade);border-radius:10px;background:#EEF0F1;overflow:auto;max-height:560px;min-height:120px}.an-live-in{transform-origin:0 0;overflow:hidden}.an-live iframe{border:0;display:block;background:#fff;transform-origin:0 0}.an-live-leg{font-size:11px;opacity:.7;margin-top:6px}
       .an-vide{font-size:13px;opacity:.7}#an-tip{position:fixed;z-index:2000;pointer-events:none;background:#343F48;color:#fff;font-size:12px;padding:6px 9px;border-radius:6px;display:none;max-width:240px}</style>
       ${entete}<div class="an"><div style="display:flex;gap:8px;margin-bottom:10px">${onglets}</div>${corps}</div><div id="an-tip" role="tooltip"></div>`;
     this._bind(app);
+    if (s.onglet === 'rapport') this._apercuLive(app);
+  },
+
+  // Aperçu en direct : le vrai HTML du PDF (même gabarit et mêmes chiffres que l'export), recalculé à chaque modification des options.
+  _apercuLive(app) {
+    const box = app.querySelector('#an-live'), f = app.querySelector('#an-live-f'); if (!box || !f) return;
+    const R = this._x();
+    if (!this.BLOCS.some(x => R.blocs.includes(x[0]))) { box.innerHTML = '<p class="an-vide" style="padding:12px">Coche au moins un bloc pour voir l’aperçu.</p>'; return; }
+    let html;
+    try { const D = this._donneesRapport(); html = this._htmlRapport(D, this._slides(D)); }
+    catch (e) { box.innerHTML = `<p class="an-vide" style="padding:12px">Aperçu indisponible : ${this._esc(e.message || e)}</p>`; return; }
+    const inner = box.querySelector('.an-live-in'), W = 1123, k = Math.min(1, (box.clientWidth || 520) / W);
+    f.style.width = W + 'px'; f.style.height = '794px'; f.style.transform = `scale(${k})`;
+    inner.style.width = Math.round(W * k) + 'px'; inner.style.height = Math.round(794 * k) + 'px';
+    f.onload = () => { try { const h = f.contentDocument.documentElement.scrollHeight; f.style.height = h + 'px'; inner.style.height = Math.round(h * k) + 'px'; } catch (e) { /* hauteur par défaut */ } };
+    f.srcdoc = html;
   },
 
   _bind(app) {

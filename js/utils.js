@@ -394,6 +394,10 @@ function NavBar(actif) {
     { lbl: 'Reporting', ids: ['analyse'] },
   ];
   const SECTION_BAS = { lbl: null, ids: ['admin'] };
+  // Lot 4 — Reporting déplacé dans Administration pour ADMIN/Channel
+  if (typeof Session !== 'undefined' && (Session.estManager() || Session.estChannel())) {
+    const i = SECTIONS.findIndex(x => x.lbl === 'Reporting'); if (i >= 0) SECTIONS.splice(i, 1);
+  }
 
   // Route fusionnée → entrée de nav à montrer active
   const ALIAS_ACTIF = {
@@ -552,12 +556,22 @@ FusionTabs.pilotage = () => FusionTabs([
   { hash: '#/manager',       lbl: 'Équipe',
     si: typeof Session !== 'undefined' && Session.voitTout() },
   { hash: '#/objectifs',     lbl: 'Objectifs', si: _peutTab('objectifs') },
+  // Lot 4 — Primes, Reporting et Barèmes vivent dans Administration pour ADMIN/Channel ; le CDS garde ses propres Primes et son Reporting ici.
   { hash: '#/primes',        lbl: 'Primes',
-    si: _peutTab('primes') && typeof Session !== 'undefined' && !Session.estChannel() },
-  { hash: '#/analyse',       lbl: 'Reporting', si: _peutTab('reporting') || _peutTab('reporting_cds') },
-  { hash: '#/parametres-primes', lbl: 'Barèmes',
-    si: typeof Session !== 'undefined' && Session.estManager() },
+    si: _peutTab('primes') && typeof Session !== 'undefined' && Session.estCDS() },
+  { hash: '#/analyse',       lbl: 'Reporting',
+    si: (_peutTab('reporting') || _peutTab('reporting_cds')) && typeof Session !== 'undefined' && Session.estCDS() },
 ]);
+// Lot 4 — Administration : accueil de l'administration + sous-sections à droits distincts
+// (Primes et Barèmes : ADMIN seul ; Reporting : ADMIN et Channel ; jamais de primes pour le Channel).
+FusionTabs.administration = () => FusionTabs([
+  { hash: '#/admin',             lbl: 'Administration', si: _peutTab('admin') },
+  { hash: '#/primes',            lbl: 'Primes',         si: _peutTab('admin_primes') },
+  { hash: '#/parametres-primes', lbl: 'Barèmes',        si: _peutTab('admin_baremes') },
+  { hash: '#/analyse',           lbl: 'Reporting',      si: _peutTab('admin_reporting') },
+]);
+// Vrai quand la vue courante (Primes, Barèmes, Reporting) est hébergée par Administration pour le rôle connecté
+window.hebergeParAdmin = () => typeof Session !== 'undefined' && (Session.estManager() || Session.estChannel());
 FusionTabs.accueil = FusionTabs.pilotage;
 // « Portefeuille » = Tracker (pipeline) + Comptes + Historique CA + Territoires
 FusionTabs.portefeuille = () => FusionTabs([

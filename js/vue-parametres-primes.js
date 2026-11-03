@@ -74,8 +74,8 @@ window.VueParametresPrimes = {
   render() {
     const app = document.getElementById('app'), s = this.state, E = x => this._esc(x);
     if (!app) return;
-    const tabs = typeof FusionTabs === 'function' && FusionTabs.pilotage ? FusionTabs.pilotage() : '';
-    const entete = `<header class="header-vue"><button onclick="Router.retour()" class="btn-retour">←</button><h1>Barèmes des primes</h1></header>${NavBar('home')}${tabs}`;
+    const tabs = typeof FusionTabs === 'function' && FusionTabs.administration ? FusionTabs.administration() : '';
+    const entete = `<header class="header-vue"><button onclick="Router.retour()" class="btn-retour">←</button><h1>Barèmes des primes</h1></header>${NavBar('admin')}${tabs}`;
     if (s.chargement) { app.innerHTML = entete + '<p style="padding:16px">Chargement…</p>'; return; }
     const b = s.conf && s.conf.bareme;
     const champ = (id, lbl, val) => `<label style="font-size:12px;display:flex;flex-direction:column;gap:2px">${lbl}<input id="pb-${id}" type="number" min="0" step="1" value="${E(val)}" style="padding:6px 8px"></label>`;
