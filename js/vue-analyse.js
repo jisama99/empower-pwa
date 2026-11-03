@@ -147,48 +147,96 @@ window.VueAnalyse = {
     try { return window.FiscalWeeks ? FiscalWeeks.dansSemaineCalendaire(s) : false; } catch (e) { return false; }
   },
 
-  _pageHTML(titre, corps, n) {
-    return `<section class="pg"><header><h2>${titre}</h2><span>${this._esc(this._libellePeriode())}</span></header><div class="pgc">${corps}</div><footer><span>Marvesting × Norton Empower</span><span>${n}</span></footer></section>`;
-  },
-  _pageVisites() {
-    const s = this.state, r = this._x();
+  // ── Rapport : un seul objet de données (D) alimente le PDF et le PPTX (prompt 09 : mêmes chiffres) ──
+  // Charte : Ardoise 343F48, Rouge signal FF1209, Corail FF6D68, gris clair EEF0F1, gris moyen B8BEC4, texte 424242, Montserrat.
+  // Interdits : traits droits (filets, bordures, soulignements), tirets longs et demi-cadratins (valeur absente : « N/A »).
+  CH: { ardoise: '343F48', rouge: 'FF1209', corail: 'FF6D68', clair: 'EEF0F1', moyen: 'B8BEC4', texte: '424242' },
+  _san(t) { return String(t == null || String(t).trim() === '' ? 'N/A' : t).replace(/\s*[–—]\s*/g, ', '); },
+  _init(nom) { return String(nom || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?'; },
+  _s(n, un, plus) { return n > 1 ? plus : un; },
+
+  _donneesRapport() {
+    const s = this.state, r = this._x(), P = window.parseCA || Number, qs = ['Q1', 'Q2', 'Q3', 'Q4'];
     const v = (s.visites || []).filter(x => this._dansPeriode(x.Date || x.Date_Planif)).sort((a, b) => String(b.Date || '').localeCompare(String(a.Date || '')));
-    const lignes = v.slice(0, 14).map(x => `<tr><td>${this._esc(String(x.Date || x.Date_Planif || '').slice(0, 10))}</td><td>${this._esc(window.resolveCDS(x.PIN_CDS || x.Nom_CDS))}</td><td>${this._esc(x.Nom_Compte || '')}</td><td>${this._esc(x.Type_Visite || '')}</td></tr>`).join('');
-    const photos = r.photos ? v.flatMap(x => String(x.Photo_URL || '').split(' | ').map(u => u.trim()).filter(Boolean).slice(0, 1)).slice(0, 6) : [];
-    return `<p class="k"><b>${v.length}</b> visite${v.length > 1 ? 's' : ''} sur la période</p>
-      ${lignes ? `<table><thead><tr><th>Date</th><th>Commercial</th><th>Compte</th><th>Type</th></tr></thead><tbody>${lignes}</tbody></table>${v.length > 14 ? `<p class="n">14 premières sur ${v.length}.</p>` : ''}` : '<p class="n">Aucune visite enregistrée sur la période.</p>'}
-      ${photos.length ? `<div class="ph">${photos.map(u => `<img src="${this._esc(u)}" alt="Photo de visite" onerror="this.style.display='none'">`).join('')}</div>` : (r.photos ? '<p class="n">Aucune photo sur la période.</p>' : '')}`;
-  },
-  _pageSellin() {
-    const s = this.state, P = window.parseCA || Number, qs = ['Q1', 'Q2', 'Q3', 'Q4'];
-    const parQ = qs.map(q => s.objectifs.reduce((t, o) => t + (P(o[q + '_CA_Realise']) || 0), 0)), max = Math.max(1, ...parQ), W = 420;
-    const barres = `<svg viewBox="0 0 ${W} 150">${parQ.map((v, i) => { const h = v / max * 110; return `<rect x="${30 + i * 98}" y="${125 - h}" width="64" height="${h}" fill="#343F48" rx="3"/><text x="${62 + i * 98}" y="141" text-anchor="middle" font-size="12">${qs[i]}</text><text x="${62 + i * 98}" y="${119 - h}" text-anchor="middle" font-size="11">${this._fmt(v)} €</text>`; }).join('')}</svg>`;
-    const parCom = s.objectifs.map(o => `<tr><td>${this._esc(o.Nom_CDS || this._nom(o.PIN_CDS))}</td>${qs.map(q => `<td>${this._fmt(P(o[q + '_CA_Realise']))}</td>`).join('')}</tr>`).join('');
-    const tot = c => ['Q1', 'Q2', 'Q3', 'Q4'].reduce((t, q) => t + (Number(c['CA_' + q + 'FY27']) || 0), 0);
-    const top = s.comptes.filter(c => tot(c) > 0).sort((a, b) => tot(b) - tot(a)).slice(0, 8).map(c => `<tr><td>${this._esc(c.Nom_Compte)}</td><td>${this._esc(this._nom(c.PIN_CDS_Assigne))}</td><td>${this._fmt(tot(c))} €</td></tr>`).join('');
-    return `<div class="duo"><div>${barres}<table><thead><tr><th>Commercial</th>${qs.map(q => `<th>${q}</th>`).join('')}</tr></thead><tbody>${parCom || '<tr><td colspan="5">Aucune donnée</td></tr>'}</tbody></table></div>
-      <div><h3>Comptes ayant commandé (FY27)</h3><table><thead><tr><th>Compte</th><th>Commercial</th><th>CA</th></tr></thead><tbody>${top || '<tr><td colspan="3">Aucun</td></tr>'}</tbody></table></div></div>`;
-  },
-  _pageAtteinte() {
-    const o = this._objectifs();
-    return o.length ? o.map(x => `<div class="gj"><div class="gh"><b>${this._esc(x.nom)}</b><span>${this._fmt(x.ca)} € / ${this._fmt(x.obj)} €</span><strong style="color:${x.pct >= 100 ? '#12805C' : x.pct >= 80 ? '#D98200' : '#C0453F'}">${Math.round(x.pct)} %</strong></div><div class="gt"><i style="width:${Math.min(100, x.pct)}%;background:${x.pct >= 100 ? '#12805C' : x.pct >= 80 ? '#D98200' : '#C0453F'}"></i></div></div>`).join('') : '<p class="n">Aucun objectif pour ce trimestre.</p>';
-  },
-  _pagePortefeuille() {
-    const s = this.state, st = {}; (s.leads || []).forEach(l => { const k = String(l.STATUT_EMPOWER || l.FLAG_ACTION || 'SAISIE'); st[k] = (st[k] || 0) + 1; });
-    const deps = new Set(s.comptes.map(c => VueTerritoires && VueTerritoires._dep ? VueTerritoires._dep(c.Departement, c.Code_Postal) : null).filter(Boolean));
-    return `<div class="duo"><div>${this._donut()}</div><div><h3>Pipeline (leads par statut)</h3><table><tbody>${Object.keys(st).sort().map(k => `<tr><td>${this._esc(k)}</td><td>${st[k]}</td></tr>`).join('') || '<tr><td>Aucun lead</td></tr>'}</tbody></table>
-      <h3>Couverture</h3><p class="k"><b>${deps.size}</b> département${deps.size > 1 ? 's' : ''} avec au moins un compte (sur 96)</p></div></div>`;
-  },
-  _pageSynthese() {
-    const t = this._tracker(), act = Object.values(t).reduce((n, g) => n + g.actif.length, 0), non = Object.values(t).reduce((n, g) => n + g.inactif.length, 0), o = this._objectifs();
-    const sous = o.filter(x => x.pct < 80).map(x => x.nom);
-    const lignes = [`${act} compte${act > 1 ? 's' : ''} Empower activé${act > 1 ? 's' : ''} (première commande passée), ${non} non activé${non > 1 ? 's' : ''}.`,
-      non ? `Prochaine action : relancer ${non > 1 ? 'les ' + non + ' comptes Empower onboardés' : 'le compte Empower onboardé'} sans première commande.` : 'Aucun compte Empower en attente de première commande.',
-      sous.length ? `Objectif sous 80 % : ${sous.join(', ')} : point d'accompagnement à prévoir.` : 'Aucun commercial sous 80 % de son objectif.'];
-    return `<ul class="syn">${lignes.map(l => `<li>${this._esc(l)}</li>`).join('')}</ul>`;
+    const photos = r.photos ? v.flatMap(x => String(x.Photo_URL || '').split(' | ').map(u => u.trim()).filter(Boolean).slice(0, 1)).slice(0, 3) : [];
+    const parQ = qs.map(q => Math.round(s.objectifs.reduce((t, o) => t + (P(o[q + '_CA_Realise']) || 0), 0)));
+    const parCom = s.objectifs.map(o => { const q = qs.map(k => Math.round(P(o[k + '_CA_Realise']) || 0)); return { nom: o.Nom_CDS || this._nom(o.PIN_CDS), q, tot: q.reduce((a, b) => a + b, 0) }; });
+    const tot = c => qs.reduce((t, q) => t + (Number(c['CA_' + q + 'FY27']) || 0), 0);
+    const top = s.comptes.filter(c => tot(c) > 0).sort((a, b) => tot(b) - tot(a)).slice(0, 8).map(c => ({ compte: c.Nom_Compte, com: this._nom(c.PIN_CDS_Assigne), ca: Math.round(tot(c)) }));
+    const att = this._objectifs().map(x => ({ nom: x.nom, ca: Math.round(x.ca), obj: Math.round(x.obj), pct: Math.round(x.pct) }));
+    const sumCa = att.reduce((a, x) => a + x.ca, 0), sumObj = att.reduce((a, x) => a + x.obj, 0);
+    const can = this._canaux(), canaux = Object.keys(can).filter(k => can[k].length).map(k => [k, can[k].length]);
+    const lead = {}; (s.leads || []).forEach(l => { const k = String(l.STATUT_EMPOWER || l.FLAG_ACTION || 'SAISIE'); lead[k] = (lead[k] || 0) + 1; });
+    const deps = new Set(s.comptes.map(c => (window.VueTerritoires && VueTerritoires._dep) ? VueTerritoires._dep(c.Departement, c.Code_Postal) : null).filter(Boolean)).size;
+    const t = this._tracker(), act = Object.values(t).reduce((n, g) => n + g.actif.length, 0), non = Object.values(t).reduce((n, g) => n + g.inactif.length, 0);
+    const sous = att.filter(x => x.pct < 80).map(x => x.nom);
+    return {
+      periode: this._libellePeriode(), quarter: s.quarter, date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+      auteur: Session.nom || 'ESI', perimetre: Session.voitTout() ? 'équipe' : 'personnel', qs,
+      visites: { n: v.length, comptes: new Set(v.map(x => x.Nom_Compte)).size, commerciaux: new Set(v.map(x => x.PIN_CDS || x.Nom_CDS)).size,
+        lignes: v.slice(0, 6).map(x => [String(x.Date || x.Date_Planif || '').slice(0, 10), window.resolveCDS(x.PIN_CDS || x.Nom_CDS), x.Nom_Compte, x.Type_Visite]), photos },
+      sellin: { parQ, total: parQ.reduce((a, b) => a + b, 0), parCom, top },
+      atteinte: { lignes: att, ca: sumCa, obj: sumObj, pct: sumObj > 0 ? Math.round(sumCa / sumObj * 100) : 0, ok: att.filter(x => x.pct >= 100).length },
+      portefeuille: { canaux, total: canaux.reduce((a, [, n]) => a + n, 0), leads: Object.keys(lead).sort().map(k => [k, lead[k]]), deps },
+      synthese: { act, non, sous },
+    };
   },
 
-  // ── Export PowerPoint (pptxgenjs, chargé à la demande, version épinglée) : mêmes pages que le PDF, 16:9 ──
+  // Contrôle des totaux recalculés par code (QA 5)
+  _qaChiffres(D) {
+    const err = [], S = D.sellin, A = D.atteinte, Pf = D.portefeuille;
+    D.qs.forEach((q, i) => { const c = S.parCom.reduce((a, x) => a + x.q[i], 0); if (Math.abs(c - S.parQ[i]) > 1) err.push(`Total ${q} incohérent (${c} contre ${S.parQ[i]})`); });
+    if (S.parCom.reduce((a, x) => a + x.tot, 0) !== S.total) err.push('Total sell-in incohérent');
+    if (Pf.total !== this.state.comptes.length) err.push(`Canaux (${Pf.total}) différent du nombre de comptes (${this.state.comptes.length})`);
+    A.lignes.forEach(x => { if (x.obj > 0 && Math.abs(Math.round(x.ca / x.obj * 100) - x.pct) > 1) err.push('Pourcentage incohérent : ' + x.nom); });
+    return err;
+  },
+
+  // Plan des slides (25 maximum) : titre = conclusion, sous-titre rouge, capsule de valeur, notes de l'orateur
+  _slides(D) {
+    const r = this._x(), f = n => this._fmt(n), sl = [], S = D.sellin, V = D.visites, A = D.atteinte, Pf = D.portefeuille, Y = D.synthese;
+    const ajoute = o => sl.push(o);
+    if (r.blocs.includes('visites')) {
+      ajoute({ kind: 'visites', bloc: 'Visites', titre: V.n ? `${V.n} visite${this._s(V.n, '', 's')} sur la période` : 'Aucune visite sur la période',
+        concl: V.n ? `${V.comptes} compte${this._s(V.comptes, '', 's')} rencontré${this._s(V.comptes, '', 's')} par ${V.commerciaux} commercia${V.commerciaux > 1 ? 'ux' : 'l'}` : 'Planifier les visites de la période', capsule: `${V.n} visite${this._s(V.n, '', 's')}`,
+        notes: `Message : l'activité terrain de ${D.periode}. Chiffre : ${V.n} visites. Question au public : quels comptes manquent à cette liste ?` });
+    }
+    if (r.blocs.includes('sellin')) {
+      const mx = Math.max(...S.parQ), best = S.total ? D.qs[S.parQ.indexOf(mx)] : null;
+      ajoute({ kind: 'sellin', bloc: 'Sell-in', titre: S.total ? `${f(S.total)} € de CA réalisé` : 'Aucun CA réalisé en FY27', concl: best ? `Meilleur quarter : ${best} (${f(mx)} €)` : 'Données de sell-in à renseigner', capsule: `${f(S.total)} €`,
+        notes: `Message : le sell-in par quarter et par commercial. Chiffre : ${f(S.total)} € cumulés. Question au public : quel quarter peut encore rattraper l'objectif ?` });
+      if (S.top.length) ajoute({ kind: 'top', bloc: 'Sell-in', titre: `${S.top.length} compte${this._s(S.top.length, '', 's')} portent le sell-in`, concl: `Premier compte : ${S.top[0].compte} (${f(S.top[0].ca)} €)`, capsule: `${f(S.top[0].ca)} €`,
+        notes: `Message : les comptes qui portent le CA. Chiffre : ${f(S.top[0].ca)} € pour le premier. Question au public : comment reproduire ces commandes ailleurs ?` });
+    }
+    if (r.blocs.includes('atteinte')) {
+      const L = A.lignes, parts = Math.max(1, Math.ceil(L.length / 5));
+      for (let i = 0; i < parts; i++) ajoute({ kind: 'atteinte', bloc: 'Atteinte', lignes: L.slice(i * 5, i * 5 + 5), titre: L.length ? `${A.pct} % de l'objectif ${D.quarter}` : `Aucun objectif ${D.quarter}`,
+        concl: L.length ? `${A.ok} commercia${A.ok > 1 ? 'ux' : 'l'} à 100 % ou plus sur ${L.length}${parts > 1 ? ` (page ${i + 1}/${parts})` : ''}` : 'Objectifs à saisir', capsule: `${A.pct} %`,
+        notes: `Message : où en est chaque commercial face à son objectif. Chiffre : ${A.pct} % en moyenne pondérée. Question au public : qui accompagner en priorité ?` });
+    }
+    if (r.blocs.includes('portefeuille')) {
+      ajoute({ kind: 'portefeuille', bloc: 'Portefeuille', titre: `${Pf.total} compte${this._s(Pf.total, '', 's')} en portefeuille`, concl: `${Pf.deps} département${this._s(Pf.deps, '', 's')} couvert${this._s(Pf.deps, '', 's')} sur 96`, capsule: `${Pf.deps} / 96`,
+        notes: `Message : la répartition par canal, le pipeline et la couverture. Chiffre : ${Pf.deps} départements. Question au public : quels départements ouvrir en premier ?` });
+    }
+    ajoute({ kind: 'synthese', bloc: 'Synthèse', titre: `${Y.act} compte${this._s(Y.act, '', 's')} Empower activé${this._s(Y.act, '', 's')}`, concl: Y.non ? `${Y.non} sur ${Y.act + Y.non} à relancer pour une première commande` : 'Aucune relance de première commande',
+      capsule: `${Y.act} / ${Y.act + Y.non}`, notes: `Message : ce qui est activé et ce qui reste à faire. Chiffre : ${Y.act} activés. Question au public : quelle action décide-t-on aujourd'hui ?`,
+      lignes: [`${Y.act} compte${this._s(Y.act, '', 's')} Empower activé${this._s(Y.act, '', 's')} (première commande passée), ${Y.non} non activé${this._s(Y.non, '', 's')}.`,
+        Y.non ? `Prochaine action : relancer ${Y.non > 1 ? 'les ' + Y.non + ' comptes Empower onboardés' : 'le compte Empower onboardé'} sans première commande.` : 'Aucun compte Empower en attente de première commande.',
+        Y.sous.length ? `Objectif sous 80 % : ${Y.sous.join(', ')}. Point d'accompagnement à prévoir.` : 'Aucun commercial sous 80 % de son objectif.'] });
+    return sl.slice(0, 24);
+  },
+
+  // Contrôle qualité automatique : caractères interdits, lignes droites, tailles de police
+  _qaTextes(textes) { return textes.filter(t => /[–—]/.test(t)).map(t => 'Tiret interdit dans : ' + t.slice(0, 50)); },
+  _qaHtml(html) {
+    const e = [];
+    if (/[–—]/.test(html)) e.push('Tiret long ou demi-cadratin dans le HTML');
+    if (/(?<!box-sizing:)border(?!-radius|-spacing|-collapse:separate)/i.test(html)) e.push('Bordure dans le CSS');
+    if (/<hr|<line|<polyline|text-decoration|underline|outline(?!-offset)/i.test(html)) e.push('Ligne droite ou soulignement dans le HTML');
+    return e;
+  },
+
+  // ── PPTX (pptxgenjs, chargé à la demande, version épinglée) : 16:9, 10 x 5,625 in ──
   PPTX_URL: 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
   async _chargerPptx() {
     if (window.PptxGenJS) return;
@@ -203,106 +251,163 @@ window.VueAnalyse = {
       return await new Promise(res => { const f = new FileReader(); f.onload = () => res(f.result); f.onerror = () => res(null); f.readAsDataURL(b); }); } catch (e) { return null; }
   },
   async genererPPT() {
-    const s = this.state, r = this._x(), blocs = this.BLOCS.filter(x => r.blocs.includes(x[0]));
-    if (!blocs.length) { if (window.Toast) Toast.afficher('Coche au moins un bloc', 'erreur'); return; }
+    const r = this._x(); if (!this.BLOCS.some(x => r.blocs.includes(x[0]))) { if (window.Toast) Toast.afficher('Coche au moins un bloc', 'erreur'); return; }
     try { await this._chargerPptx(); } catch (e) { if (window.Toast) Toast.afficher(e.message, 'erreur'); return; }
-    const ANTH = '343F48', CORAIL = 'FF6D68', GRIS = '6B757D', P = window.parseCA || Number, qs = ['Q1', 'Q2', 'Q3', 'Q4'];
-    const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_WIDE'; pptx.title = 'Reporting ESI'; pptx.author = Session.nom || 'ESI';
-    const per = this._libellePeriode(), date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    let n = 1;
-    const page = (titre) => {
-      const sl = pptx.addSlide(); n++;
-      sl.addText(titre, { x: 0.5, y: 0.3, w: 9.5, h: 0.6, fontSize: 24, bold: true, color: ANTH });
-      sl.addText(per, { x: 9.3, y: 0.35, w: 3.5, h: 0.4, fontSize: 12, color: GRIS, align: 'right' });
-      sl.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.95, w: 12.33, h: 0.05, fill: { color: CORAIL }, line: { color: CORAIL } });
-      sl.addText('Marvesting × Norton Empower', { x: 0.5, y: 7.0, w: 6, h: 0.3, fontSize: 9, color: GRIS });
-      sl.addText(String(n), { x: 12.3, y: 7.0, w: 0.5, h: 0.3, fontSize: 9, color: GRIS, align: 'right' });
-      return sl;
+    const C = this.CH, FONT = 'Montserrat', D = this._donneesRapport(), slides = this._slides(D), f = n => this._fmt(n), z = t => this._san(t);
+    const err = this._qaChiffres(D), textes = [];
+    const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_16x9'; pptx.title = 'Reporting ESI'; pptx.author = D.auteur;
+    const T = (sl, t, o) => { t = z(t); textes.push(t); if ((o.fontSize || 12) < 12) err.push('Police sous 12 pt : ' + t.slice(0, 30)); sl.addText(t, { fontFace: FONT, color: C.texte, margin: 0, valign: 'middle', ...o }); };
+    const F = (sl, type, o) => sl.addShape(type, { line: { type: 'none' }, ...o });
+    const cellule = (t, o = {}) => { t = z(t); textes.push(t); return { text: t, options: { fontFace: FONT, fontSize: 12, color: C.texte, border: { type: 'none' }, margin: [0.03, 0.08, 0.03, 0.08], ...o } }; };
+    const tableau = (sl, tete, lignes, o) => {
+      const rows = [tete.map((t, i) => cellule(t, { bold: true, color: 'FFFFFF', fill: { color: C.ardoise }, align: i ? 'right' : 'left' })),
+        ...lignes.map((l, k) => l.map((t, i) => cellule(t, { fill: { color: k % 2 ? 'FFFFFF' : C.clair }, align: i ? 'right' : 'left' })))];
+      sl.addTable(rows, { fontFace: FONT, rowH: 0.34, ...o });
     };
-    const th = t => ({ text: t, options: { bold: true, color: GRIS, fill: { color: 'F2F4F5' }, fontSize: 11 } });
-    // Couverture
-    const c = pptx.addSlide(); c.background = { color: ANTH };
     const logo = await this._imageData(location.origin + '/img/logo-marvesting.png');
-    if (logo) { c.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.0, w: 3.2, h: 1.3, fill: { color: 'FFFFFF' }, line: { color: 'FFFFFF' }, rectRadius: 0.1 }); c.addImage({ data: logo, x: 1.0, y: 1.15, w: 2.8, h: 1.0, sizing: { type: 'contain', w: 2.8, h: 1.0 } }); }
-    c.addShape(pptx.ShapeType.rect, { x: 0.8, y: 3.1, w: 0.12, h: 1.2, fill: { color: CORAIL }, line: { color: CORAIL } });
-    c.addText('Reporting commercial', { x: 1.1, y: 3.0, w: 11, h: 0.9, fontSize: 40, bold: true, color: 'FFFFFF' });
-    c.addText(per, { x: 1.1, y: 3.85, w: 11, h: 0.5, fontSize: 20, color: 'FFFFFF' });
-    c.addText(`${Session.nom || ''} · ${date} · périmètre ${Session.voitTout() ? 'équipe' : 'personnel'}`, { x: 1.1, y: 4.6, w: 11, h: 0.4, fontSize: 14, color: 'D5DADE' });
-    for (const [k, titre] of blocs.map(b => [b[0], b[1]])) {
-      const sl = page(titre);
-      if (k === 'visites') {
-        const v = (s.visites || []).filter(x => this._dansPeriode(x.Date || x.Date_Planif)).sort((a, b) => String(b.Date || '').localeCompare(String(a.Date || '')));
-        sl.addText(`${v.length} visite${v.length > 1 ? 's' : ''} sur la période`, { x: 0.5, y: 1.15, w: 8, h: 0.4, fontSize: 16, bold: true, color: ANTH });
-        const rows = [[th('Date'), th('Commercial'), th('Compte'), th('Type')], ...v.slice(0, 11).map(x => [String(x.Date || x.Date_Planif || '').slice(0, 10), window.resolveCDS(x.PIN_CDS || x.Nom_CDS), String(x.Nom_Compte || ''), String(x.Type_Visite || '')])];
-        sl.addTable(v.length ? rows : [[th('Aucune visite enregistrée sur la période')]], { x: 0.5, y: 1.65, w: 12.33, fontSize: 11, color: '1D252C', border: { type: 'solid', color: 'E1E5E8', pt: 0.5 } });
-        if (r.photos) {
-          const urls = v.flatMap(x => String(x.Photo_URL || '').split(' | ').map(u => u.trim()).filter(Boolean).slice(0, 1)).slice(0, 5); let i = 0;
-          for (const u of urls) { const d = await this._imageData(u); if (d) { sl.addImage({ data: d, x: 0.5 + i * 2.5, y: 5.3, w: 2.3, h: 1.5, sizing: { type: 'cover', w: 2.3, h: 1.5 } }); i++; } }
-        }
-      } else if (k === 'sellin') {
-        const parQ = qs.map(q => s.objectifs.reduce((t, o) => t + (P(o[q + '_CA_Realise']) || 0), 0));
-        sl.addChart(pptx.charts.BAR, [{ name: 'CA réalisé (€)', labels: qs, values: parQ.map(Math.round) }], { x: 0.5, y: 1.2, w: 6, h: 3.2, barDir: 'col', chartColors: [ANTH], showValue: true, dataLabelFontSize: 10, catAxisLabelFontSize: 11, valAxisLabelFontSize: 9, showLegend: false });
-        sl.addTable([[th('Commercial'), ...qs.map(th)], ...s.objectifs.map(o => [String(o.Nom_CDS || this._nom(o.PIN_CDS)), ...qs.map(q => this._fmt(P(o[q + '_CA_Realise'])))])], { x: 0.5, y: 4.6, w: 6, fontSize: 10, color: '1D252C', border: { type: 'solid', color: 'E1E5E8', pt: 0.5 } });
-        const tot = cpt => qs.reduce((t, q) => t + (Number(cpt['CA_' + q + 'FY27']) || 0), 0);
-        const top = s.comptes.filter(x => tot(x) > 0).sort((a, b) => tot(b) - tot(a)).slice(0, 10);
-        sl.addText('Comptes ayant commandé (FY27)', { x: 7.0, y: 1.15, w: 5.8, h: 0.4, fontSize: 14, bold: true, color: ANTH });
-        sl.addTable([[th('Compte'), th('Commercial'), th('CA')], ...(top.length ? top.map(x => [String(x.Nom_Compte), this._nom(x.PIN_CDS_Assigne), this._fmt(tot(x)) + ' €']) : [['Aucun', '', '']])], { x: 7.0, y: 1.6, w: 5.8, fontSize: 10, color: '1D252C', border: { type: 'solid', color: 'E1E5E8', pt: 0.5 } });
-      } else if (k === 'atteinte') {
-        const o = this._objectifs(); let y = 1.3;
-        if (!o.length) sl.addText('Aucun objectif pour ce trimestre.', { x: 0.5, y: 1.3, w: 8, h: 0.4, fontSize: 14, color: GRIS });
-        o.slice(0, 7).forEach(x => {
-          const col = x.pct >= 100 ? '12805C' : x.pct >= 80 ? 'D98200' : 'C0453F';
-          sl.addText(x.nom, { x: 0.5, y, w: 3, h: 0.4, fontSize: 14, bold: true, color: ANTH });
-          sl.addText(`${this._fmt(x.ca)} € / ${this._fmt(x.obj)} €`, { x: 3.6, y, w: 4, h: 0.4, fontSize: 12, color: GRIS });
-          sl.addText(Math.round(x.pct) + ' %', { x: 11.3, y, w: 1.5, h: 0.4, fontSize: 18, bold: true, color: col, align: 'right' });
-          sl.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: y + 0.45, w: 12.33, h: 0.2, fill: { color: 'E8EBED' }, line: { color: 'E8EBED' }, rectRadius: 0.1 });
-          sl.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: y + 0.45, w: Math.max(0.15, 12.33 * Math.min(1, x.pct / 100)), h: 0.2, fill: { color: col }, line: { color: col }, rectRadius: 0.1 });
-          y += 0.9;
+    // Couverture
+    const c = pptx.addSlide(); c.background = { color: C.ardoise };
+    if (logo) { F(c, pptx.ShapeType.roundRect, { x: 0.6, y: 0.6, w: 2.6, h: 1.0, fill: { color: 'FFFFFF' }, rectRadius: 0.15 }); c.addImage({ data: logo, x: 0.75, y: 0.7, w: 2.3, h: 0.8, sizing: { type: 'contain', w: 2.3, h: 0.8 } }); }
+    F(c, pptx.ShapeType.roundRect, { x: 0.6, y: 2.2, w: 1.0, h: 0.5, fill: { color: C.rouge }, rectRadius: 0.25 });
+    T(c, 'ESI', { x: 0.6, y: 2.2, w: 1.0, h: 0.5, fontSize: 14, bold: true, color: 'FFFFFF', align: 'center' });
+    T(c, 'Reporting commercial', { x: 0.6, y: 2.85, w: 8.8, h: 0.8, fontSize: 40, bold: true, color: 'FFFFFF' });
+    T(c, D.periode, { x: 0.6, y: 3.65, w: 8.8, h: 0.5, fontSize: 20, color: C.corail });
+    T(c, `${D.auteur} · ${D.date} · périmètre ${D.perimetre}`, { x: 0.6, y: 4.3, w: 8.8, h: 0.4, fontSize: 14, color: 'FFFFFF' });
+    c.addNotes('Message : le point de la période. Chiffre : voir slides suivantes. Question au public : que veut-on décider aujourd\'hui ?');
+    const total = slides.length + 1; let chap = 0, prev = null;
+    for (let i = 0; i < slides.length; i++) {
+      const d = slides[i], sl = pptx.addSlide(); sl.background = { color: 'FFFFFF' };
+      if (d.bloc !== prev) { chap++; prev = d.bloc; }
+      F(sl, pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 1.0, fill: { color: C.ardoise } });
+      F(sl, pptx.ShapeType.roundRect, { x: 0.35, y: 0.25, w: 0.5, h: 0.5, fill: { color: C.rouge }, rectRadius: 0.12, rotate: -6 });
+      T(sl, String(chap), { x: 0.35, y: 0.25, w: 0.5, h: 0.5, fontSize: 16, bold: true, color: 'FFFFFF', align: 'center' });
+      T(sl, d.titre, { x: 1.05, y: 0.1, w: 6.7, h: 0.52, fontSize: 24, bold: true, color: 'FFFFFF', fit: 'shrink' });
+      T(sl, d.concl.length > 52 ? d.concl.slice(0, 51) + '.' : d.concl, { x: 1.05, y: 0.6, w: 6.7, h: 0.32, fontSize: 14, bold: true, color: C.rouge });
+      F(sl, pptx.ShapeType.roundRect, { x: 7.85, y: 0.27, w: 1.8, h: 0.46, fill: { color: 'FFFFFF' }, rectRadius: 0.23 });
+      T(sl, d.capsule, { x: 7.85, y: 0.27, w: 1.8, h: 0.46, fontSize: 14, bold: true, color: C.ardoise, align: 'center' });
+      T(sl, `${D.auteur} · Norton × ISM · FY27`, { x: 0.5, y: 5.2, w: 6, h: 0.3, fontSize: 12, color: C.texte });
+      T(sl, `${i + 2} / ${total}`, { x: 8.4, y: 5.2, w: 1.1, h: 0.3, fontSize: 12, color: C.texte, align: 'right' });
+      if (d.kind === 'visites') {
+        T(sl, String(D.visites.n), { x: 0.5, y: 1.4, w: 2.0, h: 0.9, fontSize: 48, bold: true, color: C.rouge });
+        T(sl, `visite${this._s(D.visites.n, '', 's')} sur la période`, { x: 0.5, y: 2.3, w: 2.0, h: 0.6, fontSize: 12, color: C.texte, valign: 'top' });
+        if (D.visites.lignes.length) tableau(sl, ['Date', 'Commercial', 'Compte', 'Type'], D.visites.lignes, { x: 2.7, y: 1.3, w: 6.9, colW: [1.1, 1.6, 2.7, 1.5] });
+        else T(sl, 'Aucune visite enregistrée sur la période.', { x: 2.7, y: 1.4, w: 6.9, h: 0.5, fontSize: 14 });
+        for (let k = 0; k < D.visites.photos.length; k++) { const p = await this._imageData(D.visites.photos[k]); if (p) sl.addImage({ data: p, x: 2.7 + k * 2.35, y: 3.95, w: 2.2, h: 1.1, sizing: { type: 'cover', w: 2.2, h: 1.1 } }); }
+      } else if (d.kind === 'sellin') {
+        const S = D.sellin;
+        sl.addChart(pptx.charts.BAR, [{ name: 'CA réalisé (€)', labels: D.qs, values: S.parQ }], { x: 0.4, y: 1.25, w: 4.5, h: 3.8, barDir: 'col', chartColors: [C.rouge], showValue: true, dataLabelFontSize: 12, dataLabelFontFace: FONT, dataLabelColor: C.texte, dataLabelFormatCode: '#,##0',
+          catAxisLabelFontSize: 12, catAxisLabelFontFace: FONT, catAxisLabelColor: C.texte, catAxisLineShow: false, valAxisHidden: true, valAxisLineShow: false, valGridLine: { style: 'none' }, catGridLine: { style: 'none' }, showLegend: false, barGapWidthPct: 60 });
+        tableau(sl, ['Commercial', ...D.qs], S.parCom.slice(0, 6).map(x => [x.nom, ...x.q.map(f)]), { x: 5.1, y: 1.4, w: 4.5, colW: [1.3, 0.8, 0.8, 0.8, 0.8] });
+      } else if (d.kind === 'top') {
+        tableau(sl, ['Compte', 'Commercial', 'CA'], D.sellin.top.map(x => [x.compte, x.com, f(x.ca) + ' €']), { x: 0.5, y: 1.35, w: 9.0, colW: [4.2, 2.8, 2.0], rowH: 0.4 });
+      } else if (d.kind === 'atteinte') {
+        const pal = [C.ardoise, C.rouge, C.corail, C.moyen, C.ardoise];
+        d.lignes.forEach((x, k) => {
+          const y = 1.3 + k * 0.75;
+          F(sl, pptx.ShapeType.ellipse, { x: 0.5, y, w: 0.55, h: 0.55, fill: { color: pal[k % 5] } });
+          T(sl, this._init(x.nom), { x: 0.5, y, w: 0.55, h: 0.55, fontSize: 12, bold: true, color: 'FFFFFF', align: 'center' });
+          T(sl, x.nom, { x: 1.25, y: y - 0.02, w: 3.2, h: 0.3, fontSize: 14, bold: true, color: C.ardoise });
+          T(sl, `${f(x.ca)} € sur ${f(x.obj)} €`, { x: 4.5, y: y - 0.02, w: 3.2, h: 0.3, fontSize: 12 });
+          F(sl, pptx.ShapeType.roundRect, { x: 1.25, y: y + 0.36, w: 6.5, h: 0.16, fill: { color: C.clair }, rectRadius: 0.08 });
+          F(sl, pptx.ShapeType.roundRect, { x: 1.25, y: y + 0.36, w: Math.max(0.2, 6.5 * Math.min(1, x.pct / 100)), h: 0.16, fill: { color: C.rouge }, rectRadius: 0.08 });
+          T(sl, x.pct + ' %', { x: 7.9, y: y - 0.05, w: 1.6, h: 0.6, fontSize: 28, bold: true, color: C.rouge, align: 'right' });
         });
-      } else if (k === 'portefeuille') {
-        const d = this._canaux(), ks = Object.keys(d).filter(x => d[x].length);
-        if (ks.length) sl.addChart(pptx.charts.DOUGHNUT, [{ name: 'Comptes', labels: ks, values: ks.map(x => d[x].length) }], { x: 0.5, y: 1.2, w: 5.5, h: 4.5, holeSize: 55, chartColors: ks.map(x => ({ Empower: '2F6FEB', Grossiste: 'C98A1B' }[x] || '8A949E')), showLegend: true, legendPos: 'b', showValue: true, dataLabelColor: 'FFFFFF' });
-        const st = {}; (s.leads || []).forEach(l => { const q = String(l.STATUT_EMPOWER || l.FLAG_ACTION || 'SAISIE'); st[q] = (st[q] || 0) + 1; });
-        sl.addText('Pipeline (leads par statut)', { x: 6.5, y: 1.15, w: 6, h: 0.4, fontSize: 14, bold: true, color: ANTH });
-        const ligs = Object.keys(st).sort().map(q => [q, String(st[q])]);
-        sl.addTable(ligs.length ? ligs : [['Aucun lead', '']], { x: 6.5, y: 1.6, w: 6, fontSize: 11, color: '1D252C', border: { type: 'solid', color: 'E1E5E8', pt: 0.5 } });
-        const deps = new Set(s.comptes.map(cp => (window.VueTerritoires && VueTerritoires._dep) ? VueTerritoires._dep(cp.Departement, cp.Code_Postal) : null).filter(Boolean));
-        sl.addText(`${deps.size} département${deps.size > 1 ? 's' : ''} avec au moins un compte (sur 96)`, { x: 6.5, y: 5.3, w: 6, h: 0.5, fontSize: 14, bold: true, color: ANTH });
+        if (!d.lignes.length) T(sl, 'Aucun objectif pour ce trimestre.', { x: 0.5, y: 1.4, w: 8, h: 0.5, fontSize: 14 });
+      } else if (d.kind === 'portefeuille') {
+        const Pf = D.portefeuille, pal = [C.ardoise, C.rouge, C.corail, C.moyen];
+        if (Pf.canaux.length) sl.addChart(pptx.charts.DOUGHNUT, [{ name: 'Comptes', labels: Pf.canaux.map(x => x[0]), values: Pf.canaux.map(x => x[1]) }], { x: 0.4, y: 1.25, w: 4.5, h: 3.8, holeSize: 55, chartColors: pal.slice(0, Pf.canaux.length), showLegend: true, legendPos: 'b', legendFontSize: 12, legendFontFace: FONT, legendColor: C.texte, showValue: true, showPercent: false, dataLabelFontSize: 12, dataLabelFontFace: FONT, dataLabelColor: 'FFFFFF', dataBorder: { pt: 0, color: 'FFFFFF' } });
+        T(sl, String(Pf.deps), { x: 5.2, y: 1.3, w: 1.6, h: 0.9, fontSize: 48, bold: true, color: C.rouge });
+        T(sl, `département${this._s(Pf.deps, '', 's')} avec au moins un compte, sur 96`, { x: 6.9, y: 1.3, w: 2.7, h: 0.9, fontSize: 12 });
+        if (Pf.leads.length) tableau(sl, ['Pipeline : statut', 'Leads'], Pf.leads.slice(0, 5), { x: 5.2, y: 2.5, w: 4.4, colW: [3.2, 1.2] });
+        else T(sl, 'Aucun lead dans le pipeline.', { x: 5.2, y: 2.6, w: 4.4, h: 0.4, fontSize: 14 });
+      } else if (d.kind === 'synthese') {
+        d.lignes.forEach((l, k) => {
+          F(sl, pptx.ShapeType.roundRect, { x: 0.5, y: 1.3 + k * 1.25, w: 9.0, h: 1.05, fill: { color: C.clair }, rectRadius: 0.15 });
+          F(sl, pptx.ShapeType.ellipse, { x: 0.7, y: 1.55 + k * 1.25, w: 0.55, h: 0.55, fill: { color: k === 1 ? C.rouge : C.ardoise } });
+          T(sl, String(k + 1), { x: 0.7, y: 1.55 + k * 1.25, w: 0.55, h: 0.55, fontSize: 14, bold: true, color: 'FFFFFF', align: 'center' });
+          T(sl, l, { x: 1.5, y: 1.35 + k * 1.25, w: 7.8, h: 0.95, fontSize: 14 });
+        });
       }
+      sl.addNotes(z(d.notes)); textes.push(d.notes);
     }
-    const sy = page('Synthèse et prochaines actions');
-    const t = this._tracker(), act = Object.values(t).reduce((m, g) => m + g.actif.length, 0), non = Object.values(t).reduce((m, g) => m + g.inactif.length, 0), o = this._objectifs(), sous = o.filter(x => x.pct < 80).map(x => x.nom);
-    const lignes = [`${act} compte${act > 1 ? 's' : ''} Empower activé${act > 1 ? 's' : ''} (première commande passée), ${non} non activé${non > 1 ? 's' : ''}.`,
-      non ? `Prochaine action : relancer ${non > 1 ? 'les ' + non + ' comptes Empower onboardés' : 'le compte Empower onboardé'} sans première commande.` : 'Aucun compte Empower en attente de première commande.',
-      sous.length ? `Objectif sous 80 % : ${sous.join(', ')} : point d'accompagnement à prévoir.` : 'Aucun commercial sous 80 % de son objectif.'];
-    sy.addText(lignes.map(l => ({ text: l, options: { bullet: true, breakLine: true } })), { x: 0.7, y: 1.4, w: 11.8, h: 4, fontSize: 18, color: '1D252C', paraSpaceAfter: 12 });
-    try { await pptx.writeFile({ fileName: 'Reporting-ESI-' + new Date().toISOString().slice(0, 10) + '.pptx' }); if (window.Toast) Toast.afficher('PowerPoint généré', 'succes'); }
-    catch (e) { if (window.Toast) Toast.afficher('Échec de la génération PowerPoint : ' + e.message, 'erreur'); }
+    err.push(...this._qaTextes(textes));
+    if (err.length) { if (window.Toast) Toast.afficher('Contrôle qualité : ' + err[0], 'erreur'); console.error('QA rapport', err); return; }
+    try {
+      const blob = await this._finaliserPptx(await pptx.write({ outputType: 'arraybuffer' }));
+      this._telecharger(blob, 'Reporting-ESI-' + new Date().toISOString().slice(0, 10) + '.pptx');
+      if (window.Toast) Toast.afficher('PowerPoint généré', 'succes');
+    } catch (e) { if (window.Toast) Toast.afficher('Échec de la génération PowerPoint : ' + e.message, 'erreur'); console.error('QA rapport', e); }
+  },
+
+  // Passe finale sur le XML du PPTX : supprime tout contour (aplats seuls) puis vérifie lignes, connecteurs, tirets, polices < 12 pt
+  async _finaliserPptx(buf) {
+    const zip = await JSZip.loadAsync(buf), err = [];
+    for (const nom of Object.keys(zip.files).filter(n => /^ppt\/(slides|charts|notesSlides)\/[^/]+\.xml$/.test(n))) {
+      let x = await zip.file(nom).async('string');
+      x = x.replace(/<a:ln\b[^>]*\/>/g, '<a:ln><a:noFill/></a:ln>').replace(/<a:ln\b[^>]*>[\s\S]*?<\/a:ln>/g, '<a:ln><a:noFill/></a:ln>');
+      if (/[\u2013\u2014]/.test(x)) err.push('Tiret interdit : ' + nom);
+      if (/<p:cxnSp|prst="line"|<c:majorGridlines|<c:minorGridlines/.test(x)) err.push('Ligne droite : ' + nom);
+      if (/\su="(?!none)/.test(x)) err.push('Soulignement : ' + nom);
+      if (/\ssz="(\d{3,4})"/.test(x) && [...x.matchAll(/\ssz="(\d+)"/g)].some(m => Number(m[1]) < 1200)) err.push('Police sous 12 pt : ' + nom);
+      zip.file(nom, x);
+    }
+    if (err.length) throw new Error('Contrôle qualité PPTX : ' + err[0]);
+    return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+  },
+  _telecharger(blob, nom) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nom; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  },
+
+  // ── PDF (HTML imprimé, A4 paysage) : mêmes données et mêmes slides que le PPTX ──
+  _htmlRapport(D, slides) {
+    const C = this.CH, e = t => this._esc(this._san(t)), f = n => this._fmt(n);
+    const tab = (tete, lignes) => `<table><thead><tr>${tete.map((t, i) => `<th class="${i ? 'r' : ''}">${e(t)}</th>`).join('')}</tr></thead><tbody>${lignes.map(l => `<tr>${l.map((t, i) => `<td class="${i ? 'r' : ''}">${e(t)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    const pal = ['#' + C.ardoise, '#' + C.rouge, '#' + C.corail, '#' + C.moyen];
+    const corps = d => {
+      if (d.kind === 'visites') return `<div class="cols"><div class="hero"><b>${D.visites.n}</b><span>visite${this._s(D.visites.n, '', 's')} sur la période</span></div><div class="grow">${D.visites.lignes.length ? tab(['Date', 'Commercial', 'Compte', 'Type'], D.visites.lignes) : '<p>Aucune visite enregistrée sur la période.</p>'}
+        ${D.visites.photos.length ? `<div class="ph">${D.visites.photos.map(u => `<img src="${this._esc(u)}" alt="Photo de visite" onerror="this.style.display='none'">`).join('')}</div>` : ''}</div></div>`;
+      if (d.kind === 'sellin') { const S = D.sellin, mx = Math.max(1, ...S.parQ);
+        return `<div class="cols"><div class="bars">${S.parQ.map((v, i) => `<div class="b"><em>${f(v)}</em><i style="height:${Math.max(2, v / mx * 52)}mm"></i><span>${D.qs[i]}</span></div>`).join('')}</div><div class="grow">${tab(['Commercial', ...D.qs], S.parCom.slice(0, 6).map(x => [x.nom, ...x.q.map(f)]))}</div></div>`; }
+      if (d.kind === 'top') return tab(['Compte', 'Commercial', 'CA'], D.sellin.top.map(x => [x.compte, x.com, f(x.ca) + ' €']));
+      if (d.kind === 'atteinte') return d.lignes.length ? d.lignes.map((x, k) => `<div class="gj"><span class="ci" style="background:${pal[k % 4]}">${e(this._init(x.nom))}</span><div class="grow"><div class="gh"><b>${e(x.nom)}</b><span>${f(x.ca)} € sur ${f(x.obj)} €</span><strong>${x.pct} %</strong></div><div class="gt"><i style="width:${Math.min(100, x.pct)}%"></i></div></div></div>`).join('') : '<p>Aucun objectif pour ce trimestre.</p>';
+      if (d.kind === 'portefeuille') { const Pf = D.portefeuille; let a = 0; const seg = Pf.canaux.map(([, n], i) => { const p = n / (Pf.total || 1) * 100, s = `${pal[i % 4]} ${a}% ${a + p}%`; a += p; return s; }).join(',');
+        return `<div class="cols"><div class="don"><div class="ring" style="background:conic-gradient(${seg || '#' + C.clair + ' 0 100%'})"><span>${Pf.total}</span></div><ul>${Pf.canaux.map(([k, n], i) => `<li><i style="background:${pal[i % 4]}"></i>${e(k)} <b>${n}</b></li>`).join('')}</ul></div>
+          <div class="grow"><div class="hero"><b>${Pf.deps}</b><span>département${this._s(Pf.deps, '', 's')} avec au moins un compte, sur 96</span></div>${Pf.leads.length ? tab(['Pipeline : statut', 'Leads'], Pf.leads.slice(0, 5)) : '<p>Aucun lead dans le pipeline.</p>'}</div></div>`; }
+      return d.lignes.map((l, k) => `<div class="pan"><span class="ci" style="background:${k === 1 ? '#' + C.rouge : '#' + C.ardoise}">${k + 1}</span><p>${e(l)}</p></div>`).join('');
+    };
+    const total = slides.length + 1;
+    const cover = `<section class="pg cover"><div class="logos"><img src="${location.origin}/img/logo-marvesting.png" alt="Marvesting" onerror="this.style.display='none'">${typeof NORTON_SVG === 'string' ? NORTON_SVG : ''}</div><div class="tag">ESI</div><h1>Reporting commercial</h1><p class="sub">${e(D.periode)}</p><p>${e(D.auteur)} · ${e(D.date)} · périmètre ${e(D.perimetre)}</p></section>`;
+    let chap = 0, prev = null;
+    const pages = slides.map((d, i) => { if (d.bloc !== prev) { chap++; prev = d.bloc; }
+      return `<section class="pg"><header><span class="bd">${chap}</span><div class="grow"><h2>${e(d.titre)}</h2><p>${e(d.concl)}</p></div><span class="cap">${e(d.capsule)}</span></header><div class="body">${corps(d)}</div><footer><span>${e(D.auteur)} · Norton × ISM · FY27</span><span>${i + 2} / ${total}</span></footer></section>`; });
+    const css = `@page{size:A4 landscape;margin:0}*{box-sizing:border-box}body{margin:0;font-family:'Montserrat','Segoe UI',system-ui,sans-serif;color:#${C.texte};-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .pg{width:297mm;height:210mm;page-break-after:always;break-after:page;position:relative;overflow:hidden;background:#fff}.grow{flex:1;min-width:0}
+      .pg>header{display:flex;align-items:center;gap:6mm;background:#${C.ardoise};color:#fff;height:30mm;padding:0 14mm}.pg h2{margin:0;font-size:24px;font-weight:700}.pg>header p{margin:3px 0 0;font-size:14px;font-weight:700;color:#${C.rouge}}
+      .bd{display:flex;align-items:center;justify-content:center;width:13mm;height:13mm;border-radius:4mm;background:#${C.rouge};font-weight:700;font-size:18px;transform:rotate(-6deg)}.cap{background:#fff;color:#${C.ardoise};border-radius:99px;padding:3mm 6mm;font-weight:700;font-size:15px;white-space:nowrap}
+      .body{padding:10mm 14mm}.pg>footer{position:absolute;left:14mm;right:14mm;bottom:7mm;display:flex;justify-content:space-between;font-size:12px}
+      .cover{background:#${C.ardoise};color:#fff;padding:20mm 22mm}.cover h1{font-size:44px;margin:14mm 0 4mm}.cover .sub{font-size:22px;color:#${C.corail};margin:0 0 8mm}.cover p{font-size:15px}.tag{display:inline-block;background:#${C.rouge};border-radius:99px;padding:3mm 8mm;font-weight:700;margin-top:16mm}
+      .logos{display:flex;align-items:center;gap:12mm;background:#fff;border-radius:5mm;padding:6mm 9mm;width:fit-content}.logos img{height:14mm}.logos svg{height:14mm;width:14mm}
+      .cols{display:flex;gap:10mm;align-items:flex-start}.hero{min-width:46mm}.hero b{display:block;font-size:56px;line-height:1;color:#${C.rouge}}.hero span{font-size:12px}
+      table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}th,td{padding:2.2mm 3mm;text-align:left}th{background:#${C.ardoise};color:#fff}td.r,th.r{text-align:right}tbody tr:nth-child(odd) td{background:#${C.clair}}
+      th:first-child{border-radius:3mm 0 0 3mm}th:last-child{border-radius:0 3mm 3mm 0}
+      .ph{display:flex;gap:4mm;margin-top:5mm}.ph img{width:60mm;height:30mm;object-fit:cover;border-radius:4mm}
+      .bars{display:flex;gap:6mm;align-items:flex-end;height:70mm;min-width:95mm}.b{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:20mm;font-size:12px}.b i{display:block;width:100%;background:#${C.rouge};border-radius:3mm 3mm 0 0}.b em{font-style:normal;margin-bottom:1mm}.b span{margin-top:2mm}
+      .gj{display:flex;gap:5mm;align-items:center;margin:0 0 5.5mm}.ci{display:flex;align-items:center;justify-content:center;flex:none;width:12mm;height:12mm;border-radius:50%;color:#fff;font-weight:700;font-size:13px}
+      .gh{display:flex;gap:4mm;align-items:baseline;font-size:14px}.gh span{flex:1;font-size:12px}.gh strong{font-size:26px;color:#${C.rouge}}.gt{height:4mm;background:#${C.clair};border-radius:99px;margin-top:1mm}.gt i{display:block;height:100%;background:#${C.rouge};border-radius:99px}
+      .don{display:flex;flex-direction:column;align-items:center;gap:4mm;min-width:70mm}.ring{width:52mm;height:52mm;border-radius:50%;display:flex;align-items:center;justify-content:center}.ring span{display:flex;align-items:center;justify-content:center;width:28mm;height:28mm;border-radius:50%;background:#fff;font-size:26px;font-weight:700}
+      .don ul{list-style:none;padding:0;margin:0;font-size:12px}.don li i{display:inline-block;width:3mm;height:3mm;border-radius:50%;margin-right:2mm}
+      .pan{display:flex;align-items:center;gap:6mm;background:#${C.clair};border-radius:6mm;padding:5mm 7mm;margin-bottom:5mm}.pan p{margin:0;font-size:15px}`;
+    return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Reporting ESI : ${this._esc(D.periode)}</title><style>${css}</style></head><body>${cover}${pages.join('')}</body></html>`;
   },
 
   genererPDF() {
-    const r = this._x(), b = this.BLOCS.filter(x => r.blocs.includes(x[0]));
-    if (!b.length) { if (window.Toast) Toast.afficher('Coche au moins un bloc', 'erreur'); return; }
+    const r = this._x(); if (!this.BLOCS.some(x => r.blocs.includes(x[0]))) { if (window.Toast) Toast.afficher('Coche au moins un bloc', 'erreur'); return; }
+    const D = this._donneesRapport(), slides = this._slides(D), html = this._htmlRapport(D, slides);
+    const err = [...this._qaChiffres(D), ...this._qaHtml(html)];
+    if (err.length) { if (window.Toast) Toast.afficher('Contrôle qualité : ' + err[0], 'erreur'); console.error('QA rapport', err); return; }
     const w = window.open('', '_blank'); if (!w) { if (window.Toast) Toast.afficher('Fenêtre bloquée : autorise les pop-ups', 'erreur'); return; }
-    const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }), fn = { visites: 'Visites', sellin: 'Sell-in', atteinte: 'Atteinte', portefeuille: 'Portefeuille' };
-    const corps = { visites: () => this._pageVisites(), sellin: () => this._pageSellin(), atteinte: () => this._pageAtteinte(), portefeuille: () => this._pagePortefeuille() };
-    const cover = `<section class="pg cover"><div class="logos"><img src="${location.origin}/img/logo-marvesting.png" alt="Marvesting" onerror="this.style.display='none'">${typeof NORTON_SVG === 'string' ? NORTON_SVG : ''}</div>
-      <h1>Reporting commercial</h1><p class="sub">${this._esc(this._libellePeriode())}</p><p>${this._esc(Session.nom || '')} · ${date}</p><p class="n">Périmètre ${Session.voitTout() ? 'équipe' : 'personnel'}</p></section>`;
-    const pages = [cover, ...b.map((x, i) => this._pageHTML(x[1], corps[x[0]](), i + 2)), this._pageHTML('Synthèse et prochaines actions', this._pageSynthese(), b.length + 2)];
-    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Reporting ESI · ${this._esc(this._libellePeriode())}</title><style>
-      @page{size:A4 landscape;margin:0}*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#1d252c;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .pg{width:297mm;height:210mm;padding:14mm 16mm;page-break-after:always;break-after:page;position:relative;overflow:hidden;background:#fff}
-      .pg>header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px solid #FF6D68;padding-bottom:6px;margin-bottom:10mm}.pg h2{margin:0;font-size:22px;color:#343F48}.pg>header span{font-size:13px;color:#6b757d}
-      .pg>footer{position:absolute;left:16mm;right:16mm;bottom:8mm;display:flex;justify-content:space-between;font-size:10px;color:#6b757d}
-      .cover{background:#343F48;color:#fff;display:flex;flex-direction:column;justify-content:center}.cover h1{font-size:44px;margin:14mm 0 4mm;border-left:8px solid #FF6D68;padding-left:10mm}.cover .sub{font-size:22px;margin:0 0 8mm 18mm}.cover p{margin-left:18mm}
-      .logos{display:flex;align-items:center;gap:14mm;background:#fff;border-radius:12px;padding:8mm 10mm;width:fit-content}.logos img{height:14mm}.logos svg{height:14mm;width:14mm}
-      table{border-collapse:collapse;width:100%;font-size:12px;margin:6px 0}th,td{padding:5px 8px;border-bottom:1px solid #e1e5e8;text-align:left}th{background:#f2f4f5;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#6b757d}
-      .k{font-size:15px;margin:0 0 6px}.k b{font-size:26px;color:#343F48}.n{font-size:11px;color:#6b757d}.duo{display:grid;grid-template-columns:1fr 1fr;gap:12mm}h3{font-size:14px;margin:0 0 4px;color:#343F48}svg{max-width:100%;height:auto}
-      .ph{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px}.ph img{width:100%;height:30mm;object-fit:cover;border-radius:6px}
-      .gj{margin:0 0 7mm}.gh{display:flex;gap:10px;align-items:baseline;font-size:13px}.gh span{flex:1;color:#6b757d}.gh strong{font-size:20px}.gt{height:12px;background:#e8ebed;border-radius:8px;margin-top:4px}.gt i{display:block;height:100%;border-radius:8px}
-      .syn{font-size:16px;line-height:1.7;padding-left:20px}.an-donut{display:flex;gap:14px;align-items:center}.an-donut svg{width:55mm}.an-leg{list-style:none;padding:0;font-size:12px}.an-leg span{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
-      </style></head><body>${pages.join('')}</body></html>`);
-    w.document.close(); w.focus();
+    w.document.write(html); w.document.close(); w.focus();
     const lancer = () => { try { w.print(); } catch (e) { /* impression manuelle possible */ } };
     const imgs = [...w.document.images]; let restants = imgs.length;
     if (!restants) setTimeout(lancer, 300); else { const fin = () => { if (--restants <= 0) setTimeout(lancer, 200); }; imgs.forEach(i => (i.complete ? fin() : (i.onload = i.onerror = fin))); setTimeout(lancer, 4000); }
