@@ -153,14 +153,16 @@ window.VueAnalyse = {
   CH: { ardoise: '343F48', rouge: 'FF1209', corail: 'FF6D68', clair: 'EEF0F1', moyen: 'B8BEC4', texte: '424242' },
   _san(t) { return String(t == null || String(t).trim() === '' ? 'N/A' : t).replace(/\s*[–—]\s*/g, ', '); },
   _init(nom) { return String(nom || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?'; },
+  _typeVisite(t) { const m = String(t || '').trim().toLowerCase().replace(/_/g, ' '); return m ? m[0].toUpperCase() + m.slice(1) : ''; },
+  _numerique(lignes, i) { return lignes.length > 0 && lignes.every(l => /^[\d\s\u202f\u00a0.,%€]+$/.test(String(l[i]))); },
   _s(n, un, plus) { return n > 1 ? plus : un; },
 
   _donneesRapport() {
     const s = this.state, r = this._x(), P = window.parseCA || Number, qs = ['Q1', 'Q2', 'Q3', 'Q4'];
     const v = (s.visites || []).filter(x => this._dansPeriode(x.Date || x.Date_Planif)).sort((a, b) => String(b.Date || '').localeCompare(String(a.Date || '')));
     const photos = r.photos ? v.flatMap(x => String(x.Photo_URL || '').split(' | ').map(u => u.trim()).filter(Boolean).slice(0, 1)).slice(0, 3) : [];
-    const parQ = qs.map(q => Math.round(s.objectifs.reduce((t, o) => t + (P(o[q + '_CA_Realise']) || 0), 0)));
     const parCom = s.objectifs.map(o => { const q = qs.map(k => Math.round(P(o[k + '_CA_Realise']) || 0)); return { nom: o.Nom_CDS || this._nom(o.PIN_CDS), q, tot: q.reduce((a, b) => a + b, 0) }; });
+    const parQ = qs.map((q, i) => parCom.reduce((t, x) => t + x.q[i], 0)); // somme des cellules affichées : le tableau et l'histogramme concordent
     const tot = c => qs.reduce((t, q) => t + (Number(c['CA_' + q + 'FY27']) || 0), 0);
     const top = s.comptes.filter(c => tot(c) > 0).sort((a, b) => tot(b) - tot(a)).slice(0, 8).map(c => ({ compte: c.Nom_Compte, com: this._nom(c.PIN_CDS_Assigne), ca: Math.round(tot(c)) }));
     const att = this._objectifs().map(x => ({ nom: x.nom, ca: Math.round(x.ca), obj: Math.round(x.obj), pct: Math.round(x.pct) }));
@@ -174,7 +176,7 @@ window.VueAnalyse = {
       periode: this._libellePeriode(), quarter: s.quarter, date: new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
       auteur: Session.nom || 'ESI', perimetre: Session.voitTout() ? 'équipe' : 'personnel', qs,
       visites: { n: v.length, comptes: new Set(v.map(x => x.Nom_Compte)).size, commerciaux: new Set(v.map(x => x.PIN_CDS || x.Nom_CDS)).size,
-        lignes: v.slice(0, 6).map(x => [String(x.Date || x.Date_Planif || '').slice(0, 10), window.resolveCDS(x.PIN_CDS || x.Nom_CDS), x.Nom_Compte, x.Type_Visite]), photos },
+        lignes: v.slice(0, 6).map(x => [String(x.Date || x.Date_Planif || '').slice(0, 10), window.resolveCDS(x.PIN_CDS || x.Nom_CDS), x.Nom_Compte, this._typeVisite(x.Type_Visite)]), photos },
       sellin: { parQ, total: parQ.reduce((a, b) => a + b, 0), parCom, top },
       atteinte: { lignes: att, ca: sumCa, obj: sumObj, pct: sumObj > 0 ? Math.round(sumCa / sumObj * 100) : 0, ok: att.filter(x => x.pct >= 100).length },
       portefeuille: { canaux, total: canaux.reduce((a, [, n]) => a + n, 0), leads: Object.keys(lead).sort().map(k => [k, lead[k]]), deps },
@@ -185,7 +187,9 @@ window.VueAnalyse = {
   // Contrôle des totaux recalculés par code (QA 5)
   _qaChiffres(D) {
     const err = [], S = D.sellin, A = D.atteinte, Pf = D.portefeuille;
-    D.qs.forEach((q, i) => { const c = S.parCom.reduce((a, x) => a + x.q[i], 0); if (Math.abs(c - S.parQ[i]) > 1) err.push(`Total ${q} incohérent (${c} contre ${S.parQ[i]})`); });
+    // Recalcul depuis les données brutes (tolérance : un arrondi par ligne affichée)
+    const P = window.parseCA || Number;
+    D.qs.forEach((q, i) => { const brut = this.state.objectifs.reduce((a, o) => a + (P(o[q + '_CA_Realise']) || 0), 0); if (Math.abs(brut - S.parQ[i]) > S.parCom.length / 2 + 1) err.push(`Total ${q} incohérent (${Math.round(brut)} contre ${S.parQ[i]})`); });
     if (S.parCom.reduce((a, x) => a + x.tot, 0) !== S.total) err.push('Total sell-in incohérent');
     if (Pf.total !== this.state.comptes.length) err.push(`Canaux (${Pf.total}) différent du nombre de comptes (${this.state.comptes.length})`);
     A.lignes.forEach(x => { if (x.obj > 0 && Math.abs(Math.round(x.ca / x.obj * 100) - x.pct) > 1) err.push('Pourcentage incohérent : ' + x.nom); });
@@ -230,6 +234,7 @@ window.VueAnalyse = {
   _qaTextes(textes) { return textes.filter(t => /[–—]/.test(t)).map(t => 'Tiret interdit dans : ' + t.slice(0, 50)); },
   _qaHtml(html) {
     const e = [];
+    html = html.replace(/<div class="logos">[\s\S]*?<\/div>/, ''); // les logos de marque (tracés du logo Norton) ne sont pas du décor
     if (/[–—]/.test(html)) e.push('Tiret long ou demi-cadratin dans le HTML');
     if (/(?<!box-sizing:)border(?!-radius|-spacing|-collapse:separate)/i.test(html)) e.push('Bordure dans le CSS');
     if (/<hr|<line|<polyline|text-decoration|underline|outline(?!-offset)/i.test(html)) e.push('Ligne droite ou soulignement dans le HTML');
@@ -260,8 +265,9 @@ window.VueAnalyse = {
     const F = (sl, type, o) => sl.addShape(type, { line: { type: 'none' }, ...o });
     const cellule = (t, o = {}) => { t = z(t); textes.push(t); return { text: t, options: { fontFace: FONT, fontSize: 12, color: C.texte, border: { type: 'none' }, margin: [0.03, 0.08, 0.03, 0.08], ...o } }; };
     const tableau = (sl, tete, lignes, o) => {
-      const rows = [tete.map((t, i) => cellule(t, { bold: true, color: 'FFFFFF', fill: { color: C.ardoise }, align: i ? 'right' : 'left' })),
-        ...lignes.map((l, k) => l.map((t, i) => cellule(t, { fill: { color: k % 2 ? 'FFFFFF' : C.clair }, align: i ? 'right' : 'left' })))];
+      const dr = tete.map((_, i) => this._numerique(lignes, i) ? 'right' : 'left');
+      const rows = [tete.map((t, i) => cellule(t, { bold: true, color: 'FFFFFF', fill: { color: C.ardoise }, align: dr[i] })),
+        ...lignes.map((l, k) => l.map((t, i) => cellule(t, { fill: { color: k % 2 ? 'FFFFFF' : C.clair }, align: dr[i] })))];
       sl.addTable(rows, { fontFace: FONT, rowH: 0.34, ...o });
     };
     const logo = await this._imageData(location.origin + '/img/logo-marvesting.png');
@@ -362,7 +368,7 @@ window.VueAnalyse = {
   // ── PDF (HTML imprimé, A4 paysage) : mêmes données et mêmes slides que le PPTX ──
   _htmlRapport(D, slides) {
     const C = this.CH, e = t => this._esc(this._san(t)), f = n => this._fmt(n);
-    const tab = (tete, lignes) => `<table><thead><tr>${tete.map((t, i) => `<th class="${i ? 'r' : ''}">${e(t)}</th>`).join('')}</tr></thead><tbody>${lignes.map(l => `<tr>${l.map((t, i) => `<td class="${i ? 'r' : ''}">${e(t)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    const tab = (tete, lignes) => { const dr = tete.map((_, i) => this._numerique(lignes, i) ? 'r' : ''); return `<table><thead><tr>${tete.map((t, i) => `<th class="${dr[i]}">${e(t)}</th>`).join('')}</tr></thead><tbody>${lignes.map(l => `<tr>${l.map((t, i) => `<td class="${dr[i]}">${e(t)}</td>`).join('')}</tr>`).join('')}</tbody></table>`; };
     const pal = ['#' + C.ardoise, '#' + C.rouge, '#' + C.corail, '#' + C.moyen];
     const corps = d => {
       if (d.kind === 'visites') return `<div class="cols"><div class="hero"><b>${D.visites.n}</b><span>visite${this._s(D.visites.n, '', 's')} sur la période</span></div><div class="grow">${D.visites.lignes.length ? tab(['Date', 'Commercial', 'Compte', 'Type'], D.visites.lignes) : '<p>Aucune visite enregistrée sur la période.</p>'}
@@ -387,7 +393,7 @@ window.VueAnalyse = {
       .bd{display:flex;align-items:center;justify-content:center;width:13mm;height:13mm;border-radius:4mm;background:#${C.rouge};font-weight:700;font-size:18px;transform:rotate(-6deg)}.cap{background:#fff;color:#${C.ardoise};border-radius:99px;padding:3mm 6mm;font-weight:700;font-size:15px;white-space:nowrap}
       .body{padding:10mm 14mm}.pg>footer{position:absolute;left:14mm;right:14mm;bottom:7mm;display:flex;justify-content:space-between;font-size:12px}
       .cover{background:#${C.ardoise};color:#fff;padding:20mm 22mm}.cover h1{font-size:44px;margin:14mm 0 4mm}.cover .sub{font-size:22px;color:#${C.corail};margin:0 0 8mm}.cover p{font-size:15px}.tag{display:inline-block;background:#${C.rouge};border-radius:99px;padding:3mm 8mm;font-weight:700;margin-top:16mm}
-      .logos{display:flex;align-items:center;gap:12mm;background:#fff;border-radius:5mm;padding:6mm 9mm;width:fit-content}.logos img{height:14mm}.logos svg{height:14mm;width:14mm}
+      .logos{display:flex;align-items:center;gap:12mm;color:#${C.ardoise};background:#fff;border-radius:5mm;padding:6mm 9mm;width:fit-content}.logos img{height:14mm}.logos svg{height:14mm;width:14mm}
       .cols{display:flex;gap:10mm;align-items:flex-start}.hero{min-width:46mm}.hero b{display:block;font-size:56px;line-height:1;color:#${C.rouge}}.hero span{font-size:12px}
       table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}th,td{padding:2.2mm 3mm;text-align:left}th{background:#${C.ardoise};color:#fff}td.r,th.r{text-align:right}tbody tr:nth-child(odd) td{background:#${C.clair}}
       th:first-child{border-radius:3mm 0 0 3mm}th:last-child{border-radius:0 3mm 3mm 0}

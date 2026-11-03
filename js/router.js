@@ -90,28 +90,32 @@ const Router = {
     if (window.NavWeb) NavWeb.marquerAller();
     const url = String(hash).replace(/^#/, '');
     if (url === window.location.pathname + window.location.search && !window.location.hash) return;
-    window.history.pushState(null, '', url);
+    // Profondeur de navigation interne mémorisée dans l'état d'historique : sert à savoir si « retour » reste dans l'app.
+    const profondeur = ((window.history.state && window.history.state.esi) || 0) + 1;
+    window.history.pushState({ esi: profondeur }, '', url);
     this._resoudre();
   },
 
   // Redirection interne (garde d'accès, ancienne route) : remplace l'entrée d'historique
   // au lieu d'en ajouter une, pour que le bouton retour ne piège pas l'utilisateur.
   _rediriger(hash) {
-    window.history.replaceState(null, '', String(hash).replace(/^#/, ''));
+    window.history.replaceState(window.history.state, '', String(hash).replace(/^#/, ''));
     this._resoudre();
   },
 
   // Bloc 3 §2 — retour à l'écran précédent (historique navigateur) ; repli
   // vers l'accueil quand la vue est le point d'entrée (lien direct, rechargement).
   retour() {
-    if (window.history.length > 1) window.history.back();
+    // history.length ne distingue pas une entrée par lien direct d'une navigation interne (il compte aussi les pages
+    // précédentes de l'onglet) : on se fie à la profondeur interne, sinon repli vers l'accueil.
+    if (window.history.state && window.history.state.esi > 0) window.history.back();
     else this.aller('#/dashboard');
   },
 
   _resoudre() {
     // Ancien format '#/comptes' (push déjà envoyées, favoris) : converti en '/comptes' sans recharger.
     if (window.location.hash && window.location.hash.startsWith('#/')) {
-      window.history.replaceState(null, '', window.location.hash.slice(1));
+      window.history.replaceState(window.history.state, '', window.location.hash.slice(1));
     }
     const hash = this.hashCourant() || '#/login';
 
