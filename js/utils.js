@@ -415,6 +415,9 @@ function NavBar(actif) {
   // ── Rendu d'un item nav ──
   // mobileNav:true  → pas de nav-sidebar-only → visible mobile bottom nav + sidebar desktop
   // mobileNav:false → nav-sidebar-only → caché mobile, visible uniquement sidebar desktop
+  // Pictogrammes Marvesting (blancs, pour fond ardoise) ; repli sur le SVG d'origine si absent
+  const PICTO = window.PICTOS_MARVESTING = window.PICTOS_MARVESTING || { home: 'ordinateur', tracker: 'relance', a_contacter: 'relance', comptes: 'magasin', territoires: 'localisation', visites: 'horloge', visites_fdv: 'horloge', reporting: 'bouclier_valide', reporting_cds: 'bouclier_valide', analyse: 'bouclier_valide', primes: 'etiquette_prix', photos: 'mobile', admin: 'equipe' };
+  const imgPicto = id => `<img class="mi-ico" src="img/icones/${PICTO[id]}.png" alt="" width="22" height="22">`;
   function _itemHtml(i) {
     const cls = [
       'nav-item',
@@ -422,7 +425,7 @@ function NavBar(actif) {
       actif === i.id ? 'actif' : '',
     ].filter(Boolean).join(' ');
     return `<a class="${cls}" href="${String(i.hash).replace(/^#/, '')}" data-id="${i.id}" data-lbl="${i.lbl}">
-      <span class="nav-icone">${i.icone}</span>
+      <span class="nav-icone">${PICTO[i.id] ? imgPicto(i.id) : i.icone}</span>
       <span class="nav-lbl">${i.lbl}</span>
       ${(() => { const n = (i.id === 'a_contacter' && window.AContacter) ? AContacter.nb() : 0;
         return `<span class="nav-badge${n > 0 ? ' visible' : ''}" id="nav-badge-${i.id}">${n > 0 ? (n > 99 ? '99+' : n) : ''}</span>`; })()}
@@ -454,11 +457,8 @@ function NavBar(actif) {
     <!-- Barre mobile top -->
     <div class="app-brand-bar">
       <div class="app-brand-logo">
-        ${NORTON_SVG}
-        <span class="brand-norton-txt">norton</span><sup class="brand-tm">™</sup>
+        <img class="logo-reseller" src="img/norton-empower-reseller-dark.png" alt="Norton Empower Reseller Program" height="30">
       </div>
-      <span class="app-brand-sep">|</span>
-      <span class="app-brand-esi">EMPOWER SALES INTELLIGENCE</span>
       <button class="brand-hamburger" onclick="DrawerMenu.ouvrir()" aria-label="Menu">
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <line x1="2" y1="5.5" x2="20" y2="5.5"/>
@@ -474,8 +474,7 @@ function NavBar(actif) {
       <div class="nav-logo">
         ${NORTON_SVG}
         <div class="nav-logo-textes">
-          <span class="nav-logo-norton">norton<sup>™</sup></span>
-          <span class="nav-logo-esi">EMPOWER SALES INTELLIGENCE</span>
+          <img class="logo-reseller" src="img/norton-empower-reseller-dark.png" alt="Norton Empower Reseller Program" height="28">
         </div>
         <button class="nav-toggle-btn" onclick="SidebarToggle.toggle()" title="Réduire / Développer le menu" aria-label="Toggle sidebar">
           ${ICO_CHEV}
@@ -508,7 +507,7 @@ function NavBar(actif) {
           <span class="nav-lbl">Déconnexion</span>
         </button>
       </div>
-      <div class="nav-marque" aria-label="Marvesting">MARVESTING</div>
+      <div class="nav-marque"><img src="img/marvesting-group-cream.png" alt="Marvesting Group" height="20"></div>
     </nav>`;
 }
 
@@ -669,7 +668,7 @@ const DrawerMenu = (function () {
         <div class="drawer-section-lbl">Navigation</div>
         ${items.map(i => `
           <a class="drawer-item${((Router.hashCourant()||'').split('?')[0]===i.hash)?' actif':''}" href="${String(i.hash).replace(/^#/, '')}" onclick="DrawerMenu.fermer()">
-            <div class="drawer-item-ico">${i.ico}</div>
+            <div class="drawer-item-ico">${(window.PICTOS_MARVESTING || {})[i.id] ? `<img class="mi-ico" src="img/icones/${window.PICTOS_MARVESTING[i.id]}.png" alt="" width="22" height="22">` : i.ico}</div>
             ${i.lbl}
             ${(i.id === 'a_contacter' && window.AContacter && AContacter.nb() > 0) ? `<span class="drawer-badge">${AContacter.nb() > 99 ? '99+' : AContacter.nb()}</span>` : ''}
           </a>`).join('')}
@@ -694,7 +693,7 @@ const DrawerMenu = (function () {
           </button>
         </div>
       </nav>
-      <div class="drawer-marque">MARVESTING</div>
+      <div class="drawer-marque"><img src="img/marvesting-group-cream.png" alt="Marvesting Group" height="20"></div>
     </div>`;
   }
 
