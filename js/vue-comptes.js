@@ -238,6 +238,9 @@ window.VueComptes = {
       l = l.filter(c => this._statutCompte(c) === 'silencieux');
     } else if (this.state.filtreStatut === 'SANS_CDS') {
       l = l.filter(c => !c.PIN_CDS_Assigne);
+    } else if (this.state.filtreStatut === 'A_TRAITER') {
+      const ids = new Set(this._aTraiter().map(x => String(x.c.ID_Compte || x.c._uuid)));
+      l = l.filter(c => ids.has(String(c.ID_Compte || c._uuid)));
     }
     // « À reprendre » : on garde l'ordre CA décroissant (les bons comptes d'abord)
     const garderOrdreCA = this.state.filtreStatut === 'A_REPRENDRE';
@@ -295,6 +298,113 @@ window.VueComptes = {
     return window.FlagsCanal.html(c);
   },
 
+
+  // ── Panneau « À traiter » : file de travail priorisée (un motif par compte) ──
+  _aTraiter() {
+    const today = dateISOLocale();
+    const vu = new Set(), out = [];
+    const ajouter = (c, motif, rang, detail) => {
+      const id = String(c.ID_Compte || c._uuid);
+      if (vu.has(id)) return;
+      vu.add(id); out.push({ c, motif, rang, detail });
+    };
+    const cs = this.state.comptes;
+    cs.forEach(c => {
+      const d = this._prochaineVisite(c);
+      if (d && String(d).slice(0, 10) < today) {
+        const j = Math.max(1, Math.floor((Date.now() - new Date(d).getTime()) / 86400000));
+        ajouter(c, 'Relance en retard', 0, `depuis ${j} j`);
+      }
+    });
+    cs.forEach(c => {
+      const e = window.AContacter ? AContacter.etat(c) : null;
+      if (!e) return;
+      ajouter(c, e.Axe === 'P1' ? 'Onboardé sans commande' : 'A commandé, pas encore Empower', e.Axe === 'P1' ? 1 : 2, e.Jours != null && e.Axe === 'P1' ? `${e.Jours} j` : '');
+    });
+    if (Session.estManager && Session.estManager()) {
+      cs.forEach(c => { if (!c.PIN_CDS_Assigne) ajouter(c, 'Non attribué', 3, ''); });
+    }
+    return out.sort((a, b) => a.rang - b.rang);
+  },
+  _renderATraiter() {
+    const tout = this._aTraiter();
+    if (!tout.length) return '';
+    const E = window.AContacter ? s => AContacter.esc(s) : s => String(s ?? '');
+    const lecture = Session.role === 'CHANNEL_MANAGER' || Session.role === 'EXTERNE';
+    const nbParMotif = {};
+    tout.forEach(x => { nbParMotif[x.motif] = (nbParMotif[x.motif] || 0) + 1; });
+    const resume = Object.entries(nbParMotif).map(([m, n]) => `<span class="at-motif-n"><strong>${n}</strong> ${E(m.toLowerCase())}</span>`).join('');
+    const lignes = tout.slice(0, 5).map(x => {
+      const c = x.c, id = E(c.ID_Compte);
+      return `<div class="at-ligne">
+        <div class="at-txt" onclick="VueComptes.ouvrirFiche('${id}')">
+          <span class="at-nom">${E(c.Nom_Compte || 'n.c.')}</span>
+          <span class="at-motif at-r${x.rang}">${E(x.motif)}${x.detail ? ' · ' + E(x.detail) : ''}${c.Ville ? ' · ' + E(c.Ville) : ''}</span>
+        </div>
+        ${lecture ? '' : `<div class="at-actions">
+          <button class="btn-tel-outline" onclick="Router.aller('#/phoning/${id}')" title="Appeler"><span class="material-symbols-outlined" aria-hidden="true">call</span></button>
+          ${c.Email ? `<a class="btn-tel-outline" href="mailto:${E(c.Email)}" title="Écrire"><span class="material-symbols-outlined" aria-hidden="true">mail</span></a>` : ''}
+          <button class="btn-visiter" onclick="VueQuestionnaire._visitePlanifiee=null;Router.aller('#/questionnaire/${id}')">Visiter</button>
+        </div>`}
+      </div>`;
+    }).join('');
+    const actif = this.state.filtreStatut === 'A_TRAITER';
+    return `<section class="at-panneau" aria-label="À traiter">
+      <div class="at-tete"><div><h3>À traiter aujourd'hui</h3><div class="at-resume">${resume}</div></div>
+        <button class="btn-filtre ${actif ? 'actif' : ''}" onclick="VueComptes.setFiltre('${actif ? 'TOUS' : 'A_TRAITER'}')">${actif ? 'Tout afficher' : `Voir les ${tout.length}`}</button></div>
+      ${lignes}
+    </section>`;
+  },
+
+  // ── Filtres mobiles : pastilles « libellé valeur ▾ » + feuille du bas ──
+  _defsFiltres(cdsList) {
+    const s = this.state;
+    const defs = [
+      { cle: 'statut', lib: 'Statut', val: s.filtreStatut, choix: [['TOUS', 'Tous'], ['actif', 'Actif'], ['a_reactiver', 'À réactiver'], ['silencieux', 'Silencieux'], ['A_REPRENDRE', `À reprendre (${NonSuivis.nb()})`], ['A_TRAITER', 'À traiter']].concat(Session.voitTout() ? [['SANS_CDS', 'Sans CDS']] : []) },
+      { cle: 'canal', lib: 'Canal', val: s.filtreEmpower, choix: [['TOUS', 'Tous'], ['EMPOWER', 'Empower'], ['GROSSISTE', 'Grossiste']] },
+    ];
+    if (Session.voitTout()) defs.push({ cle: 'cds', lib: 'Commercial', val: String(s.filtreCDSPin), choix: [['TOUS', 'Tous']].concat(cdsList.map(c => [String(c.pin), c.nom])) });
+    defs.push({ cle: 'tri', lib: 'Tri', val: s.triPar, choix: [['PRIORITE', 'Priorité'], ['CA', 'CA FY27 ↓'], ['NOM', 'Nom A→Z']] });
+    return defs;
+  },
+  _renderPastilles(cdsList) {
+    const defs = this._defsFiltres(cdsList);
+    const actifs = defs.filter(d => d.cle !== 'tri' && d.val !== 'TOUS').length;
+    const pastilles = defs.map(d => {
+      const v = (d.choix.find(x => String(x[0]) === String(d.val)) || [0, 'Tous'])[1];
+      const on = d.cle !== 'tri' && d.val !== 'TOUS';
+      return `<button class="fp ${on ? 'on' : ''}" onclick="VueComptes.ouvrirFeuilleFiltre('${d.cle}')"><span class="fp-l">${d.lib}</span><span class="fp-v">${v}</span><span class="material-symbols-outlined" aria-hidden="true">expand_more</span></button>`;
+    }).join('');
+    const reinit = actifs ? `<button class="fp fp-raz" onclick="VueComptes.reinitialiserFiltres()" title="Réinitialiser"><span class="material-symbols-outlined" aria-hidden="true">filter_alt_off</span></button>` : '';
+    return `<div class="filtres-pastilles">${pastilles}${reinit}</div>`;
+  },
+  ouvrirFeuilleFiltre(cle) {
+    const cdsList = this._cdsListe || [];
+    const d = this._defsFiltres(cdsList).find(x => x.cle === cle);
+    if (!d) return;
+    this.fermerFeuilleFiltre();
+    const el = document.createElement('div');
+    el.id = 'feuille-filtre';
+    el.innerHTML = `<div class="ff-fond" onclick="VueComptes.fermerFeuilleFiltre()"></div>
+      <div class="ff-feuille" role="dialog" aria-label="${d.lib}">
+        <div class="ff-poignee"></div><h3>${d.lib}</h3>
+        <div class="ff-choix">${d.choix.map(([v, l]) => `<button class="ff-opt ${String(v) === String(d.val) ? 'on' : ''}" onclick="VueComptes.choisirFiltre('${cle}','${v}')">${l}${String(v) === String(d.val) ? '<span class="material-symbols-outlined" aria-hidden="true">check</span>' : ''}</button>`).join('')}</div>
+      </div>`;
+    document.body.appendChild(el);
+  },
+  fermerFeuilleFiltre() { const e = document.getElementById('feuille-filtre'); if (e) e.remove(); },
+  choisirFiltre(cle, v) {
+    this.fermerFeuilleFiltre();
+    if (cle === 'statut') this.setFiltre(v);
+    else if (cle === 'canal') this.setFiltreEmpower(v);
+    else if (cle === 'cds') this.setFiltreCDS(v);
+    else if (cle === 'tri') this.setTri(v);
+  },
+  reinitialiserFiltres() {
+    Object.assign(this.state, { filtreStatut: 'TOUS', filtreEmpower: 'TOUS', filtreCDSPin: 'TOUS', vueFiltreActive: null });
+    this.render();
+  },
+
   render() {
     const app = document.getElementById('app');
     if (this.state.chargement) {
@@ -343,14 +453,20 @@ window.VueComptes = {
         ${kpiCard({ label: 'CA FY27',      value: window.fmtCA(caTotalP) !== 'n.c.' ? window.fmtCA(caTotalP) : '0', unit: '€', accent: 'indigo' })}
       </div>
 
+      ${this._renderATraiter()}
+
       <div class="barre-filtres">
         <input type="search" id="recherche-comptes" placeholder="Compte, ville, CP, département…"
                value="${this.state.recherche}"
                style="border:1.5px solid var(--c-border);border-radius:var(--radius-sm);padding:8px 12px;font-size:14px;width:100%"
                oninput="VueComptes.setRecherche(this.value)"/>
 
+        <div class="filtres-mobile">
+          ${this._renderPastilles(cdsList)}
+        </div>
+
         <!-- Feuille de route Phase 2 — vues de filtre sauvegardées -->
-        <div class="filtres-flags" style="align-items:center">
+        <div class="filtres-flags filtres-vues" style="align-items:center">
           <select style="flex:1;min-width:140px" onchange="VueComptes.appliquerVueFiltre(this.value)">
             <option value="">Vues sauvegardées…</option>
             ${this.state.vuesFiltres.map(v => `<option value="${v.id}" ${this.state.vueFiltreActive === v.id ? 'selected' : ''}>${v.nom}</option>`).join('')}
@@ -360,7 +476,7 @@ window.VueComptes = {
         </div>
 
         <!-- BUG-05 : filtres statut calculé -->
-        <div class="filtres-flags">
+        <div class="filtres-flags filtres-desktop">
           <button class="btn-filtre ${this.state.filtreStatut === 'TOUS' ? 'actif' : ''}"
                   onclick="VueComptes.setFiltre('TOUS')">Tous</button>
           <button class="btn-filtre ${this.state.filtreStatut === 'actif' ? 'actif' : ''}"
@@ -378,7 +494,7 @@ window.VueComptes = {
         </div>
 
         <!-- Filtre EMPOWER / GROSSISTE — dérivé de has_empower (Bloc 1 §6.4) -->
-        <div class="filtres-flags">
+        <div class="filtres-flags filtres-desktop">
           <button class="btn-filtre ${this.state.filtreEmpower === 'TOUS' ? 'actif' : ''}"
                   onclick="VueComptes.setFiltreEmpower('TOUS')">Tous</button>
           <button class="btn-filtre ${this.state.filtreEmpower === 'EMPOWER' ? 'actif' : ''}"
@@ -387,7 +503,7 @@ window.VueComptes = {
                   onclick="VueComptes.setFiltreEmpower('GROSSISTE')">Grossiste</button>
         </div>
 
-        <div class="filtres-statut" style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="filtres-statut filtres-desktop" style="display:flex;gap:8px;flex-wrap:wrap">
           <select onchange="VueComptes.setTri(this.value)">
             <option value="PRIORITE" ${this.state.triPar === 'PRIORITE' ? 'selected' : ''}>Priorité</option>
             <option value="CA"       ${this.state.triPar === 'CA'       ? 'selected' : ''}>CA FY27 ↓</option>

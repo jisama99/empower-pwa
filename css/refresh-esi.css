@@ -574,3 +574,60 @@ input[type="search"], input[type="text"].filtre-recherche, .recherche-compte inp
 .nav-logo-textes .logo-reseller { align-self: flex-start; width: auto !important; height: 28px !important; aspect-ratio: auto; }
 .kpi-card { container-type: inline-size; }
 .kpi-card .kpi-value { font-size: clamp(20px, 16cqi, 36px) !important; white-space: nowrap; }
+
+/* ═══ Comptes · panneau « À traiter » et filtres en pastilles ═══ */
+.at-panneau { margin: 12px; background: var(--bg-surface, #fff); border: 1px solid var(--border-medium, #D6D6D6); border-radius: var(--radius-lg, 16px); padding: 14px; }
+.at-tete { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.at-tete h3 { margin: 0 0 4px; font-size: 16px; color: var(--text-primary); }
+.at-resume { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-secondary, #5B6670); }
+.at-resume strong { color: var(--text-primary); }
+.at-ligne { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border-subtle, #EEF0F1); }
+.at-txt { min-width: 0; flex: 1; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.at-nom { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.at-motif { font-size: 12px; color: var(--text-secondary, #5B6670); }
+.at-motif.at-r0 { color: #C23B36; font-weight: 600; }
+.at-actions { display: flex; gap: 6px; flex: none; align-items: center; }
+.at-actions .btn-tel-outline { display: inline-grid; place-items: center; min-width: 38px; min-height: 38px; padding: 0 8px; }
+.at-actions .btn-visiter { min-height: 38px; padding: 0 12px; }
+.filtres-mobile { display: none; }
+.filtres-pastilles { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 4px; scrollbar-width: none; }
+.filtres-pastilles::-webkit-scrollbar { display: none; }
+.fp { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 10px 0 12px; border-radius: 9999px; border: 1.5px solid #B8BEC4; background: var(--bg-surface, #fff); color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer; }
+.fp .fp-l { color: var(--text-secondary, #5B6670); }
+.fp .fp-v { font-weight: 700; }
+.fp .material-symbols-outlined { font-size: 18px; }
+.fp.on { background: var(--ardoise); border-color: var(--ardoise); color: #fff; }
+.fp.on .fp-l { color: rgba(255,255,255,.75); }
+.fp-raz { padding: 0 10px; }
+#feuille-filtre { position: fixed; inset: 0; z-index: 2600; }
+.ff-fond { position: absolute; inset: 0; background: rgba(14,17,20,.45); }
+.ff-feuille { position: absolute; left: 0; right: 0; bottom: 0; max-height: 70vh; overflow-y: auto; background: var(--bg-surface, #fff); color: var(--text-primary); border-radius: 20px 20px 0 0; padding: 8px 16px calc(18px + env(safe-area-inset-bottom)); }
+.ff-poignee { width: 40px; height: 4px; border-radius: 4px; background: #B8BEC4; margin: 4px auto 10px; }
+.ff-feuille h3 { margin: 0 0 8px; font-size: 16px; }
+.ff-opt { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 48px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--border-subtle, #EEF0F1); background: none; color: inherit; font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+.ff-opt.on { font-weight: 700; }
+@media (max-width: 899px) {
+  .filtres-mobile { display: block; }
+  .filtres-desktop { display: none !important; }
+  .at-actions .btn-visiter { display: none; }
+  .at-panneau { margin: 10px 12px; }
+}
+:root[data-theme="dark"] .at-motif.at-r0 { color: #FF8A86; }
+:root[data-theme="dark"] .fp { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.28); }
+:root[data-theme="dark"] .fp.on { background: #E6E9EC; color: #1B2127; border-color: #E6E9EC; }
+:root[data-theme="dark"] .fp.on .fp-l { color: rgba(27,33,39,.7); }
+:root[data-theme="dark"] .ff-feuille { background: #1B2127; }
+/* Comptes mobile : bandeau KPI compact (4 en ligne), 3 lignes « À traiter » max */
+@media (max-width: 899px) {
+  body[data-vue="VueComptes"] .kpi-grid-layout { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 8px 12px; }
+  body[data-vue="VueComptes"] .kpi-grid-layout .kpi-card { padding: 8px 6px; min-height: 0; }
+  body[data-vue="VueComptes"] .kpi-grid-layout .kpi-label { font-size: 10px; letter-spacing: 0; }
+  body[data-vue="VueComptes"] .kpi-grid-layout .kpi-card .kpi-value { font-size: clamp(14px, 5.2cqi, 20px) !important; }
+  body[data-vue="VueComptes"] .kpi-grid-layout .kpi-unit { font-size: 10px; }
+  .at-ligne:nth-of-type(n+5) { display: none; }
+  .at-tete { align-items: center; }
+}
+@media (max-width: 899px) {
+  .at-resume { font-size: 11.5px; gap: 2px 10px; }
+  .at-resume .at-motif-n:nth-child(n+3) { display: none; }
+}
