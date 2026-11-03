@@ -1456,7 +1456,7 @@ window.VueVisites = {
       Toast.afficher('Bibliothèque XLSX non chargée', 'error'); return;
     }
     const wb  = XLSX.utils.book_new();
-    const ws  = XLSX.utils.json_to_sheet(rows);
+    const ws  = XLSX.utils.json_to_sheet(denaturer(rows));
     // Largeurs colonnes auto (~20 chars)
     ws['!cols'] = Object.keys(rows[0] || {}).map(() => ({ wch: 22 }));
     XLSX.utils.book_append_sheet(wb, ws, 'Visites');
@@ -2111,7 +2111,7 @@ window.VueVisites = {
             ${m.photos.map(url => `
               <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
                 <img src="${url}" style="width:64px;height:64px;object-fit:cover;border-radius:var(--radius-sm)"/>
-                <button type="button" class="btn-sup-photo" onclick="VueVisites.supprimerPhotoEdition('${url.replace(/'/g, "\\'")}')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+                <button type="button" class="btn-sup-photo" onclick="VueVisites.supprimerPhotoEdition('${jsq(url)}')"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
               </div>`).join('')}
             ${m.photosEnAttente.map((p, i) => `
               <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
@@ -2334,7 +2334,7 @@ window.VueVisites = {
       if (!rows.length) { Toast.afficher('Aucune donnée pour ces filtres', 'warning'); return; }
       if (typeof XLSX === 'undefined') { Toast.afficher('Bibliothèque XLSX non chargée', 'error'); return; }
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(rows);
+      const ws = XLSX.utils.json_to_sheet(denaturer(rows));
       ws['!cols'] = Object.keys(rows[0]).map(() => ({ wch: 22 }));
       XLSX.utils.book_append_sheet(wb, ws, 'Tracker');
       const ts = dateISOLocale().replace(/-/g, '');
@@ -2374,7 +2374,7 @@ window.VueVisites = {
       }));
       if (typeof XLSX === 'undefined') { Toast.afficher('Bibliothèque XLSX non chargée', 'error'); return; }
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(rows);
+      const ws = XLSX.utils.json_to_sheet(denaturer(rows));
       ws['!cols'] = Object.keys(rows[0]).map(() => ({ wch: 22 }));
       XLSX.utils.book_append_sheet(wb, ws, 'Comptes archivés');
       const ts = dateISOLocale().replace(/-/g, '');

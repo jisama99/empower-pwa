@@ -281,7 +281,7 @@ function generateCSV(data, filename) {
   const lines   = [headers.join(';')];
   data.forEach(row => {
     lines.push(headers.map(h => {
-      const v = String(row[h] ?? '').replace(/"/g, '""');
+      const v = denaturer(String(row[h] ?? '')).replace(/"/g, '""');
       return (v.includes(';') || v.includes('\n') || v.includes('"')) ? `"${v}"` : v;
     }).join(';'));
   });

@@ -1920,7 +1920,7 @@ window.VuePipeline = {
       });
     });
 
-    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    const ws = XLSX.utils.aoa_to_sheet(denaturer([header, ...rows]));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Leads');
     const today = new Date().toISOString().slice(0,10);

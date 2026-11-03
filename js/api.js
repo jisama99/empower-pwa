@@ -9,6 +9,46 @@
 const SUPABASE_URL  = 'https://osqwtonwomhalxeidayp.supabase.co'
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zcXd0b253b21oYWx4ZWlkYXlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDk2NjYsImV4cCI6MjA5NzM4NTY2Nn0.98TzvM8dz_SPRJVv6ZMomiW8aj6vjd6pFG3d4RXQkPU'
 
+
+// ── Lot 6 (C1) — neutralisation des données à la lecture ──
+// Les gabarits des vues injectent des champs saisis (noms, notes, villes…) dans innerHTML. Pour qu'une donnée ne puisse
+// jamais devenir du code (XSS stocké), toute chaîne lue en base est neutralisée : < > " ` deviennent des entités HTML
+// (affichage identique, y compris dans value="…" et <textarea>). Les « & » sont laissés tels quels : idempotent, sans double encodage.
+// Les chaînes JSON (questionnaire_json…) gardent leurs guillemets pour rester analysables.
+// Les exports (CSV / Excel) repassent par denaturer(). Les écritures envoient toujours les valeurs saisies, jamais les entités.
+const _NEUTRE = { '<': '&lt;', '>': '&gt;', '"': '&quot;', '`': '&#96;' };
+// Identifiants (ID_Compte, ID_Prospect, id_cible…) : ils se retrouvent dans des gestionnaires onclick="f('…')".
+// Seuls [A-Za-z0-9_.:-] sont admis (toutes les valeurs existantes en base respectent déjà ce jeu).
+const _CLE_ID = /^(id|uuid|_uuid)$|^id_|_id$|_gas$/i;
+function neutraliser(v, prof = 0, cle = '') {
+  if (typeof v === 'string') {
+    if (cle && _CLE_ID.test(cle)) return v.replace(/[^A-Za-z0-9_.:\-]/g, '_');
+    if (!/[<>"`]/.test(v)) return v;
+    return v.replace(/^\s*[\[{]/.test(v) ? /[<>`]/g : /[<>"`]/g, c => _NEUTRE[c]);
+  }
+  if (prof > 6 || v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map(x => neutraliser(x, prof + 1, cle));
+  if (Object.prototype.toString.call(v) !== '[object Object]') return v;
+  const o = {};
+  for (const k of Object.keys(v)) o[k] = neutraliser(v[k], prof + 1, k);
+  return o;
+}
+function denaturer(v, prof = 0) {
+  if (typeof v === 'string') return v.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#96;/g, '`');
+  if (prof > 6 || v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map(x => denaturer(x, prof + 1));
+  if (Object.prototype.toString.call(v) !== '[object Object]') return v;
+  const o = {};
+  for (const k of Object.keys(v)) o[k] = denaturer(v[k], prof + 1);
+  return o;
+}
+// Texte à placer dans une chaîne JavaScript d'un attribut onclick="f('${jsq(x)}')" : tout caractère hors [A-Za-z0-9 _.-] est
+// écrit en \uXXXX, donc ni apostrophe, ni guillemet, ni « < » ne peut sortir de la chaîne, avant comme après décodage HTML.
+function jsq(s) {
+  return String(s ?? '').replace(/[^A-Za-z0-9 _.\-]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+}
+window.neutraliser = neutraliser; window.denaturer = denaturer; window.jsq = jsq;
+
 const SheetsAPI = {
   TOKEN:       null,
   BASE_URL:    'https://osqwtonwomhalxeidayp.supabase.co/functions/v1/ai-proxy',
@@ -599,10 +639,12 @@ const SheetsAPI = {
     if (!limit && this._inflight.has(k)) return this._inflight.get(k)
     const p = this._lireAvecFallback(table, k, { limit, offset, nocache })
     if (!limit) { this._inflight.set(k, p); p.finally(() => this._inflight.delete(k)) }
-    if (table === 'comptes') return this._sansMasques(p)
-    if (table === 'leads' && window.Canaux && Canaux.actif()) return this._leadsParCanal(p)
-    if (table === 'objectifs_primes' && window.CACanal && CACanal.actif()) return this._objectifsParCanal(p)
-    return p
+    // Lot 6 (C1) : neutralisation systématique de ce que les vues recevront (cache hors-ligne compris)
+    const sure = pr => pr.then(r => (r && !Array.isArray(r) && Array.isArray(r.data)) ? { ...r, data: neutraliser(r.data) } : neutraliser(r))
+    if (table === 'comptes') return sure(this._sansMasques(p))
+    if (table === 'leads' && window.Canaux && Canaux.actif()) return sure(this._leadsParCanal(p))
+    if (table === 'objectifs_primes' && window.CACanal && CACanal.actif()) return sure(this._objectifsParCanal(p))
+    return sure(p)
   },
 
   // Magasins Leclerc : masqués des comptes par défaut ; l'admin les réaffiche en cochant
@@ -781,7 +823,7 @@ const SheetsAPI = {
       const { data, error } = await this._sb.from('utilisateurs')
         .select('pin,nom,role,email').eq('actif', true).order('pin')
       if (error) throw new Error(error.message)
-      return (data || []).map(u => ({ pin: Number(u.pin), nom: u.nom, role: u.role, email: u.email }))
+      return neutraliser((data || []).map(u => ({ pin: Number(u.pin), nom: u.nom, role: u.role, email: u.email })))
     } catch(e) { return null }
   },
 
@@ -809,7 +851,7 @@ const SheetsAPI = {
       return {
         ok: true,
         kpi: { total, actifs, react, caQ1, caFy26, nbVisites: nbVisites||0, nbAppels: nbAppels||0 },
-        comptes: (comptes||[]).map(c => this._transformRow('comptes', c)),
+        comptes: neutraliser((comptes||[]).map(c => this._transformRow('comptes', c))),
       }
     } catch(e) { return { ok: false, erreur: e.message } }
   },

@@ -1398,7 +1398,7 @@ window.VuePhoning = {
       Toast.afficher('Bibliothèque XLSX non chargée', 'erreur'); return;
     }
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const ws = XLSX.utils.json_to_sheet(denaturer(rows));
     ws['!cols'] = Object.keys(rows[0] || {}).map(() => ({ wch: 22 }));
     XLSX.utils.book_append_sheet(wb, ws, 'Phoning');
     XLSX.writeFile(wb, `PHONING_${f.debut || 'debut'}_${f.fin || 'fin'}_${ts}.xlsx`);
@@ -2637,7 +2637,7 @@ window.VuePhoning = {
     const baseRecherche = this.state.tousComptes || this.state.comptes;
     const matches = baseRecherche.filter(c => normaliserNom(c.Nom_Compte).includes(q)).slice(0, 6);
     zone.innerHTML = matches.map(c => `
-      <div class="q-arbre-btn" style="margin-top:4px" onclick="VuePhoning._choisirComptePlanif('${c.ID_Compte}','${c.Nom_Compte.replace(/'/g, "\\'")}')">
+      <div class="q-arbre-btn" style="margin-top:4px" onclick="VuePhoning._choisirComptePlanif('${c.ID_Compte}','${jsq(c.Nom_Compte)}')">
         <strong>${c.Nom_Compte}</strong>
         <span style="color:var(--c-text-2);font-size:12px">${c.Ville || 'n.c.'}</span>
       </div>`).join('');

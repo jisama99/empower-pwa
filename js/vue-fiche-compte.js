@@ -551,7 +551,7 @@ window.VueFicheCompte = {
         <div style="margin-top:10px;text-align:right">
           <button class="btn-lien" style="font-size:11px;color:var(--c-danger)"
                   title="Compte en double, supprime ce compte, conserve l'historique lié"
-                  onclick="VueFicheCompte.supprimerCompte('${c.ID_Compte}', '${(c.Nom_Compte || '').replace(/'/g, "\\'")}')"
+                  onclick="VueFicheCompte.supprimerCompte('${c.ID_Compte}', '${jsq(c.Nom_Compte)}')"
                   ${this.state.suppressionEnCours ? 'disabled' : ''}>
             Compte en double ? Supprimer
           </button>

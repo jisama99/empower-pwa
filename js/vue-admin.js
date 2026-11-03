@@ -152,7 +152,7 @@ window.VueAdmin = {
         if (error) throw new Error(error.message);
         liste = data;
       }
-      this.state.usersState.liste = liste || [];
+      this.state.usersState.liste = neutraliser(liste || []);
     } catch(e) { Toast.afficher('Erreur : ' + e.message, 'erreur'); }
     this.state.usersState.chargement = false;
     this.render();
@@ -366,13 +366,13 @@ window.VueAdmin = {
                     <span class="v7-statut" style="font-size:12px;color:${u.actif ? 'var(--c-success,#1a9e5c)' : 'var(--c-danger)'}">${u.actif ? 'Actif' : 'Désactivé'}</span>
                   </td>
                   <td style="white-space:nowrap">
-                    <button class="btn-lien" style="font-size:12px" onclick="VueAdmin.ouvrirModalReset(${u.pin}, '${(u.nom || '').replace(/'/g, "\\'")}')">Reset mdp</button>
+                    <button class="btn-lien" style="font-size:12px" onclick="VueAdmin.ouvrirModalReset(${u.pin}, '${jsq(u.nom)}')">Reset mdp</button>
                     <button class="btn-lien" style="font-size:12px;color:${u.actif ? 'var(--c-danger)' : 'var(--c-success,#1a9e5c)'}"
                             ${u.pin === Session.pin ? 'disabled title="Impossible de modifier son propre compte"' : ''}
                             onclick="VueAdmin.toggleActifUtilisateur(${u.pin}, ${u.actif})">${u.actif ? 'Désactiver' : 'Réactiver'}</button>
                     <button class="btn-lien" style="font-size:12px;color:var(--c-danger)"
                             ${u.pin === Session.pin ? 'disabled title="Impossible de supprimer son propre compte"' : ''}
-                            onclick="VueAdmin.supprimerUtilisateur(${u.pin}, '${(u.nom || '').replace(/'/g, "\\'")}')">Supprimer</button>
+                            onclick="VueAdmin.supprimerUtilisateur(${u.pin}, '${jsq(u.nom)}')">Supprimer</button>
                   </td>
                 </tr>`).join('')}
             </tbody>
@@ -1323,7 +1323,7 @@ window.VueAdmin = {
     if (!rows || !rows.length) return '';
     const headers = Object.keys(rows[0]);
     const esc = v => {
-      const s = v === null || v === undefined ? '' : String(v);
+      const s = v === null || v === undefined ? '' : denaturer(String(v));
       return s.includes(';') || s.includes('"') || s.includes('\n') || s.includes('\r')
         ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
@@ -1884,7 +1884,7 @@ window.VueAdmin = {
               </div>
               <button id="btn-purge-${o.PIN_CDS}" class="btn-secondaire"
                       style="padding:8px 14px;width:auto;color:var(--c-danger);border-color:var(--c-danger)"
-                      onclick="VueAdmin.confirmerPurgeCDS('${o.PIN_CDS}', '${(o.Nom_CDS || '').replace(/'/g, "\\'")}')">
+                      onclick="VueAdmin.confirmerPurgeCDS('${o.PIN_CDS}', '${jsq(o.Nom_CDS)}')">
                 Purger
               </button>
             </div>`).join('')}
