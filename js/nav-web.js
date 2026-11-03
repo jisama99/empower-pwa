@@ -9,7 +9,7 @@
 window.NavWeb = (function () {
 
   const TITRES = [
-    [/^#\/dashboard/, 'Accueil'], [/^#\/manager/, 'Vue équipe'], [/^#\/reporting-cds/, 'Reporting'],
+    [/^#\/pilotage/, 'Pilotage'], [/^#\/dashboard/, 'Accueil'], [/^#\/manager/, 'Vue équipe'], [/^#\/reporting-cds/, 'Reporting'],
     [/^#\/empower-tracker/, 'Tracker'], [/^#\/comptes-historiques/, 'Historique CA'],
     [/^#\/comptes/, 'Comptes'], [/^#\/compte\//, 'Fiche compte'],
     [/^#\/phoning/, 'Phoning'], [/^#\/visites-fdv/, 'Visites FDV'], [/^#\/visites/, 'Visites'],
@@ -20,6 +20,7 @@ window.NavWeb = (function () {
 
   // Tables lues par chaque page : réchauffées avant le clic pour que l'affichage soit immédiat.
   const DONNEES = [
+    [/^#\/pilotage/,         ['COMPTES', 'VISITES', 'PHONING', 'LEADS', 'OBJECTIFS_PRIMES']],
     [/^#\/dashboard/,        ['COMPTES', 'VISITES', 'PHONING', 'LEADS', 'OBJECTIFS_PRIMES']],
     [/^#\/manager/,          ['COMPTES', 'VISITES', 'PHONING', 'LEADS', 'OBJECTIFS_PRIMES']],
     [/^#\/empower-tracker/,  ['LEADS', 'COMPTES']],

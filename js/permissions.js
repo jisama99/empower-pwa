@@ -47,7 +47,7 @@
     const h = (hash || '').split('?')[0];
 
     if (/^#\/login$/.test(h))                  return null; // public
-    if (/^#\/dashboard$/.test(h))              return 'home';
+    if (/^#\/(dashboard|pilotage)$/.test(h))  return 'home';
     // #/manager sert de vue "reporting" pour CHANNEL_MANAGER et de dashboard
     // manager pour ADMIN — autorisé si l'un OU l'autre tab est accordé.
     if (/^#\/manager$/.test(h))                return ['manager', 'reporting'];

@@ -33,7 +33,7 @@ function calculerCamembertsActivite(raw) {
   // Vue consolidée (aucun commercial choisi, rôle Admin/Channel) → répartition
   // par commercial. Vue personnelle (CDS, ou commercial choisi) → par statut.
   const consolide = Session.voitTout() && !filtres.pinCommercial;
-  const COULEURS = ['#0050FF', '#0400F5', '#00b27e', '#f59e0b', '#9333ea', '#626264'];
+  const COULEURS = ['#343F48', '#5B7A99', '#8C9BB8', '#B8BEC4', '#6B7580', '#4A5A78'];
 
   const parCommercial = (lignes, ns) => {
     const parPin = new Map();
@@ -149,7 +149,7 @@ function svgCAHebdo(data) {
   const fy27Vals = data.map(d => d.fy27);
   const dernierIdx = fy27Vals.lastIndexOf(fy27Vals.filter(v => v !== null).pop());
   const marqueur = dernierIdx >= 0
-    ? `<circle cx="${xOf(dernierIdx).toFixed(1)}" cy="${yOf(data[dernierIdx].fy27).toFixed(1)}" r="3" fill="#0050FF"/>`
+    ? `<circle cx="${xOf(dernierIdx).toFixed(1)}" cy="${yOf(data[dernierIdx].fy27).toFixed(1)}" r="3" fill="#343F48"/>`
     : '';
   const labels = data.map((d, i) =>
     (i % 2 === 0)
@@ -161,10 +161,10 @@ function svgCAHebdo(data) {
     <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
          style="width:${W}px;max-width:100%;height:auto;display:block;margin:8px 0 4px">
       ${ligne('fy26', '#9aa0a6')}
-      ${ligne('fy27', '#0050FF')}
+      ${ligne('fy27', '#343F48')}
       ${marqueur}
       ${labels}
-      <rect x="4" y="2" width="8" height="8" fill="#0050FF" rx="1"/>
+      <rect x="4" y="2" width="8" height="8" fill="#343F48" rx="1"/>
       <text x="15" y="10" font-size="9" fill="#1a1a1a">CA FY27 (à ce jour)</text>
       <rect x="102" y="2" width="8" height="8" fill="#9aa0a6" rx="1"/>
       <text x="113" y="10" font-size="9" fill="#626264">CA FY26 (réf.)</text>

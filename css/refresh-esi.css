@@ -247,3 +247,62 @@ a { color: var(--c-link); }
 .nav-marque { padding: 10px 18px 14px; font-size: 11px; font-weight: 800; letter-spacing: .22em; color: var(--text-on-anchor-muted); white-space: nowrap; overflow: hidden; }
 @media (max-width: 767px) { .nav-marque { display: none; } }
 body.sidebar-reduite .nav-marque, .sidebar-reduite .nav-marque { display: none; }
+
+/* ═══ Pilotage (maquette V1 Cockpit / Figma) ═══ */
+.pilo { padding: 12px 20px 90px; max-width: 1280px; margin: 0 auto; }
+.pilo-contexte { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pilo-ariane { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-muted); }
+.pilo-ariane strong { color: var(--text-primary); font-weight: 700; }
+.pilo-seg { display: inline-flex; background: var(--c-control); border-radius: 9999px; padding: 3px; }
+.pilo-seg button { border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 9999px; color: var(--text-secondary); cursor: pointer; }
+.pilo-seg button.actif { background: var(--ardoise); color: #fff; }
+.pilo-intro h2 { font-size: 28px; line-height: 1.15; margin: 14px 0 4px; letter-spacing: -.01em; color: var(--text-primary); }
+.pilo-intro p, .pilo-fraicheur { margin: 0; font-size: 13px; color: var(--text-muted); }
+.pilo-fraicheur { margin: 8px 0 14px; } .pilo-fraicheur button { border: 0; background: none; color: var(--text-link); font: inherit; cursor: pointer; padding: 0; text-decoration: underline; }
+.pilo-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.pilo-kpi { position: relative; text-align: left; background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-lg); padding: 14px 16px; cursor: pointer; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 4px; }
+.pilo-kpi:hover { border-color: var(--ardoise); }
+.pilo-kpi-l { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.pilo-kpi strong { font-size: 32px; line-height: 1.1; color: var(--text-primary); }
+.pilo-kpi small { font-size: 12px; color: var(--text-muted); }
+.pilo-kpi i { position: absolute; right: 14px; top: 12px; font-style: normal; color: var(--text-muted); }
+.pilo-kpi.alerte strong { color: var(--alert); }
+.pilo-grille { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.pilo-grille-g { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 14px; }
+.pilo-panneau { background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-lg); padding: 16px; }
+.pilo-panneau-t { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.pilo-panneau-t h3 { margin: 2px 0 0; font-size: 17px; color: var(--text-primary); }
+.pilo-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.pilo-lien { border: 0; background: none; color: var(--text-link); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.pilo-task, .pilo-member { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: transparent; border: 0; border-top: 1px solid var(--border-subtle); padding: 12px 4px; font: inherit; color: inherit; cursor: pointer; }
+.pilo-task:first-of-type, .pilo-member:first-of-type { border-top: 0; }
+.pilo-task:hover, .pilo-member:hover { background: var(--c-surface-alt); }
+.pilo-task-ico { width: 34px; height: 34px; border-radius: 10px; background: var(--c-control); display: grid; place-items: center; flex: none; }
+.pilo-task-ico.late { background: rgba(201,58,52,.12); color: var(--alert); }
+.pilo-task-main, .pilo-member-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pilo-task-main span, .pilo-member-main > span:not(.pilo-bar) { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pilo-task-why { display: flex; flex-direction: column; align-items: flex-end; font-size: 13px; font-weight: 600; }
+.pilo-task-why small { font-weight: 400; color: var(--text-muted); }
+.late { color: var(--alert); }
+.pilo-chev { color: var(--text-muted); }
+.pilo-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--ardoise); color: #fff; display: grid; place-items: center; font-weight: 700; flex: none; }
+.pilo-bar { display: block; height: 6px; border-radius: 9999px; background: var(--c-control); margin-top: 6px; overflow: hidden; }
+.pilo-bar i { display: block; height: 100%; background: var(--ardoise); border-radius: 9999px; }
+.pilo-note, .pilo-vide { font-size: 12px; color: var(--text-muted); margin: 10px 0 0; }
+.pilo-graphs-t { margin: 22px 0 8px; }
+.pilo-hbar { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; padding: 6px 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.pilo-hbar:hover .pilo-hbar-t i { filter: brightness(.9); }
+.pilo-hbar-l { width: 42%; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pilo-hbar-t { flex: 1; height: 10px; background: var(--c-control); border-radius: 9999px; overflow: hidden; }
+.pilo-hbar-t i { display: block; height: 100%; border-radius: 9999px; }
+.pilo-hbar b { font-size: 12px; min-width: 70px; text-align: right; }
+.pilo-donut { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.pilo-leg { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.pilo-leg div { display: flex; align-items: center; gap: 8px; } .pilo-leg i { width: 10px; height: 10px; border-radius: 50%; } .pilo-leg b { margin-left: auto; padding-left: 14px; }
+.pilo .bloc-fiche { background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-lg); padding: 16px; margin-top: 14px; }
+@media (max-width: 900px) { .pilo-grille { grid-template-columns: 1fr; } .pilo-intro h2 { font-size: 22px; } }
+.pilo, .pilo * { box-sizing: border-box; }
+.pilo { width: 100%; min-width: 0; }
+.pilo-kpis { grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+.pilo-kpi, .pilo-panneau, .pilo-grille > *, .pilo-task-main, .pilo-member-main { min-width: 0; }
+@media (max-width: 600px) { .pilo { padding: 10px 14px 90px; } .pilo-task-why { max-width: 38%; text-align: right; } }

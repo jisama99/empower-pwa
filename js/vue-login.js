@@ -7,7 +7,7 @@ window.VueLogin = {
   state: { erreur: null, chargement: false, mode: 'login', resetEmail: '', resetMsg: '', resetToken: '', nouveauMdp: '', resetMdpMsg: '' },
 
   init() {
-    if (Session.estConnecte()) { Router.aller('#/dashboard'); return; }
+    if (Session.estConnecte()) { Router.aller('#/pilotage'); return; }
     // BLOC 9 — détecter token de reset dans l'URL (#/reset-password?token=xxx)
     const hash = Router.hashCourant();
     if (hash.includes('reset-password')) {
@@ -212,7 +212,7 @@ window.VueLogin = {
       // ici, donc après une connexion l'utilisateur ne recevait aucune
       // notification et le desktop restait sans titre de page (cf. app.js).
       demarrerServicesSession();
-      Router.aller('#/dashboard');
+      Router.aller('#/pilotage');
     } else {
       this.state.erreur = `❌ ${r.erreur}`;
       this.state.chargement = false;

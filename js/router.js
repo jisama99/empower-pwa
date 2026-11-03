@@ -25,6 +25,7 @@ const Router = {
     { pattern: /^#\/login$/,                        vue: 'VueLogin',              auth: false },
 
     // ── Navigation V2.1 ──
+    { pattern: /^#\/pilotage$/,                    vue: 'VuePilotage',           auth: true  },
     { pattern: /^#\/dashboard$/,                    vue: 'VueDashboardCDS',       auth: true  },
     // Bloc 2 §1 — Reporting personnel CDS : même vue que #/dashboard, mode
     // "analyse" activé en interne via _contexteReporting() (cf. VueDashboardCDS).
@@ -109,7 +110,7 @@ const Router = {
     // history.length ne distingue pas une entrée par lien direct d'une navigation interne (il compte aussi les pages
     // précédentes de l'onglet) : on se fie à la profondeur interne, sinon repli vers l'accueil.
     if (window.history.state && window.history.state.esi > 0) window.history.back();
-    else this.aller('#/dashboard');
+    else this.aller('#/pilotage');
   },
 
   _resoudre() {

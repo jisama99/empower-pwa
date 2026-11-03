@@ -329,7 +329,7 @@ function NavBar(actif) {
   // ── Catalogue complet des items de navigation ──
   const TOUS = [
     // CRM (mobile bottom nav + desktop sidebar)
-    { id: 'home',        hash: '#/dashboard',           mobileNav: true,  lbl: 'Pilotage',
+    { id: 'home',        hash: '#/pilotage',            mobileNav: true,  lbl: 'Pilotage',
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' },
     { id: 'tracker',     hash: '#/empower-tracker',     mobileNav: true,  lbl: 'Tracker',
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/></svg>' },
@@ -546,6 +546,7 @@ function FusionTabs(defs) {
 // (une seule barre, partagée par les anciens groupes accueil et performance).
 const _peutTab = t => typeof Session !== 'undefined' && window.Permissions && Permissions.peut(Session.role, t);
 FusionTabs.pilotage = () => FusionTabs([
+  { hash: '#/pilotage',      lbl: 'Synthèse' },
   { hash: '#/dashboard',     lbl: 'Accueil' },
   { hash: '#/reporting-cds', lbl: 'Analyse',
     si: typeof Session !== 'undefined' && Session.estCDS() },
