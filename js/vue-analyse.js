@@ -188,6 +188,98 @@ window.VueAnalyse = {
     return `<ul class="syn">${lignes.map(l => `<li>${this._esc(l)}</li>`).join('')}</ul>`;
   },
 
+  // ── Export PowerPoint (pptxgenjs, chargé à la demande, version épinglée) : mêmes pages que le PDF, 16:9 ──
+  PPTX_URL: 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
+  async _chargerPptx() {
+    if (window.PptxGenJS) return;
+    await new Promise((res, rej) => {
+      const s = document.createElement('script'); s.src = this.PPTX_URL; s.onload = res;
+      s.onerror = () => rej(new Error('Bibliothèque PowerPoint indisponible (réseau)')); document.head.appendChild(s);
+    });
+    if (!window.PptxGenJS) throw new Error('Bibliothèque PowerPoint indisponible');
+  },
+  async _imageData(url) {
+    try { const r = await fetch(url); if (!r.ok) return null; const b = await r.blob();
+      return await new Promise(res => { const f = new FileReader(); f.onload = () => res(f.result); f.onerror = () => res(null); f.readAsDataURL(b); }); } catch (e) { return null; }
+  },
+  async genererPPT() {
+    const s = this.state, r = this._x(), blocs = this.BLOCS.filter(x => r.blocs.includes(x[0]));
+    if (!blocs.length) { if (window.Toast) Toast.afficher('Coche au moins un bloc', 'erreur'); return; }
+    try { await this._chargerPptx(); } catch (e) { if (window.Toast) Toast.afficher(e.message, 'erreur'); return; }
+    const ANTH = '343F48', CORAIL = 'FF6D68', GRIS = '6B757D', P = window.parseCA || Number, qs = ['Q1', 'Q2', 'Q3', 'Q4'];
+    const pptx = new PptxGenJS(); pptx.layout = 'LAYOUT_WIDE'; pptx.title = 'Reporting ESI'; pptx.author = Session.nom || 'ESI';
+    const per = this._libellePeriode(), date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    let n = 1;
+    const page = (titre) => {
+      const sl = pptx.addSlide(); n++;
+      sl.addText(titre, { x: 0.5, y: 0.3, w: 9.5, h: 0.6, fontSize: 24, bold: true, color: ANTH });
+      sl.addText(per, { x: 9.3, y: 0.35, w: 3.5, h: 0.4, fontSize: 12, color: GRIS, align: 'right' });
+      sl.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.95, w: 12.33, h: 0.05, fill: { color: CORAIL }, line: { color: CORAIL } });
+      sl.addText('Marvesting × Norton Empower', { x: 0.5, y: 7.0, w: 6, h: 0.3, fontSize: 9, color: GRIS });
+      sl.addText(String(n), { x: 12.3, y: 7.0, w: 0.5, h: 0.3, fontSize: 9, color: GRIS, align: 'right' });
+      return sl;
+    };
+    const th = t => ({ text: t, options: { bold: true, color: GRIS, fill: { color: 'F2F4F5' }, fontSize: 11 } });
+    // Couverture
+    const c = pptx.addSlide(); c.background = { color: ANTH };
+    const logo = await this._imageData(location.origin + '/img/logo-marvesting.png');
+    if (logo) { c.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.0, w: 3.2, h: 1.3, fill: { color: 'FFFFFF' }, line: { color: 'FFFFFF' }, rectRadius: 0.1 }); c.addImage({ data: logo, x: 1.0, y: 1.15, w: 2.8, h: 1.0, sizing: { type: 'contain', w: 2.8, h: 1.0 } }); }
+    c.addShape(pptx.ShapeType.rect, { x: 0.8, y: 3.1, w: 0.12, h: 1.2, fill: { color: CORAIL }, line: { color: CORAIL } });
+    c.addText('Reporting commercial', { x: 1.1, y: 3.0, w: 11, h: 0.9, fontSize: 40, bold: true, color: 'FFFFFF' });
+    c.addText(per, { x: 1.1, y: 3.85, w: 11, h: 0.5, fontSize: 20, color: 'FFFFFF' });
+    c.addText(`${Session.nom || ''} · ${date} · périmètre ${Session.voitTout() ? 'équipe' : 'personnel'}`, { x: 1.1, y: 4.6, w: 11, h: 0.4, fontSize: 14, color: 'D5DADE' });
+    for (const [k, titre] of blocs.map(b => [b[0], b[1]])) {
+      const sl = page(titre);
+      if (k === 'visites') {
+        const v = (s.visites || []).filter(x => this._dansPeriode(x.Date || x.Date_Planif)).sort((a, b) => String(b.Date || '').localeCompare(String(a.Date || '')));
+        sl.addText(`${v.length} visite${v.length > 1 ? 's' : ''} sur la période`, { x: 0.5, y: 1.15, w: 8, h: 0.4, fontSize: 16, bold: true, color: ANTH });
+        const rows = [[th('Date'), th('Commercial'), th('Compte'), th('Type')], ...v.slice(0, 11).map(x => [String(x.Date || x.Date_Planif || '').slice(0, 10), window.resolveCDS(x.PIN_CDS || x.Nom_CDS), String(x.Nom_Compte || ''), String(x.Type_Visite || '')])];
+        sl.addTable(v.length ? rows : [[th('Aucune visite enregistrée sur la période')]], { x: 0.5, y: 1.65, w: 12.33, fontSize: 11, color: '1D252C', border: { type: 'solid', color: 'E1E5E8', pt: 0.5 } });
+        if (r.photos) {
+          const urls = v.flatMap(x => String(x.Photo_URL || '').split(' | ').map(u => u.trim()).filter(Boolean).slice(0, 1)).slice(0, 5); let i = 0;
+          for (const u of urls) { const d = await this._imageData(u); if (d) { sl.addImage({ data: d, x: 0.5 + i * 2.5, y: 5.3, w: 2.3, h: 1.5, sizing: { type: 'cover', w: 2.3, h: 1.5 } }); i++; } }
+        }
+      } else if (k === 'sellin') {
+        const parQ = qs.map(q => s.objectifs.reduce((t, o) => t + (P(o[q + '_CA_Realise']) || 0), 0));
+        sl.addChart(pptx.charts.BAR, [{ name: 'CA réalisé (€)', labels: qs, values: parQ.map(Math.round) }], { x: 0.5, y: 1.2, w: 6, h: 3.2, barDir: 'col', chartColors: [ANTH], showValue: true, dataLabelFontSize: 10, catAxisLabelFontSize: 11, valAxisLabelFontSize: 9, showLegend: false });
+        sl.addTable([[th('Commercial'), ...qs.map(th)], ...s.objectifs.map(o => [String(o.Nom_CDS || this._nom(o.PIN_CDS)), ...qs.map(q => this._fmt(P(o[q + '_CA_Realise'])))])], { x: 0.5, y: 4.6, w: 6, fontSize: 10, color: '1D252C', border: { type: 'solid', color: 'E1E5E8', pt: 0.5 } });
+        const tot = cpt => qs.reduce((t, q) => t + (Number(cpt['CA_' + q + 'FY27']) || 0), 0);
+        const top = s.comptes.filter(x => tot(x) > 0).sort((a, b) => tot(b) - tot(a)).slice(0, 10);
+        sl.addText('Comptes ayant commandé (FY27)', { x: 7.0, y: 1.15, w: 5.8, h: 0.4, fontSize: 14, bold: true, color: ANTH });
+        sl.addTable([[th('Compte'), th('Commercial'), th('CA')], ...(top.length ? top.map(x => [String(x.Nom_Compte), this._nom(x.PIN_CDS_Assigne), this._fmt(tot(x)) + ' €']) : [['Aucun', '', '']])], { x: 7.0, y: 1.6, w: 5.8, fontSize: 10, color: '1D252C', border: { type: 'solid', color: 'E1E5E8', pt: 0.5 } });
+      } else if (k === 'atteinte') {
+        const o = this._objectifs(); let y = 1.3;
+        if (!o.length) sl.addText('Aucun objectif pour ce trimestre.', { x: 0.5, y: 1.3, w: 8, h: 0.4, fontSize: 14, color: GRIS });
+        o.slice(0, 7).forEach(x => {
+          const col = x.pct >= 100 ? '12805C' : x.pct >= 80 ? 'D98200' : 'C0453F';
+          sl.addText(x.nom, { x: 0.5, y, w: 3, h: 0.4, fontSize: 14, bold: true, color: ANTH });
+          sl.addText(`${this._fmt(x.ca)} € / ${this._fmt(x.obj)} €`, { x: 3.6, y, w: 4, h: 0.4, fontSize: 12, color: GRIS });
+          sl.addText(Math.round(x.pct) + ' %', { x: 11.3, y, w: 1.5, h: 0.4, fontSize: 18, bold: true, color: col, align: 'right' });
+          sl.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: y + 0.45, w: 12.33, h: 0.2, fill: { color: 'E8EBED' }, line: { color: 'E8EBED' }, rectRadius: 0.1 });
+          sl.addShape(pptx.ShapeType.roundRect, { x: 0.5, y: y + 0.45, w: Math.max(0.15, 12.33 * Math.min(1, x.pct / 100)), h: 0.2, fill: { color: col }, line: { color: col }, rectRadius: 0.1 });
+          y += 0.9;
+        });
+      } else if (k === 'portefeuille') {
+        const d = this._canaux(), ks = Object.keys(d).filter(x => d[x].length);
+        if (ks.length) sl.addChart(pptx.charts.DOUGHNUT, [{ name: 'Comptes', labels: ks, values: ks.map(x => d[x].length) }], { x: 0.5, y: 1.2, w: 5.5, h: 4.5, holeSize: 55, chartColors: ks.map(x => ({ Empower: '2F6FEB', Grossiste: 'C98A1B' }[x] || '8A949E')), showLegend: true, legendPos: 'b', showValue: true, dataLabelColor: 'FFFFFF' });
+        const st = {}; (s.leads || []).forEach(l => { const q = String(l.STATUT_EMPOWER || l.FLAG_ACTION || 'SAISIE'); st[q] = (st[q] || 0) + 1; });
+        sl.addText('Pipeline (leads par statut)', { x: 6.5, y: 1.15, w: 6, h: 0.4, fontSize: 14, bold: true, color: ANTH });
+        const ligs = Object.keys(st).sort().map(q => [q, String(st[q])]);
+        sl.addTable(ligs.length ? ligs : [['Aucun lead', '']], { x: 6.5, y: 1.6, w: 6, fontSize: 11, color: '1D252C', border: { type: 'solid', color: 'E1E5E8', pt: 0.5 } });
+        const deps = new Set(s.comptes.map(cp => (window.VueTerritoires && VueTerritoires._dep) ? VueTerritoires._dep(cp.Departement, cp.Code_Postal) : null).filter(Boolean));
+        sl.addText(`${deps.size} département${deps.size > 1 ? 's' : ''} avec au moins un compte (sur 96)`, { x: 6.5, y: 5.3, w: 6, h: 0.5, fontSize: 14, bold: true, color: ANTH });
+      }
+    }
+    const sy = page('Synthèse et prochaines actions');
+    const t = this._tracker(), act = Object.values(t).reduce((m, g) => m + g.actif.length, 0), non = Object.values(t).reduce((m, g) => m + g.inactif.length, 0), o = this._objectifs(), sous = o.filter(x => x.pct < 80).map(x => x.nom);
+    const lignes = [`${act} compte${act > 1 ? 's' : ''} Empower activé${act > 1 ? 's' : ''} (première commande passée), ${non} non activé${non > 1 ? 's' : ''}.`,
+      non ? `Prochaine action : relancer ${non > 1 ? 'les ' + non + ' comptes Empower onboardés' : 'le compte Empower onboardé'} sans première commande.` : 'Aucun compte Empower en attente de première commande.',
+      sous.length ? `Objectif sous 80 % : ${sous.join(', ')} : point d'accompagnement à prévoir.` : 'Aucun commercial sous 80 % de son objectif.'];
+    sy.addText(lignes.map(l => ({ text: l, options: { bullet: true, breakLine: true } })), { x: 0.7, y: 1.4, w: 11.8, h: 4, fontSize: 18, color: '1D252C', paraSpaceAfter: 12 });
+    try { await pptx.writeFile({ fileName: 'Reporting-ESI-' + new Date().toISOString().slice(0, 10) + '.pptx' }); if (window.Toast) Toast.afficher('PowerPoint généré', 'succes'); }
+    catch (e) { if (window.Toast) Toast.afficher('Échec de la génération PowerPoint : ' + e.message, 'erreur'); }
+  },
+
   genererPDF() {
     const r = this._x(), b = this.BLOCS.filter(x => r.blocs.includes(x[0]));
     if (!b.length) { if (window.Toast) Toast.afficher('Coche au moins un bloc', 'erreur'); return; }
@@ -225,14 +317,14 @@ window.VueAnalyse = {
     const onglets = [['vue', 'Vue d’ensemble'], ['rapport', 'Rapport']].map(([k, l]) => `<button class="tab-btn-premium ${s.onglet === k ? 'actif' : ''}" data-onglet="${k}">${l}</button>`).join('');
     const R = this._x(), pg = this._pagesRapport();
     const corps = s.onglet === 'rapport' ? `<section class="an-card"><div class="eyebrow" style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;opacity:.6">Reporting · à la demande</div><h2 style="font-size:20px">Exporter un rapport</h2>
-        <div class="an-xg"><div><h3>Format</h3><div class="an-seg">${['PDF', 'PPT'].map(f => `<button data-xf="${f}" class="${R.fmt === f ? 'on' : ''}" ${f === 'PPT' ? 'disabled title="PowerPoint : bibliothèque d’export à valider"' : ''}>${f}</button>`).join('')}</div>
+        <div class="an-xg"><div><h3>Format</h3><div class="an-seg">${['PDF', 'PPT'].map(f => `<button data-xf="${f}" class="${R.fmt === f ? 'on' : ''}">${f}</button>`).join('')}</div>
           <h3 style="margin-top:14px">Période</h3><div class="an-seg">${this.PERIODES_RAPPORT.map(p => `<button data-xp="${p}" class="${R.per === p ? 'on' : ''}">${p}</button>`).join('')}</div>
           <h3 style="margin-top:14px">Blocs à inclure</h3>${this.BLOCS.map(x => `<label class="an-xb"><input type="checkbox" data-xb="${x[0]}" ${R.blocs.includes(x[0]) ? 'checked' : ''}><span><b>${x[1]}</b><small>${x[2]}</small></span></label>`).join('')}
           <label class="an-xb"><input type="checkbox" data-xph ${R.photos ? 'checked' : ''}><span><b>Inclure les photos des visites</b><small>Photos rattachées aux visites de la période</small></span></label></div>
           <div><h3>Aperçu · ${R.fmt} · ${pg.length} pages</h3><div class="an-xp">${pg.map((t, i) => `<div class="an-pg"><span>${i + 1}</span><i></i><i></i><i style="width:60%"></i><small>${t}</small></div>`).join('')}</div>
-            <p style="font-size:12px;opacity:.75;margin-top:10px">Gabarit du refresh : A4 paysage, couleurs Marvesting (anthracite, corail), logos Marvesting et Norton Empower.</p></div></div>
-        <button class="btn-primaire" id="an-pdf" style="margin-top:14px">Générer le PDF</button>
-        <p style="font-size:11px;opacity:.7;margin-top:8px">La fenêtre d’impression s’ouvre : choisis « Enregistrer au format PDF ». Export PowerPoint : non disponible tant que la bibliothèque n’est pas validée.</p></section>`
+            <p style="font-size:12px;opacity:.75;margin-top:10px">Gabarit du refresh : paysage (A4 en PDF, 16:9 en PPT), couleurs Marvesting (anthracite, corail), logos Marvesting et Norton Empower.</p></div></div>
+        <button class="btn-primaire" id="an-pdf" style="margin-top:14px">Générer le ${R.fmt}</button>
+        <p style="font-size:11px;opacity:.7;margin-top:8px">PDF : la fenêtre d’impression s’ouvre, choisis « Enregistrer au format PDF ». PPT : fichier .pptx 16:9 téléchargé (bibliothèque pptxgenjs 3.12.0, chargée à la demande).</p></section>`
       : `<div class="an-grid">${b.canaux}${b.tracker}${b.objectifs}</div>${this._detail()}`;
     app.innerHTML = `<style>
       .an{padding:12px 16px 90px}.an-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}.an-card{background:var(--bg-surface,#fff);border:1px solid var(--border-strong,#d5dade);border-radius:12px;padding:12px}
@@ -266,6 +358,6 @@ window.VueAnalyse = {
     app.querySelectorAll('[data-xp]').forEach(b => b.onclick = () => { R.per = b.dataset.xp; this.render(); });
     app.querySelectorAll('[data-xb]').forEach(c => c.onchange = () => { R.blocs = c.checked ? [...new Set([...R.blocs, c.dataset.xb])] : R.blocs.filter(x => x !== c.dataset.xb); this.render(); });
     app.querySelectorAll('[data-xph]').forEach(c => c.onchange = () => { R.photos = c.checked; this.render(); });
-    const pdf = app.querySelector('#an-pdf'); if (pdf) pdf.onclick = () => this.genererPDF();
+    const pdf = app.querySelector('#an-pdf'); if (pdf) pdf.onclick = () => (this._x().fmt === 'PPT' ? this.genererPPT() : this.genererPDF());
   },
 };
