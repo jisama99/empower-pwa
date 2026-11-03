@@ -812,7 +812,8 @@ window.VueVisites = {
       const dow = (decal + j - 1) % 7;
       const statuts = [...new Set(vs.map(v => this._statutEffectif(v)))];
       const dots = statuts.slice(0, 4).map(st => `<i style="background:${this.STATUT_COULEURS[st] || '#B8BEC4'}"></i>`).join('');
-      const prev = vs.slice(0, maxPrev).map(v => `<span class="mois-prev">${v.Heure ? v.Heure + ' ' : ''}${(v.Nom_Compte || '').slice(0, 14)}</span>`).join('');
+      const echap = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const prev = vs.slice(0, maxPrev).map(v => `<span class="mois-prev">${echap(v.Heure ? v.Heure + ' ' : '')}${echap((v.Nom_Compte || '').slice(0, 14))}</span>`).join('');
       cases += `<button type="button" class="mois-case${dow > 4 ? ' mois-we' : ''}${iso === today ? ' mois-auj' : ''}${iso === this.state.dateVue ? ' mois-sel' : ''}"
         onclick="VueVisites.state.dateVue='${iso}';VueVisites.state.modeVue='jour';VueVisites.render()"
         aria-label="${j} : ${vs.length} visite(s)" data-tip="${vs.length ? vs.length + ' visite(s)' : 'Aucune visite'}">
