@@ -642,7 +642,7 @@ window.VueQuestionnaire = {
     this.render(); window.scrollTo(0, 0);
   },
   precedent() {
-    if (this.state.etape === 0) { history.back(); return; }
+    if (this.state.etape === 0) { Router.retour(); return; }
     let prev = this.state.etape - 1;
     while (prev > 0 && this._etapeMasquee(prev)) prev--;
     this.state.etape = prev; this.render(); window.scrollTo(0, 0);
