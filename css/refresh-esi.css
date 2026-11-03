@@ -1,0 +1,229 @@
+/* ═══════════════════════════════════════
+   refresh-esi.css : identité visuelle du refresh ESI (maquette V1 Cockpit, validée)
+   Chargé après gen-digital.css : redéfinit les jetons, sans toucher aux composants.
+   Marvesting dominant : ardoise #343F48, corail #FF6D68 (sélection et action principale),
+   gris carte #EEF0F1, fond de page #E4E6E8, texte #424242, Montserrat, cartes à 14 px.
+   Texte foncé (#0E0D30) sur les aplats corail pour garder le contraste.
+   ═══════════════════════════════════════ */
+
+:root {
+  --ardoise:   #343F48;
+  --marv-navy: #0E0D30;
+  --corail:    #FF6D68;
+  --corail-d:  #E8554F;
+  --alert:     #C93A34;
+
+  --bg-base:          #E4E6E8;
+  --bg-surface:       #FFFFFF;
+  --bg-elevated:      #FFFFFF;
+  --bg-warm-white:    #FFFFFF;
+  --bg-anchor:        #343F48;
+  --bg-anchor-hover:  #3F4B55;
+  --bg-anchor-active: #FF6D68;
+
+  --text-primary:         #1D1D1F;
+  --text-secondary:       #424242;
+  --text-muted:           #6B7580;
+  --text-on-anchor:       #FFFFFF;
+  --text-on-anchor-muted: #B8BEC4;
+  --text-link:            #4A5A78;
+
+  --accent-primary:  #FF6D68;
+  --accent-norton:   #FF6D68;
+  --accent-violet:   #B8BEC4;
+  --accent-blue:     #343F48;
+
+  --status-chaud:    #C93A34;
+  --status-chaud-bg: rgba(201,58,52,0.09);
+
+  --border-subtle:  #E6E8EA;
+  --border-medium:  #D6D6D6;
+  --border-strong:  #C9CDD1;
+  --border-accent:  rgba(255,109,104,0.6);
+  --border-violet:  #D6D6D6;
+
+  --font-display: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-ui:      'Montserrat', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font:         'Montserrat', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   14px;
+  --radius-xl:   22px;
+  --radius:      14px;
+  --radius-btn:  9999px;
+
+  --color-bg:           #E4E6E8;
+  --color-surface:      #FFFFFF;
+  --color-surface-alt:  #EEF0F1;
+  --color-text:         #424242;
+  --color-text-premium: #1D1D1F;
+  --color-border:       #D6D6D6;
+  --color-accent:       #B8BEC4;
+  --color-primary:      #FF6D68;
+  --color-cta:          #FF6D68;
+  --color-nav:          #343F48;
+
+  --c-primary:       #FF6D68;
+  --c-primary-d:     #E8554F;
+  --c-cta:           #FF6D68;
+  --c-cta-d:         #E8554F;
+  --c-accent:        #343F48;
+  --c-accent-soft:   #EEF0F1;
+  --c-bg:            #E4E6E8;
+  --c-surface:       #FFFFFF;
+  --c-surface-alt:   #EEF0F1;
+  --c-text:          #424242;
+  --c-title:         #1D1D1F;
+  --c-text-2:        #6B7580;
+  --c-border:        #D6D6D6;
+  --c-secondary:     #343F48;
+  --c-norton-red:    #FF6D68;
+  --c-ism-dark:      #FFFFFF;
+  --c-cream:         #EEF0F1;
+  --c-cream-border:  #D6D6D6;
+  --c-on-bg:         #424242;
+  --c-muted:         #6B7580;
+  --c-surface-2:     #EEF0F1;
+  --c-outline:       #C9CDD1;
+  --c-primary-light: rgba(255,109,104,0.16);
+  --c-primary-10:    rgba(255,109,104,0.10);
+
+  --signal:          #C93A34;
+  --on-status:       #FFFFFF;
+  --on-title:        #FFFFFF;
+  --muted:           #6B7580;
+  --label-caption:   #6B7580;
+  --c-control:       #E7EAEC;
+  --c-control-hover: #DADFE3;
+  --on-primary:      #0E0D30;
+  --c-link:          #4A5A78;
+  --c-success:       #12805C;
+  --c-warning:       #8A4B00;
+  --c-danger:        #C93A34;
+
+  /* Jetons V7 : le bleu électrique cède la place aux teintes sobres de la maquette */
+  --accent:   #4A5A78;
+  --cobalt:   #5B7A99;
+  --sellout:  #5B7A99;
+}
+
+/* Fond de page et surfaces */
+body { background: var(--bg-base); color: var(--c-text); }
+
+/* Cartes : filet fin et angle 14 px (la maquette n'utilise plus l'aplat sans bordure) */
+.kpi-card, .bloc-card, .card, .an-card, .v7-card { border: 1px solid var(--border-medium); }
+
+/* Sélection et action principale : corail, texte foncé */
+.btn-primaire, .btn-login, .fab, .badge-primaire, .drawer-badge { background: var(--corail); color: var(--on-primary); border-color: var(--corail); }
+.btn-primaire:hover, .btn-login:hover, .fab:hover { background: var(--corail-d); }
+
+/* Puces, filtres et onglets sélectionnés : ardoise, texte blanc (comme les puces de la maquette) */
+.btn-filtre.actif, .tab-btn-premium.actif, .q-chip.active, .q-chip.actif { background: var(--ardoise); color: #fff; border-color: var(--ardoise); }
+.tab-btn-premium.actif .tab-num { background: rgba(255,255,255,.2); color: #fff; }
+
+/* Barre latérale et barre basse : ardoise, entrée sélectionnée en corail */
+.nav-item.actif { background: var(--bg-anchor-active); color: var(--on-primary); font-weight: 700; }
+.nav-item.actif::before { background: var(--ardoise); }
+.nav-principale { box-shadow: none; }
+
+/* Pastilles et jauges qui portaient encore le bleu électrique en dur */
+.kpi-accent.acc-coral  { background: var(--corail); }
+.kpi-accent.acc-indigo { background: #5B7A99; }
+.badge-acontacter { background: #EEF0F1; color: #4A5A78; border-color: #B8BEC4; }
+.prime-jauge-seg.actif { background: var(--corail); }
+
+/* Liens */
+a { color: var(--c-link); }
+
+/* ═══ Mode nuit (tokens de la maquette) ═══ */
+:root[data-theme="dark"] {
+  --bg-base:          #1C2227;
+  --bg-surface:       #262D33;
+  --bg-elevated:      #2F373E;
+  --bg-warm-white:    #262D33;
+  --bg-anchor:        #14191D;
+  --bg-anchor-hover:  #1F262C;
+  --bg-anchor-active: #FF6D68;
+
+  --text-primary:         #F1F3F4;
+  --text-secondary:       #CFD5DA;
+  --text-muted:           #9AA5AF;
+  --text-on-anchor-muted: #9AA5AF;
+  --text-link:            #AEBBD4;
+
+  --accent-primary:  #FF6D68;
+  --accent-norton:   #FF6D68;
+  --accent-violet:   #6A74D8;
+  --accent-blue:     #AEBBD4;
+
+  --border-subtle:  #333C44;
+  --border-medium:  #3A444C;
+  --border-strong:  #4A555F;
+  --border-accent:  rgba(255,109,104,0.6);
+
+  --status-chaud:    #FFB3AE;
+  --status-chaud-bg: rgba(255,179,174,0.14);
+
+  --canvas:  #1C2227;
+  --slide-bg:#262D33;
+  --track:   #2F373E;
+  --ink:     #F1F3F4;
+  --muted:   #9AA5AF;
+  --label-caption: #9AA5AF;
+
+  --c-bg:            #1C2227;
+  --c-surface:       #262D33;
+  --c-surface-alt:   #2F373E;
+  --c-surface-2:     #2F373E;
+  --c-control:       #38424A;
+  --c-control-hover: #434E57;
+  --c-title:         #F1F3F4;
+  --c-text:          #CFD5DA;
+  --c-text-2:        #9AA5AF;
+  --c-muted:         #9AA5AF;
+  --c-on-bg:         #CFD5DA;
+  --c-border:        #3A444C;
+  --c-outline:       #4A555F;
+  --c-cream:         #2F373E;
+  --c-cream-border:  #3A444C;
+  --c-ism-dark:      #262D33;
+  --c-primary:       #FF6D68;
+  --c-primary-d:     #FF8A86;
+  --c-cta:           #FF6D68;
+  --c-cta-d:         #FF8A86;
+  --c-secondary:     #AEBBD4;
+  --c-norton-red:    #FF6D68;
+  --c-accent:        #AEBBD4;
+  --c-accent-soft:   #3A444C;
+  --c-primary-light: rgba(255,109,104,0.2);
+  --c-primary-10:    rgba(255,109,104,0.14);
+  --c-link:          #AEBBD4;
+  --on-primary:      #0E0D30;
+  --c-success:       #9FE0C6;
+  --c-warning:       #FFD9A0;
+  --c-danger:        #FFB3AE;
+  --signal:          #FFB3AE;
+  --accent:          #AEBBD4;
+  --cobalt:          #8C9BB8;
+  --sellout:         #8C9BB8;
+
+  --color-bg:           #1C2227;
+  --color-surface:      #262D33;
+  --color-surface-alt:  #2F373E;
+  --color-text:         #CFD5DA;
+  --color-text-premium: #F1F3F4;
+  --color-border:       #3A444C;
+  --color-accent:       #AEBBD4;
+  --color-primary:      #FF6D68;
+  --color-cta:          #FF6D68;
+  --color-nav:          #14191D;
+}
+
+:root[data-theme="dark"] .btn-filtre.actif, :root[data-theme="dark"] .tab-btn-premium.actif,
+:root[data-theme="dark"] .q-chip.active, :root[data-theme="dark"] .q-chip.actif { background: var(--corail); color: var(--on-primary); border-color: var(--corail); }
+:root[data-theme="dark"] .tab-btn-premium.actif .tab-num { background: rgba(14,13,48,.18); color: var(--on-primary); }
+:root[data-theme="dark"] .btn-primaire, :root[data-theme="dark"] .btn-login { background: var(--corail); color: var(--on-primary); }
+:root[data-theme="dark"] .nav-item.actif::before { background: var(--on-primary); }
+
+:root[data-theme="dark"] .badge-acontacter { background: #2F373E; color: #AEBBD4; border-color: #4A555F; }
