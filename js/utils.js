@@ -499,14 +499,6 @@ function NavBar(actif) {
           <span class="nav-icone"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></span>
           <span class="nav-lbl">Apparence : <span data-theme-libelle>${(window.Theme && Theme.LIBELLES[Theme.lire()]) || ''}</span></span>
         </button>
-        <label class="nav-item nav-sidebar-action" data-lbl="Canal" title="Filtrer toutes les vues par canal de vente">
-          <span class="nav-icone"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg></span>
-          <select data-canal-select class="nav-lbl" aria-label="Canal de vente" onchange="Canaux.choisir(this.value)" style="background:transparent;border:0;color:inherit;font:inherit;max-width:130px">${window.Canaux ? Canaux.optionsHTML() : ''}</select>
-        </label>
-        <button class="nav-item nav-sidebar-action" data-lbl="CA par canal" onclick="CACanal.suivant()" title="CA affiché : tous les canaux, Empower ou Grossiste">
-          <span class="nav-icone"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>
-          <span class="nav-lbl">CA : <span data-caCanal-libelle>${(window.CACanal && CACanal.libelleCourant()) || ''}</span></span>
-        </button>
         <button class="nav-item nav-sidebar-action" data-lbl="Synchroniser" onclick="DrawerMenu._synchro()">
           <span class="nav-icone">${ICO_SYNC}</span>
           <span class="nav-lbl">Synchroniser</span>
@@ -516,6 +508,7 @@ function NavBar(actif) {
           <span class="nav-lbl">Déconnexion</span>
         </button>
       </div>
+      <div class="nav-marque" aria-label="Marvesting">MARVESTING</div>
     </nav>`;
 }
 
@@ -541,6 +534,10 @@ function FusionTabs(defs) {
       ${visibles.map(d => `
         <button class="tab-btn-premium ${hashActuel === d.hash ? 'actif' : ''}"
                 onclick="Router.aller('${d.hash}')">${d.lbl}</button>`).join('')}
+      ${window.Canaux ? `<span class="fusion-filtres">
+        <select data-canal-select class="filtre-select" aria-label="Canal de vente" onchange="Canaux.choisir(this.value)">${Canaux.optionsHTML()}</select>
+        <select class="filtre-select" aria-label="CA par canal de commande" onchange="CACanal.choisir(this.value)">${['TOUS','EMPOWER','GROSSISTE'].map(v => `<option value="${v}" ${CACanal.lire()===v?'selected':''}>CA : ${({TOUS:'tous canaux',EMPOWER:'Empower',GROSSISTE:'Grossiste'})[v]}</option>`).join('')}</select>
+      </span>` : ''}
     </div>`;
 }
 
@@ -670,7 +667,7 @@ const DrawerMenu = (function () {
       <nav class="drawer-nav">
         <div class="drawer-section-lbl">Navigation</div>
         ${items.map(i => `
-          <a class="drawer-item" href="${String(i.hash).replace(/^#/, '')}" onclick="DrawerMenu.fermer()">
+          <a class="drawer-item${((Router.hashCourant()||'').split('?')[0]===i.hash)?' actif':''}" href="${String(i.hash).replace(/^#/, '')}" onclick="DrawerMenu.fermer()">
             <div class="drawer-item-ico">${i.ico}</div>
             ${i.lbl}
             ${(i.id === 'a_contacter' && window.AContacter && AContacter.nb() > 0) ? `<span class="drawer-badge">${AContacter.nb() > 99 ? '99+' : AContacter.nb()}</span>` : ''}
@@ -686,14 +683,6 @@ const DrawerMenu = (function () {
             <div class="drawer-item-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></div>
             Apparence : <span data-theme-libelle>${(window.Theme && Theme.LIBELLES[Theme.lire()]) || ''}</span>
           </button>
-          <label class="drawer-item">
-            <div class="drawer-item-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg></div>
-            <select data-canal-select aria-label="Canal de vente" onchange="Canaux.choisir(this.value)" style="background:transparent;border:0;color:inherit;font:inherit">${window.Canaux ? Canaux.optionsHTML() : ''}</select>
-          </label>
-          <button class="drawer-item" onclick="CACanal.suivant()">
-            <div class="drawer-item-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div>
-            CA : <span data-caCanal-libelle>${(window.CACanal && CACanal.libelleCourant()) || ''}</span>
-          </button>
           <button class="drawer-item" onclick="DrawerMenu._synchro()">
             <div class="drawer-item-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></div>
             Synchroniser
@@ -704,6 +693,7 @@ const DrawerMenu = (function () {
           </button>
         </div>
       </nav>
+      <div class="drawer-marque">MARVESTING</div>
     </div>`;
   }
 
