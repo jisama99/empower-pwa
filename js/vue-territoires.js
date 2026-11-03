@@ -13,7 +13,7 @@ window.VueTerritoires = {
          '32': 'Hauts-de-France', '44': 'Grand Est', '52': 'Pays de la Loire', '53': 'Bretagne', '75': 'Nouvelle-Aquitaine',
          '76': 'Occitanie', '84': 'Auvergne-Rhône-Alpes', '93': 'Provence-Alpes-Côte d’Azur', '94': 'Corse' },
 
-  state: { chargement: true, erreur: null, comptes: [], visites: [], reg: '', dep: '', calque: 'comptes', plein: false },
+  state: { chargement: true, erreur: null, comptes: [], visites: [], reg: '', dep: '', calque: 'comptes', plein: false, com: '', canal: '' },
 
 
   _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
@@ -55,11 +55,19 @@ window.VueTerritoires = {
     this.render();
   },
 
+  // Filtres de la barre : commercial et canal s'appliquent aux comptes, aux visites et à la carte
+  _comptesF() {
+    const s = this.state;
+    return s.comptes.filter(c => (!s.com || String(c.pin) === s.com)
+      && (!s.canal || (s.canal === 'EMPOWER' ? /^empower$/i.test(String(c.canal || '')) : !/^empower$/i.test(String(c.canal || '')))));
+  },
+  _visitesF() { const s = this.state; return s.visites.filter(v => !s.com || String(v.pin) === s.com); },
+
   _dataDeps() {
     const s = this.state, par = {};
     const get = c => (par[c] = par[c] || { comptes: 0, visites: 0 });
-    s.comptes.forEach(c => { if (c.dep) get(c.dep).comptes++; });
-    s.visites.forEach(v => { if (v.dep) get(v.dep).visites++; });
+    this._comptesF().forEach(c => { if (c.dep) get(c.dep).comptes++; });
+    this._visitesF().forEach(v => { if (v.dep) get(v.dep).visites++; });
     return par;
   },
 
@@ -71,7 +79,7 @@ window.VueTerritoires = {
       const sel = s.dep === d.c;
       return `<path d="${d.d}" data-dep="${d.c}" tabindex="0" role="button" aria-label="${this._esc(d.n)} : ${v} ${s.calque}"
         fill="${sel ? 'var(--terr-sel)' : v ? 'var(--terr-fill)' : 'var(--terr-vide)'}" fill-opacity="${sel ? 1 : v ? a : 1}"
-        stroke="var(--terr-trait)" stroke-width=".25"><title>${this._esc(d.n)} (${d.c}) : ${v}</title></path>`;
+        stroke="var(--terr-trait)" stroke-width=".25" data-tip="${this._esc(d.n)} (${d.c})\n${(par[d.c] || {}).comptes || 0} compte${((par[d.c] || {}).comptes || 0) > 1 ? 's' : ''} · ${(par[d.c] || {}).visites || 0} visite${((par[d.c] || {}).visites || 0) > 1 ? 's' : ''}\nCliquer pour ${sel ? 'désélectionner' : 'zoomer sur ce département'}"></path>`;
     }).join('');
     let vb = `0 0 ${window.FR.w} ${window.FR.h}`;
     if (s.reg) {
@@ -82,14 +90,14 @@ window.VueTerritoires = {
         vb = `${x0} ${y0} ${Math.max(x1 - x0, 20)} ${Math.max(y1 - y0, 20)}`;
       }
     }
-    return `<svg viewBox="${vb}" role="group" aria-label="Carte des départements" class="terr-svg">${paths}</svg>`;
+    return `<svg viewBox="${vb}" role="group" aria-label="Carte des départements" class="terr-svg" data-tipzone>${paths}</svg>`;
   },
 
   _cartesCommerciaux() {
     const s = this.state, deps = new Set(((window.FR && window.FR.deps) || [])
       .filter(d => (!s.reg || d.r === s.reg) && (!s.dep || d.c === s.dep)).map(d => d.c));
     const g = {};
-    s.visites.filter(v => v.dep && deps.has(v.dep)).forEach(v => {
+    this._visitesF().filter(v => v.dep && deps.has(v.dep)).forEach(v => {
       const o = (g[v.pin] = g[v.pin] || { n: 0, last: '', deps: {} });
       o.n++; if (v.date > o.last) o.last = v.date; o.deps[v.dep] = (o.deps[v.dep] || 0) + 1;
     });
@@ -105,7 +113,7 @@ window.VueTerritoires = {
   _liste() {
     const s = this.state;
     const deps = new Set(((window.FR && window.FR.deps) || []).filter(d => (!s.reg || d.r === s.reg) && (!s.dep || d.c === s.dep)).map(d => d.c));
-    const l = s.comptes.filter(c => c.dep && deps.has(c.dep)).sort((a, b) => String(a.nom).localeCompare(String(b.nom)));
+    const l = this._comptesF().filter(c => c.dep && deps.has(c.dep)).sort((a, b) => String(a.nom).localeCompare(String(b.nom)));
     return `<section aria-label="Comptes du périmètre"><h2>Comptes (${l.length})</h2><ul class="terr-liste">${
       l.slice(0, 200).map(c => `<li><a href="#/compte/${encodeURIComponent(c.id)}">${this._esc(c.nom)}</a>
         <span>${this._esc(c.ville || '—')} · ${this._esc(c.dep)}${c.canal ? ' · ' + this._esc(c.canal) : ''}</span></li>`).join('')
@@ -117,7 +125,7 @@ window.VueTerritoires = {
     if (!app) return;
     if (s.chargement) { app.innerHTML = '<div class="header-vue"><h1>Territoires</h1></div><p style="padding:16px">Chargement…</p>'; return; }
     if (s.erreur) { app.innerHTML = `<div class="header-vue"><h1>Territoires</h1></div><p style="padding:16px">Erreur : ${this._esc(s.erreur)}</p>`; return; }
-    const par = this._dataDeps(), nonLoc = s.comptes.filter(c => !c.dep).length;
+    const par = this._dataDeps(), nonLoc = this._comptesF().filter(c => !c.dep).length;
     const regs = Object.keys(this.REG).filter(r => window.FR.deps.some(d => d.r === r));
     const deps = window.FR.deps.filter(d => !s.reg || d.r === s.reg);
     app.innerHTML = `<style>
@@ -137,13 +145,16 @@ window.VueTerritoires = {
     <div class="header-vue"><h1>Territoires</h1></div>
     ${NavBar('territoires')}${FusionTabs.portefeuille()}
     <div class="terr${s.plein ? ' plein' : ''}">
+      <nav class="pilo-ariane" aria-label="Fil d'Ariane" style="margin:2px 0 6px"><button class="pilo-lien" data-ariane="fr">Territoires</button>${s.reg ? `<i>›</i><button class="pilo-lien" data-ariane="reg">${this.REG[s.reg]}</button>` : ''}${s.dep ? `<i>›</i><strong>${s.dep} ${this._esc(((window.FR.deps.find(d => d.c === s.dep)) || {}).n || '')}</strong>` : ''}</nav>
       <div class="terr-bar" role="group" aria-label="Filtres">
         <select id="terr-reg" aria-label="Région"><option value="">Toutes les régions</option>${regs.map(r => `<option value="${r}"${s.reg === r ? ' selected' : ''}>${this.REG[r]}</option>`).join('')}</select>
         <select id="terr-dep" aria-label="Département"><option value="">Tous les départements</option>${deps.map(d => `<option value="${d.c}"${s.dep === d.c ? ' selected' : ''}>${d.c} ${this._esc(d.n)}</option>`).join('')}</select>
+        ${Session.voitTout() ? `<select id="terr-com" aria-label="Commercial"><option value="">Tous les commerciaux</option>${[...new Set(s.comptes.map(c => String(c.pin || '')).filter(Boolean))].sort().map(p => `<option value="${p}"${s.com === p ? ' selected' : ''}>${this._esc(window.resolveCDS(p))}</option>`).join('')}</select>` : ''}
+        <select id="terr-canal" aria-label="Canal"><option value="">Tous les canaux</option><option value="EMPOWER"${s.canal === 'EMPOWER' ? ' selected' : ''}>Empower</option><option value="GROSSISTE"${s.canal === 'GROSSISTE' ? ' selected' : ''}>Grossiste</option></select>
         <button data-calque="comptes" aria-pressed="${s.calque === 'comptes'}">Comptes</button>
         ${Session.estExterne() ? '' : `<button data-calque="visites" aria-pressed="${s.calque === 'visites'}">Visites</button>`}
       </div>
-      <div class="terr-map">${this._carte(par)}<button class="terr-fs" id="terr-fs" aria-label="${s.plein ? 'Quitter le plein écran' : 'Carte en plein écran'}">${s.plein ? '⤡' : '⤢'}</button></div>
+      <div class="terr-map">${this._carte(par)}<div class="terr-legende" aria-hidden="true"><span>0</span><i></i><span>${Math.max(1, ...Object.values(par).map(x => x[s.calque] || 0))}</span> <em>${s.calque === 'visites' ? 'visites' : 'comptes'} par département</em></div><button class="terr-fs" id="terr-fs" aria-label="${s.plein ? 'Quitter le plein écran' : 'Carte en plein écran'}">${s.plein ? '⤡' : '⤢'}</button></div>
       ${nonLoc ? `<p class="terr-sub">${nonLoc} compte${nonLoc > 1 ? 's' : ''} sans département : non placés sur la carte.</p>` : ''}
       ${Session.estExterne() ? '' : `<h2>Visites par commercial${s.reg ? ' · ' + this.REG[s.reg] : ''}${s.dep ? ' · ' + s.dep : ''}</h2>
       <div class="terr-grid">${this._cartesCommerciaux()}</div>`}
@@ -155,6 +166,9 @@ window.VueTerritoires = {
   _bind(app) {
     const s = this.state, rerender = () => this.render();
     app.querySelector('#terr-reg').onchange = e => { s.reg = e.target.value; s.dep = ''; rerender(); };
+    const c1 = app.querySelector('#terr-com'); if (c1) c1.onchange = e => { s.com = e.target.value; rerender(); };
+    app.querySelector('#terr-canal').onchange = e => { s.canal = e.target.value; rerender(); };
+    app.querySelectorAll('[data-ariane]').forEach(b => b.onclick = () => { const k = b.dataset.ariane; if (k === 'fr') { s.reg = ''; s.dep = ''; } else if (k === 'reg') { s.dep = ''; } rerender(); });
     app.querySelector('#terr-dep').onchange = e => { s.dep = e.target.value; rerender(); };
     app.querySelectorAll('[data-calque]').forEach(b => b.onclick = () => { s.calque = b.dataset.calque; rerender(); });
     app.querySelector('#terr-fs').onclick = () => { s.plein = !s.plein; rerender(); };

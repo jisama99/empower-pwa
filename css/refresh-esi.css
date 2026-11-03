@@ -364,3 +364,6 @@ body.sidebar-collapsed .nav-marque { display: none; }
 .creer-entree strong { display: block; font-size: 15px; } .creer-entree small { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .creer-ico { width: 42px; height: 42px; border-radius: 12px; background: var(--ardoise); color: #fff; display: grid; place-items: center; flex: none; }
 @media (max-width: 899px) { .nav-marque { display: none !important; } }
+.terr-legende { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); padding: 6px 8px 0; }
+.terr-legende i { width: 120px; height: 8px; border-radius: 9999px; background: linear-gradient(90deg, rgba(52,63,72,.18), rgba(52,63,72,.9)); }
+.terr-legende em { font-style: normal; margin-left: 6px; }
