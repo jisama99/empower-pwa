@@ -6,7 +6,7 @@
 //  Le cache ne sert plus que de secours hors-ligne.
 // ═══════════════════════════════════════
 
-const CACHE_NAME  = 'esi-v5-167';
+const CACHE_NAME  = 'esi-v5-168';
 // Assets immuables (jamais modifiés après publication) → cache-first.
 const STATIC_RE = /\.(png|jpe?g|svg|webp|gif|ico|woff2?|ttf)$/i;
 // Chemins relatifs : fonctionne à la racine d'un domaine comme en sous-dossier GitHub Pages
@@ -36,6 +36,8 @@ const ASSETS_CORE = [
   './js/fiches-froides.js',
   './js/sellin-flag.js',
   './js/non-suivis.js',
+  './js/chart-tip.js',
+  './js/flags-canal.js',
   './js/vue-pilotage.js',
   './js/vue-a-contacter.js',
   './js/push.js',

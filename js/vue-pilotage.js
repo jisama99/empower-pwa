@@ -138,11 +138,11 @@ window.VuePilotage = {
 
   _barres(lignes, drill) {
     const E = this._esc, max = Math.max(1, ...lignes.map(l => l.v));
-    return lignes.length ? lignes.map(l => `
-      <button class="pilo-hbar" title="${E(l.l)} : ${E(l.txt)}" onclick="Router.aller('${drill}')">
+    return lignes.length ? `<div data-tipzone>` + lignes.map(l => `
+      <button class="pilo-hbar" data-tip="${E(l.l)}\n${E(l.tip || l.txt)}" onclick="Router.aller('${drill}')">
         <span class="pilo-hbar-l">${E(l.l)}</span>
         <span class="pilo-hbar-t"><i style="width:${Math.max(2, Math.round(l.v / max * 100))}%;background:${l.c || '#343F48'}"></i></span>
-        <b>${E(l.txt)}</b></button>`).join('') : '<p class="pilo-vide">Pas de donnée sur la période.</p>';
+        <b>${E(l.txt)}</b></button>`).join('') + `</div>` : '<p class="pilo-vide">Pas de donnée sur la période.</p>';
   },
 
   _graphiques(f) {
@@ -168,14 +168,14 @@ window.VuePilotage = {
       const seg = [{ label: 'Empower', value: Math.round(emp), color: '#343F48' }, { label: 'Grossiste', value: Math.max(0, Math.round(tot - emp)), color: '#B8BEC4' }];
       blocs.push(`<section class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Sell-in · ${E(f.quarter)}</span><h3>Répartition par canal de commande</h3></div></div>
         <div class="pilo-donut">${window.svgDonut(seg, { size: 140, centreValeur: tot ? Math.round(emp / tot * 100) + ' %' : 'n.c.', centreLabel: 'Empower' })}
-        <div class="pilo-leg">${seg.map(x => `<div title="${E(x.label)} : ${eur(x.value)}"><i style="background:${x.color}"></i><span>${E(x.label)}</span><b>${eur(x.value)}</b></div>`).join('')}</div></div></section>`);
+        <div class="pilo-leg">${seg.map(x => `<div data-tip="${E(x.label)}\n${eur(x.value)}"><i style="background:${x.color}"></i><span>${E(x.label)}</span><b>${eur(x.value)}</b></div>`).join('')}</div></div></section>`);
 
       // Comptes par canal (portefeuille) : Empower / Grossiste, cliquable vers Comptes
       const nEmp = comptes.filter(c => String(c.CANAL || c.Canal || '').toUpperCase() === 'EMPOWER').length;
       const seg2 = [{ label: 'Empower', value: nEmp, color: '#343F48' }, { label: 'Grossiste', value: Math.max(0, comptes.length - nEmp), color: '#B8BEC4' }];
       blocs.push(`<section class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Portefeuille</span><h3>Comptes selon leur canal</h3></div><button class="pilo-lien" onclick="Router.aller('#/comptes')">Voir les comptes ›</button></div>
         <div class="pilo-donut">${window.svgDonut(seg2, { size: 140, centreValeur: comptes.length, centreLabel: 'Comptes' })}
-        <div class="pilo-leg">${seg2.map(x => `<div title="${E(x.label)} : ${x.value} comptes"><i style="background:${x.color}"></i><span>${E(x.label)}</span><b>${x.value}</b></div>`).join('')}</div></div></section>`);
+        <div class="pilo-leg">${seg2.map(x => `<div data-tip="${E(x.label)}\n${x.value} comptes"><i style="background:${x.color}"></i><span>${E(x.label)}</span><b>${x.value}</b></div>`).join('')}</div></div></section>`);
 
       // Sell-in par trimestre et commercial + atteinte vs objectif
       const obs = (raw.objectifs || []).filter(o => dansPerim(o.PIN_CDS));
@@ -184,6 +184,45 @@ window.VuePilotage = {
       blocs.push(`<section class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Sell-in · FY27</span><h3>Par trimestre</h3></div></div>${this._barres(lignesQ, '#/objectifs')}</section>`);
       const att = obs.map(o => { const ca = Number(o[f.quarter + '_CA_Realise'] || 0), ob = Number(o[f.quarter + '_Obj_Revise'] || o[f.quarter + '_Obj_Initial'] || 0), pct = ob > 0 ? Math.round(ca / ob * 100) : 0; return { l: o.Nom_CDS || ('PIN ' + o.PIN_CDS), v: Math.min(pct, 150), txt: pct + ' %', c: pct >= 100 ? '#12805C' : pct >= 80 ? '#8A4B00' : '#C93A34' }; });
       blocs.push(`<section class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Objectifs · ${E(f.quarter)}</span><h3>Atteinte par commercial</h3></div></div>${this._barres(att, '#/objectifs')}<p class="pilo-note">Vert ≥ 100 %, ambre ≥ 80 %, rouge sous 80 %.</p></section>`);
+    }
+    if (!channel) {
+      const comptes = (raw.comptes || []).filter(c => dansPerim(c.PIN_CDS_Assigne));
+      // Tracker Empower : comptes Empower activés (1re commande en sell-in) vs non activés, par commercial
+      const emp = comptes.filter(c => window.estEmpower(c));
+      const parPin = {};
+      emp.forEach(c => { const k = Number(c.PIN_CDS_Assigne) || 0; (parPin[k] = parPin[k] || { a: 0, n: 0 })[FlagsCanal.active(c) ? 'a' : 'n']++; });
+      const maxT = Math.max(1, ...Object.values(parPin).map(x => x.a + x.n));
+      const nomDe = pin => pin ? window.resolveCDS(pin) : 'Non attribué';
+      const lignesT = Object.entries(parPin).sort((a, b) => (b[1].a + b[1].n) - (a[1].a + a[1].n)).map(([pin, x]) => `
+        <button class="pilo-stack" onclick="VueComptes.state.filtreEmpower='EMPOWER';Router.aller('#/comptes')">
+          <span class="pilo-hbar-l">${E(nomDe(Number(pin)))}</span>
+          <span class="pilo-stack-t" style="width:${Math.round((x.a + x.n) / maxT * 100)}%">
+            <i class="a" style="flex:${x.a}" data-tip="${E(nomDe(Number(pin)))}\nActivés (1re commande) : ${x.a}"></i><i class="n" style="flex:${x.n}" data-tip="${E(nomDe(Number(pin)))}\nNon activés : ${x.n}"></i></span>
+          <b>${x.a}/${x.a + x.n}</b></button>`).join('');
+      const nA = emp.filter(c => FlagsCanal.active(c)).length;
+      blocs.push(`<section class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Tracker Empower · nourri par le sell-in</span><h3>Comptes activés vs non activés</h3></div></div>
+        <div class="pilo-big">${nA}<small> activés sur ${emp.length} comptes Empower${emp.length ? ' · ' + Math.round(nA / emp.length * 100) + ' %' : ''}</small></div>
+        <div data-tipzone>${lignesT || '<p class="pilo-vide">Aucun compte Empower.</p>'}</div>
+        <p class="pilo-leg2"><span class="flag flag-act">${FlagsCanal.ICO.ok}Activé</span><span class="flag flag-noact">${FlagsCanal.ICO.no}Non activé</span></p></section>`);
+
+      // Comptes ayant commandé par trimestre (sell-in), avec les premiers noms au survol
+      const Qs = ['Q1', 'Q2', 'Q3', 'Q4'];
+      const cmd = Qs.map(q => { const l = comptes.filter(c => CACanal.valeur(c, q + 'FY27', 'TOUS') > 0); return { l: q + (q === f.quarter ? ' (en cours)' : ''), v: l.length, txt: l.length + ' comptes', tip: l.length + ' comptes ont commandé' + (l.length ? '\n' + l.slice(0, 5).map(c => c.Nom_Compte).join(', ') + (l.length > 5 ? '…' : '') : ''), c: q === f.quarter ? '#343F48' : '#B8BEC4' }; });
+      const fy = comptes.filter(c => Qs.some(q => CACanal.valeur(c, q + 'FY27', 'TOUS') > 0)).length;
+      cmd.push({ l: 'FY27', v: fy, txt: fy + ' comptes', tip: fy + ' comptes distincts ont commandé sur FY27', c: '#5B7A99' });
+      blocs.push(`<section class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Sell-in · comptes ayant commandé</span><h3>Par trimestre et sur FY27</h3></div></div>${this._barres(cmd, '#/comptes')}</section>`);
+
+      // Sell-in par trimestre ET par commercial (colonnes groupées)
+      if (Session.voitTout()) {
+        const obs = (raw.objectifs || []).filter(o => dansPerim(o.PIN_CDS));
+        const Q = ['Q1', 'Q2', 'Q3', 'Q4'], teintes = ['#343F48', '#5B7A99', '#8C9BB8', '#B8BEC4', '#6B7580'];
+        const maxV = Math.max(1, ...obs.flatMap(o => Q.map(q => Number(o[q + '_CA_Realise'] || 0))));
+        const W = 320, H = 150, gw = (W - 20) / Q.length, bw = Math.max(6, (gw - 10) / Math.max(1, obs.length));
+        const cols = Q.map((q, qi) => obs.map((o, oi) => { const v = Number(o[q + '_CA_Realise'] || 0), h = Math.round(v / maxV * (H - 34)); return `<rect x="${(10 + qi * gw + 4 + oi * bw).toFixed(1)}" y="${H - 18 - h}" width="${(bw - 2).toFixed(1)}" height="${Math.max(h, 1)}" rx="2" fill="${teintes[oi % teintes.length]}" tabindex="0" data-tip="${E(o.Nom_CDS || '')}\n${q} : ${eur(v)}"/>`; }).join('') + `<text x="${(10 + qi * gw + gw / 2).toFixed(1)}" y="${H - 4}" text-anchor="middle" font-size="10" fill="#6B7580">${q}</text>`).join('');
+        blocs.push(`<section class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Sell-in · FY27</span><h3>Par trimestre et par commercial</h3></div></div>
+          <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Sell-in par trimestre et par commercial" data-tipzone>${cols}</svg>
+          <div class="pilo-leg pilo-leg-row">${obs.map((o, i) => `<div><i style="background:${teintes[i % teintes.length]}"></i><span>${E(o.Nom_CDS || '')}</span></div>`).join('')}</div></section>`);
+      }
     }
     return `<div class="pilo-graphs-t"><span class="pilo-eyebrow">Graphiques</span></div>
       <div class="pilo-filtres-gr">${window.renderBlocCamemberts(f, raw, 'VuePilotage')}</div>

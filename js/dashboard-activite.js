@@ -158,12 +158,13 @@ function svgCAHebdo(data) {
   ).join('');
 
   return `
-    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" data-tipzone
          style="width:${W}px;max-width:100%;height:auto;display:block;margin:8px 0 4px">
       ${ligne('fy26', '#9aa0a6')}
       ${ligne('fy27', '#343F48')}
       ${marqueur}
       ${labels}
+      ${data.map((d, i) => `<rect x="${(xOf(i) - 8).toFixed(1)}" y="${TOP - 4}" width="16" height="${BASE - TOP + 8}" fill="transparent" tabindex="0" data-tip="${d.wk}\nFY27 : ${d.fy27 === null ? 'à venir' : Math.round(d.fy27).toLocaleString('fr-FR') + ' €'}\nFY26 réf. : ${Math.round(d.fy26).toLocaleString('fr-FR')} €"/>`).join('')}
       <rect x="4" y="2" width="8" height="8" fill="#343F48" rx="1"/>
       <text x="15" y="10" font-size="9" fill="#1a1a1a">CA FY27 (à ce jour)</text>
       <rect x="102" y="2" width="8" height="8" fill="#9aa0a6" rx="1"/>

@@ -496,7 +496,7 @@ window.VueFicheCompte = {
           ${c.Adresse ? `<div class="id-ligne"><span>Adresse</span><strong>${c.Adresse}</strong></div>` : ''}
           <div class="id-ligne"><span>Ville</span><strong>${c.Ville || 'n.c.'}${c.Code_Postal ? ' (' + c.Code_Postal + ')' : ''}</strong></div>
           <div class="id-ligne"><span>Département</span><strong>${dept || 'n.c.'}</strong></div>
-          <div class="id-ligne"><span>Canal / Secteur</span><strong>${c.CANAL || 'n.c.'} · ${c.SECTEUR || 'n.c.'}</strong></div>
+          <div class="id-ligne"><span>Canal / Secteur</span><strong>${window.FlagsCanal.html(c)} ${c.SECTEUR || 'n.c.'}</strong></div>
           <div class="id-ligne"><span>Contact</span><strong>${c.Contact_Nom ? `${c.Contact_Nom}${c.Contact_Fonction ? ' · ' + c.Contact_Fonction : ''}` : 'n.c.'}</strong></div>
           <div class="id-ligne"><span>Téléphone</span><strong>${c.Tel ? `<a class="lien-tel" href="tel:${c.Tel.replace(/\s/g,'')}">${c.Tel}</a>` : 'n.c.'}</strong></div>
           <div class="id-ligne"><span>Email</span><strong>${c.Email ? `<a class="lien-email" href="mailto:${c.Email}">${c.Email}</a>` : 'n.c.'}</strong></div>

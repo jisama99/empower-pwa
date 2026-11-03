@@ -292,9 +292,7 @@ window.VueComptes = {
   // Flag EMPOWER / GROSSISTE — visible au premier coup d'œil (Bloc 1 §6.3/6.4).
   // Le flag "éclair" sur un compte GROSSISTE signale un potentiel onboarding.
   _badgeEmpower(c) {
-    return window.estEmpower(c)
-      ? `<span class="badge-empower badge-empower-oui" title="Compte Empower">Empower</span>`
-      : `<span class="badge-empower badge-empower-non" title="Grossiste, potentiel onboarding Empower">Grossiste</span>`;
+    return window.FlagsCanal.html(c);
   },
 
   render() {

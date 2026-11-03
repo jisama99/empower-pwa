@@ -1296,7 +1296,7 @@ function svgDonut(segments, opts = {}) {
     const pct = Math.round(part * 100);
     const clic = s.onclick ? ` style="cursor:pointer" onclick="${s.onclick}"` : '';
     const html = `<path d="M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${grandArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}"
-      fill="none" stroke="${s.color}" stroke-width="${ep}"${clic}><title>${s.label} · ${pct}% (${s.value})</title></path>`;
+      fill="none" stroke="${s.color}" stroke-width="${ep}" tabindex="0" data-tip="${String(s.label).replace(/"/g, '&quot;')}\n${s.value} (${pct} %)"${clic}></path>`;
     angleDebut = angleFin;
     return html;
   }).join('');
@@ -1304,7 +1304,7 @@ function svgDonut(segments, opts = {}) {
   const centreLabel  = opts.centreLabel  || '';
   const centreValeur = opts.centreValeur ?? total;
 
-  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" data-tipzone>
     ${arcs}
     <text x="${cx}" y="${cy - (centreLabel ? 6 : 0)}" text-anchor="middle" dominant-baseline="middle" font-size="18" font-weight="700" fill="var(--c-title)">${centreValeur}</text>
     ${centreLabel ? `<text x="${cx}" y="${cy + 12}" text-anchor="middle" font-size="9" fill="var(--c-text-2)">${centreLabel}</text>` : ''}

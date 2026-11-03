@@ -1003,6 +1003,7 @@ window.VuePipeline = {
                   const note = da?.Note || l.Note_initiale;
                   return note ? `<div class="kanban-carte-note">${da?.Note ? '' : ''}${String(note).slice(0, 60)}</div>` : '';
                 })()}
+                ${l._activationSellIn || l.Commande_Manuelle ? `<div style="margin-top:6px"><span class="flag flag-act" title="Commande détectée">${window.FlagsCanal.ICO.ok}Activé</span></div>` : ''}
                 ${l._activationSellIn || l._activationSellInFlou || l.Commande_Manuelle ? `<div class="kanban-carte-note" style="color:var(--c-success);font-weight:700">${
                   l._activationSellIn && l.Commande_Manuelle ? `Commande (Sell-In + déclarée)${this._sellInFraicheur()}`
                   : l._activationSellIn ? `Commande détectée (Sell-In)${this._sellInFraicheur()}`
