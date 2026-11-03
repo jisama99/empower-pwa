@@ -342,8 +342,8 @@ window.VueAnalyse = {
   // Passe finale sur le XML du PPTX : supprime tout contour (aplats seuls) puis vérifie lignes, connecteurs, tirets, polices < 12 pt
   async _finaliserPptx(buf) {
     const zip = await JSZip.loadAsync(buf), err = [];
-    for (const nom of Object.keys(zip.files).filter(n => /^ppt\/(slides|charts|notesSlides)\/[^/]+\.xml$/.test(n))) {
-      let x = await zip.file(nom).async('string');
+    for (const nom of Object.keys(zip.files).filter(n => /^ppt\/(slides|charts|notesSlides|slideMasters|slideLayouts|notesMasters|theme)\/[^/]+\.xml$/.test(n))) {
+      let x = (await zip.file(nom).async('string')).replace(/<a:buChar char="[\u2013\u2014]"\/>/g, '<a:buChar char="\u2022"/>');
       x = x.replace(/<a:ln\b[^>]*\/>/g, '<a:ln><a:noFill/></a:ln>').replace(/<a:ln\b[^>]*>[\s\S]*?<\/a:ln>/g, '<a:ln><a:noFill/></a:ln>');
       if (/[\u2013\u2014]/.test(x)) err.push('Tiret interdit : ' + nom);
       if (/<p:cxnSp|prst="line"|<c:majorGridlines|<c:minorGridlines/.test(x)) err.push('Ligne droite : ' + nom);
