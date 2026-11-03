@@ -116,7 +116,7 @@
     async _chargerPptx() {
       if (window.PptxGenJS) return;
       await new Promise((res, rej) => {
-        const s = document.createElement('script'); s.src = this.PPTX_URL; s.onload = res;
+        const s = document.createElement('script'); s.src = this.PPTX_URL; s.integrity = 'sha384-Cck14aA9cifjYolcnjebXRfWGkz5ltHMBiG4px/j8GS+xQcb7OhNQWZYyWjQ+UwQ'; s.crossOrigin = 'anonymous'; s.onload = res;
         s.onerror = () => rej(new Error('Bibliothèque PowerPoint indisponible (réseau)')); document.head.appendChild(s);
       });
       if (!window.PptxGenJS) throw new Error('Bibliothèque PowerPoint indisponible');

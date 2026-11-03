@@ -51,19 +51,19 @@
   <link rel="stylesheet" href="css/v7.css?v=14"/>
   <link rel="stylesheet" href="css/gen-digital.css?v=32"/>
   <link rel="stylesheet" href="css/refresh-esi.css?v=40"/>
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
   <!-- Feuille de route Phase 1 — piège de focus pour les modales/drawer (utils.js#ModalAccessibilite) -->
-  <script src="https://cdn.jsdelivr.net/npm/tabbable@6.5.0/dist/index.umd.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/focus-trap@7.8.0/dist/focus-trap.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tabbable@6.5.0/dist/index.umd.js" integrity="sha384-VdDx0tePwYOH1V1a6tK++qwdcQ/Kjn+m4sARQk45Mbzo+7X/K+84y44Sb57HGoyR" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/focus-trap@7.8.0/dist/focus-trap.umd.js" integrity="sha384-hovg5vVGKH5vwiK1WJ+gXhnjfc/G1jKeMvX3/X/YF+nXcN9FSwwPWgZ0zyxWGk75" crossorigin="anonymous"></script>
   <!-- Feuille de route Phase 1 — glisser-déposer du Tracker (vue-pipeline.js), animation
        de drag incluse (option `animation`), cf. décision "auto-animate" dans le journal
        de la feuille de route : ce paquet suppose des mutations DOM incrémentales, incompatible
        avec le render() de cette app (innerHTML entièrement remplacé à chaque appel). -->
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.7/Sortable.min.js" integrity="sha384-DgmC6Xe2bSN2WjTDXzWYbUbxyhNP+NNkGDR/g78pCXV7E7rcVTGxVg0uIVCUUcBc" crossorigin="anonymous"></script>
   <!-- Feuille de route Phase 4 — palette de commandes "Aller à…" (utils.js#PaletteCommandes).
        Build officiel non utilisable en <script> classique (imports bruts "lit" destinés à un
        bundler) : passe par la transformation ESM de jsDelivr (imports déjà résolus/empaquetés). -->
-  <script type="module" src="https://cdn.jsdelivr.net/npm/ninja-keys@1.2.2/+esm"></script>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/ninja-keys@1.2.2/+esm" integrity="sha384-gzA7WHESztHD9nh4Vd7JKzb5B8U3sum+Xp7h6UJxCz4jRSFYgCpC8qYF/tEoOYM8" crossorigin="anonymous"></script>
 </head>
 <body>
   <ninja-keys placeholder="Aller à… (Tracker, Comptes, Planning…)" hotkeys-joined-view></ninja-keys>
@@ -95,7 +95,7 @@
   <script src="js/helpers.js?v=r2"></script>
   <script src="js/session.js?v=r13"></script>
   <script src="js/dashboard-activite.js?v=r4"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
   <script src="js/ca-canal.js?v=1"></script>
   <script src="js/canaux.js?v=2"></script>
   <script src="js/api.js?v=r17"></script>
@@ -139,7 +139,7 @@
   <script src="js/vue-territoires.js?v=r2"></script>
   <script src="js/vue-aide.js?v=r1"></script>
   <script src="js/vue-analyse.js?v=r19"></script>
-  <script src="js/rapport-export.js?v=4"></script>
+  <script src="js/rapport-export.js?v=5"></script>
   <script src="js/vue-parametres-primes.js?v=r2"></script>
   <!-- BLOC 11 Partie B — Mailing loggué comme action commerciale -->
   <script src="js/vue-mailing.js?v=r11"></script>
