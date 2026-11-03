@@ -650,29 +650,38 @@ const DrawerMenu = (function () {
     const role    = (typeof Session !== 'undefined') ? Session.role : null;
     const nom     = (typeof Session !== 'undefined') ? (Session.nom || '') : '';
     const initiale = nom ? nom.charAt(0).toUpperCase() : '?';
-    const items   = ITEMS.filter(i => !role || i.roles.includes(role));
+    // Ordre unique (identique à la barre latérale) : navigation métier, puis Administration, puis profil, puis réglages
+    const ORDRE = ['home', 'comptes', 'a_contacter', 'visites', 'phoning', 'mailing', 'photos', 'visites_fdv', 'historiques', 'objectifs', 'primes', 'admin'];
+    const tous    = ITEMS.filter(i => !role || i.roles.includes(role)).sort((x, y) => ORDRE.indexOf(x.id) - ORDRE.indexOf(y.id));
+    const items   = tous.filter(i => i.id !== 'admin');
+    const admin   = tous.find(i => i.id === 'admin');
+    const ligne   = i => `
+          <a class="drawer-item${((Router.hashCourant()||'').split('?')[0]===i.hash)?' actif':''}" href="${String(i.hash).replace(/^#/, '')}" onclick="DrawerMenu.fermer()">
+            <div class="drawer-item-ico">${(window.PICTOS_MARVESTING || {})[i.id] ? `<img class="mi-ico" src="img/icones/${window.PICTOS_MARVESTING[i.id]}.png" alt="" width="22" height="22">` : i.ico}</div>
+            ${i.lbl}
+            ${(i.id === 'a_contacter' && window.AContacter && AContacter.nb() > 0) ? `<span class="drawer-badge">${AContacter.nb() > 99 ? '99+' : AContacter.nb()}</span>` : ''}
+          </a>`;
 
     return `
     <div id="drawer-overlay" class="drawer-overlay" onclick="DrawerMenu.fermer()"></div>
     <div id="drawer-panneau" class="drawer-panneau" role="dialog" aria-modal="true" aria-label="Menu navigation">
       <div class="drawer-header">
-        <div class="drawer-header-avatar">${initiale}</div>
-        <div class="drawer-header-info">
-          <div class="drawer-header-nom">${nom || 'EMPOWER'}</div>
-          <div class="drawer-header-role">${_roleLabel(role)}</div>
-        </div>
-        <button class="drawer-close" onclick="DrawerMenu.fermer()" aria-label="Fermer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <div class="drawer-header-info"><div class="drawer-header-nom">Menu</div></div>
+        <button class="drawer-close" onclick="DrawerMenu.fermer()" aria-label="Fermer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
 
       <nav class="drawer-nav">
         <div class="drawer-section-lbl">Navigation</div>
-        ${items.map(i => `
-          <a class="drawer-item${((Router.hashCourant()||'').split('?')[0]===i.hash)?' actif':''}" href="${String(i.hash).replace(/^#/, '')}" onclick="DrawerMenu.fermer()">
-            <div class="drawer-item-ico">${(window.PICTOS_MARVESTING || {})[i.id] ? `<img class="mi-ico" src="img/icones/${window.PICTOS_MARVESTING[i.id]}.png" alt="" width="22" height="22">` : i.ico}</div>
-            ${i.lbl}
-            ${(i.id === 'a_contacter' && window.AContacter && AContacter.nb() > 0) ? `<span class="drawer-badge">${AContacter.nb() > 99 ? '99+' : AContacter.nb()}</span>` : ''}
-          </a>`).join('')}
+        ${items.map(ligne).join('')}
+        ${admin ? `<div class="drawer-sep"></div>${ligne(admin)}` : ''}
 
+        <div class="drawer-profil">
+          <div class="drawer-header-avatar">${initiale}</div>
+          <div class="drawer-header-info">
+            <div class="drawer-header-nom">${nom || 'EMPOWER'}</div>
+            <div class="drawer-header-role">${_roleLabel(role)}</div>
+          </div>
+        </div>
         <div class="drawer-sep"></div>
         <div class="drawer-footer">
           <button class="drawer-item" onclick="DrawerMenu.fermer();NotifCenter.basculer()">

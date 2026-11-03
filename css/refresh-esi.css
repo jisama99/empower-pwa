@@ -542,3 +542,35 @@ body[data-vue="VueComptes"] input[type="search"], body[data-vue="VueComptes"] in
   .nav-principale .nav-item.actif .nav-lbl { font-weight: 700; }
 }
 :root[data-theme="dark"] .mois-auj .mois-num, :root[data-theme="dark"] .mois-auj .mois-prev, :root[data-theme="dark"] .mois-auj .mois-n { color: #1B2127; }
+
+/* ═══ LOT 1 · Interface globale ═══ */
+/* 1. Logos : jamais étirés (ratio conservé, taille maîtrisée) */
+.logo-reseller, .nav-logo img, .app-brand-logo img, .nav-marque img, .drawer-marque img { object-fit: contain; flex: none; width: auto; height: auto; max-width: 100%; }
+.nav-logo .logo-reseller { height: 28px; }
+.app-brand-logo .logo-reseller { height: 26px; }
+.nav-marque img, .drawer-marque img { height: 20px; }
+/* 2. Grilles de cartes fluides : colonnes régulières quel que soit l'état de la barre latérale */
+.pilo:has(> .pilo-kpis), .copil-print, .avec-nav:has(> .pilo-kpis) { container-type: inline-size; container-name: kpis; }
+.pilo-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container kpis (min-width: 560px) { .pilo-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container kpis (min-width: 900px) { .pilo-kpis { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.pilo-kpi, .stat-tuile, .kpi-card { min-width: 0; }
+.pilo-kpi strong, .kpi-value { font-size: clamp(22px, 2.6vw, 34px); white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+.nav-badge.visible, .drawer-badge, .badge-compteur { white-space: nowrap; flex: none; }
+.nav-badge.visible { background: var(--corail); color: #0E0D30; }
+/* 3. Filtres : contraste net sur le fond gris (bordure franche, fond surface, état actif plein) */
+.btn-filtre, .q-chip, .filtre-select, .fusion-filtres .filtre-select, .tab-btn-premium, select.filtre-select,
+.pilo-filtre, .filtre-bar select, .vp-seg { background: var(--bg-surface, #fff); border: 1px solid #B8BEC4; color: #343F48; }
+.btn-filtre:hover, .q-chip:hover, .tab-btn-premium:hover { border-color: #343F48; background: #fff; }
+.btn-filtre.actif, .tab-btn-premium.actif, .q-chip.active, .q-chip.actif { background: var(--ardoise); border-color: var(--ardoise); color: #fff; }
+.btn-filtre:focus-visible, .q-chip:focus-visible, .filtre-select:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--corail); outline-offset: 2px; }
+input[type="search"], input[type="text"].filtre-recherche, .recherche-compte input, .filtre-bar input { background: var(--bg-surface, #fff); border: 1px solid #B8BEC4; }
+:root[data-theme="dark"] .btn-filtre, :root[data-theme="dark"] .q-chip, :root[data-theme="dark"] .filtre-select, :root[data-theme="dark"] .tab-btn-premium, :root[data-theme="dark"] .vp-seg { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.28); color: #E6E9EC; }
+:root[data-theme="dark"] .btn-filtre.actif, :root[data-theme="dark"] .tab-btn-premium.actif, :root[data-theme="dark"] .q-chip.active { background: #D8DDE1; border-color: #D8DDE1; color: #1B2127; }
+/* 4. Profil de la barre mobile (ordre : navigation, Administration, profil, réglages) */
+.drawer-profil { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin: 8px 0 4px; border-radius: 14px; background: rgba(255,255,255,.06); }
+.drawer-profil .drawer-header-avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; flex: none; }
+.nav-logo-textes { align-items: flex-start; }
+.nav-logo-textes .logo-reseller { align-self: flex-start; width: auto !important; height: 28px !important; aspect-ratio: auto; }
+.kpi-card { container-type: inline-size; }
+.kpi-card .kpi-value { font-size: clamp(20px, 16cqi, 36px) !important; white-space: nowrap; }
