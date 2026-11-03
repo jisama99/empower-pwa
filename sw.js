@@ -6,7 +6,7 @@
 //  Le cache ne sert plus que de secours hors-ligne.
 // ═══════════════════════════════════════
 
-const CACHE_NAME  = 'esi-v5-198';
+const CACHE_NAME  = 'esi-v5-200';
 // Assets immuables (jamais modifiés après publication) → cache-first.
 const STATIC_RE = /\.(png|jpe?g|svg|webp|gif|ico|woff2?|ttf)$/i;
 // Chemins relatifs : fonctionne à la racine d'un domaine comme en sous-dossier GitHub Pages
@@ -55,6 +55,8 @@ const ASSETS_CORE = [
   './js/vue-fiche-compte.js',
   './js/vue-questionnaire.js',
   './js/vue-phoning.js',
+  './js/attribution-cp.js',
+  './js/admin-equipe-secteurs.js',
   './js/vue-pipeline.js',
   './js/vue-dashboard-manager.js',
   './js/vue-admin.js',

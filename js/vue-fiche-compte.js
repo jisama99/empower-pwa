@@ -573,6 +573,8 @@ window.VueFicheCompte = {
     return `
       ${this._renderBlocIdentite(c)}
 
+      ${window.EquipeContacts ? EquipeContacts.carteDuCommercial(c.PIN_CDS_Assigne) : ''}
+
       ${SellInFlag.blocFiche(c, this.state.sellinSemaines)}
 
       ${NonSuivis.blocFiche(c, this.state.historiqueAttrib)}

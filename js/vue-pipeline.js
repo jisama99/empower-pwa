@@ -604,8 +604,18 @@ window.VuePipeline = {
     this.render();
 
     try {
+      // Attribution automatique par code postal quand personne n'est choisi
+      let attrib = null;
+      if (!cdsAssignePin) {
+        const d = await AttributionCP.decider(lead.Code_Postal);
+        if (d.resultat === 'ATTRIBUE' && d.pin) {
+          lead.PIN_CDS_Assigne = d.pin; lead.FLAG_ACTION = 'ASSIGNE'; lead.STATUT_EMPOWER = 'ASSIGNE';
+        }
+        attrib = d;
+      }
       await SheetsAPI.ecrire('EMPOWER_MDB', 'LEADS', lead);
-      this.state.leads.unshift({ ...lead, _statut: statutInit });
+      if (attrib) AttributionCP.appliquer(lead, attrib).catch(() => {});
+      this.state.leads.unshift({ ...lead, _statut: lead.FLAG_ACTION });
       // BLOC 4.3 — notif in-app au CDS assigné
       if (cdsAssignePin) {
         SheetsAPI.ecrire('EMPOWER_MDB', 'NOTIFS', {
@@ -619,7 +629,9 @@ window.VuePipeline = {
         }).catch(() => {}); // non bloquant
       }
       this.state.modal = null;
-      Toast.afficher(`Lead créé${cdsAssignePin ? ' → ' + this._nomCDS(cdsAssignePin) : ''} : ` + lead.Nom_Compte, 'succes');
+      const pinFinal = cdsAssignePin || (attrib && attrib.pin && attrib.resultat === 'ATTRIBUE' ? attrib.pin : '');
+      const aConfirmer = attrib && !pinFinal ? ` (${AttributionCP._libelle[attrib.resultat]}, file ADMIN)` : '';
+      Toast.afficher(`Lead créé${pinFinal ? ' → ' + this._nomCDS(String(pinFinal)) : ''} : ` + lead.Nom_Compte + aConfirmer, 'succes');
 
       // GEM-T01 — Enrichissement automatique post-création (asynchrone, non bloquant)
       GeminiAPI.gemT01_enrichirLead(lead).then(raw => {
@@ -1468,6 +1480,17 @@ window.VuePipeline = {
                   onclick="VuePipeline.mettreAJourLead('${l.ID_Prospect}')">Enregistrer la mise à jour</button>
         </div>` : ''}
 
+        <!-- Externe : coordonnées modifiables sur tous les leads (décision du 3 nov. 2026) -->
+        ${(!peutEditer && Session.estExterne()) ? `
+        <div style="margin-bottom:12px;padding:12px;background:var(--c-bg);border-radius:var(--radius-sm);border:1px solid var(--c-border)">
+          <div style="font-size:11px;font-weight:700;color:var(--c-primary);letter-spacing:.04em;margin-bottom:8px">COORDONNÉES</div>
+          ${[['ct-contact','Interlocuteur',l.CONTACT_NOM],['ct-fonction','Fonction',l.CONTACT_FONCTION],['ct-tel','Téléphone',l.Tel],['ct-email','Email',l.Email],['ct-adresse','Adresse',l.Adresse],['ct-ville','Ville',l.Ville],['ct-cp','Code postal',l.Code_Postal]].map(([id,lb,v]) => `
+          <label style="font-size:12px;color:var(--c-text-2);display:block;margin-bottom:8px">${lb}
+            <input class="q-input" id="${id}" style="margin-top:3px" value="${String(v || '').replace(/"/g,'&quot;')}"/>
+          </label>`).join('')}
+          <button class="btn-primaire" style="width:100%;font-size:13px" onclick="VuePipeline.modifierContactLead('${l.ID_Prospect}')">Enregistrer les coordonnées</button>
+        </div>` : ''}
+
         <!-- Dernier appel réel (Journal, live) — cf. demande utilisateur : la
              fiche lead n'affichait jamais la note du dernier appel passé,
              seulement Note_initiale (la note de création, jamais mise à jour). -->
@@ -1536,6 +1559,33 @@ window.VuePipeline = {
         </div>
       </div>
     </div>`;
+  },
+
+  async modifierContactLead(id) {
+    const lead = this.state.leads.find(l => String(l.ID_Prospect) === String(id));
+    if (!lead) return;
+    const v = k => (document.getElementById(k)?.value || '').trim();
+    const nouv = { CONTACT_NOM: v('ct-contact'), CONTACT_FONCTION: v('ct-fonction'), Tel: v('ct-tel'), Email: v('ct-email'),
+                   Adresse: v('ct-adresse'), Ville: v('ct-ville'), Code_Postal: v('ct-cp') };
+    const champs = {};
+    for (const k of Object.keys(nouv)) if (nouv[k] !== String(lead[k] || '')) champs[k] = nouv[k];
+    if (!Object.keys(champs).length) { Toast.afficher('Aucune modification', 'info'); return; }
+    try {
+      await SheetsAPI.mettreAJour('EMPOWER_MDB', 'LEADS', id, champs);
+      Object.assign(lead, champs);
+      // CP modifié sur un lead non attribué : on relance l'attribution par secteur
+      if (champs.Code_Postal !== undefined && !lead.PIN_CDS_Assigne) {
+        const d = await AttributionCP.decider(lead.Code_Postal);
+        if (d.resultat === 'ATTRIBUE' && d.pin) {
+          const m = { PIN_CDS_Assigne: d.pin, FLAG_ACTION: 'ASSIGNE', STATUT_EMPOWER: 'ASSIGNE' };
+          await SheetsAPI.mettreAJour('EMPOWER_MDB', 'LEADS', id, m);
+          Object.assign(lead, m); lead._statut = 'ASSIGNE';
+        }
+        AttributionCP.appliquer(lead, d).catch(() => {});
+      }
+      Toast.afficher('Coordonnées mises à jour', 'succes');
+      this.render();
+    } catch (e) { Toast.afficher('' + (e.message || e), 'erreur'); }
   },
 
   async mettreAJourLead(id) {

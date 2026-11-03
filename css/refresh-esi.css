@@ -665,3 +665,24 @@ input[type="search"], input[type="text"].filtre-recherche, .recherche-compte inp
 :root[data-theme="dark"] .pf-motif.pf-r0 { background: rgba(255,138,134,.16); }
 :root[data-theme="dark"] .pf-r0 { color: #FF8A86 !important; }
 :root[data-theme="dark"] .pf-ligne.on { border-color: #E6E9EC; }
+
+
+/* ── Lot 3 : cartes de visite et table des secteurs ───────────────── */
+.vc-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.vc { border: 1px solid var(--c-border); border-radius: var(--radius-md, 10px); padding: 14px; background: var(--c-surface); }
+.vc-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.vc-h strong { display: block; font-size: 14px; }
+.vc-h small { color: var(--c-text-2); font-size: 11.5px; }
+.vc-av { width: 38px; height: 38px; border-radius: 50%; background: #343F48; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+.vc-d { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+.vc-d dt { color: var(--c-text-2); }
+.vc-d dd { margin: 0; overflow-wrap: anywhere; }
+.vc-d a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.vc-nc { color: var(--c-text-2); font-style: italic; }
+.vc-a { display: flex; gap: 8px; margin-top: 12px; }
+.vc-a .btn-secondaire { width: auto; padding: 6px 12px; font-size: 12px; text-decoration: none; }
+.tbl-secteurs { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.tbl-secteurs th { text-align: left; font-size: 11px; color: var(--c-text-2); padding: 6px 8px; position: sticky; top: 0; background: var(--c-surface); }
+.tbl-secteurs td { padding: 5px 8px; border-top: 1px solid var(--c-border); }
+.tbl-secteurs select.q-input { padding: 4px 6px; font-size: 12.5px; }
+.tbl-secteurs tr.sec-off td { opacity: .5; }

@@ -79,6 +79,7 @@ window.VueAdmin = {
   // ── Bloc 8 refonte desktop : sous-navigation Administration ──
   setAdminTab(tab) {
     this.state.adminTab = tab;
+    if (tab === 'equipe' && !AdminSecteurs.state.lignes) AdminSecteurs.charger();
     if (tab === 'journal' && !this.state.journal.length && !this.state.journalChargement) {
       this._chargerJournal();
     } else if (tab === 'utilisateurs' && !this.state.usersState.liste.length && !this.state.usersState.chargement) {
@@ -727,7 +728,15 @@ window.VueAdmin = {
         created_by:        Session.nom,
       };
 
+      let attrib = null;
+      if (!f.cdsAssigne) {
+        attrib = await AttributionCP.decider(lead.Code_Postal);
+        if (attrib.resultat === 'ATTRIBUE' && attrib.pin) {
+          lead.PIN_CDS_Assigne = attrib.pin; lead.STATUT_EMPOWER = 'ASSIGNE'; lead.FLAG_ACTION = 'ASSIGNE';
+        }
+      }
       await SheetsAPI.ecrire('EMPOWER_MDB', 'LEADS', lead);
+      if (attrib) AttributionCP.appliquer(lead, attrib).catch(() => {});
       // Bloc 4 : si un CDS est assigné, déclencher l'action backend attribuerLead
       // → émet la notif J0 (LEAD_ASSIGNE) au CDS. Sans CDS, le lead reste "à traiter".
       if (f.cdsAssigne) {
@@ -1590,6 +1599,8 @@ window.VueAdmin = {
       ['exports',      'Exports'],
       ['rgpd',         'RGPD'],
       ['journal',      'Journal'],
+      ['equipe',       'Équipe et contacts'],
+      ['secteurs',     'Secteurs CP'],
       ['maintenance',  'Maintenance'],
     ];
 
@@ -1597,7 +1608,7 @@ window.VueAdmin = {
     // via un marqueur lu par Topbar (utils.js) pour compléter le fil d'Ariane
     // (Admin › Administration › Journal) — la nav par tabs était jusque-là
     // invisible du fil d'Ariane global (audit UX desktop § "Administration").
-    const adminTabLabel = (ADMIN_TABS.find(([t]) => t === adminTab) || [null, ''])[1].replace(/^\S+\s/, '');
+    const adminTabLabel = (ADMIN_TABS.find(([t]) => t === adminTab) || [null, ''])[1].replace(/^[^\p{L}\p{N}]+/u, '');
 
     app.innerHTML = `
       <header class="header-vue">
@@ -1839,6 +1850,9 @@ window.VueAdmin = {
         ${adminTab === 'utilisateurs' ? this._renderUtilisateurs() : ''}
 
         ${adminTab === 'journal' ? this._renderJournal() : ''}
+
+        ${adminTab === 'equipe' ? EquipeContacts.html() : ''}
+        ${adminTab === 'secteurs' ? AdminSecteurs.html() : ''}
 
         ${adminTab === 'maintenance' ? `
         <!-- MAINTENANCE -->
