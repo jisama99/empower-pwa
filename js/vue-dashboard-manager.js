@@ -154,9 +154,9 @@ window.VueDashboardManager = {
       else if (s === 'ARCHIVE')                     cArchive++;
     });
     const compteurs = [
-      { id: 'TRAITER',  lbl: 'À traiter', n: cTraiter, coul: '#0050FF' },
-      { id: 'EN_COURS', lbl: 'En cours',  n: cEnCours, coul: '#f59e0b' },
-      { id: 'INTEGRE',  lbl: 'Intégré',   n: cIntegre, coul: '#00b27e' },
+      { id: 'TRAITER',  lbl: 'À traiter', n: cTraiter, coul: '#343F48' },
+      { id: 'EN_COURS', lbl: 'En cours',  n: cEnCours, coul: '#FF6D68' },
+      { id: 'INTEGRE',  lbl: 'Intégré',   n: cIntegre, coul: '#343F48' },
       { id: 'ARCHIVE',  lbl: 'Archivé',   n: cArchive, coul: '#626264' },
     ];
 
@@ -381,8 +381,8 @@ window.VueDashboardManager = {
       COMPTE_CREE: 'Compte créé', INTEGRE: 'Intégrés',
     };
     const STAT_COULEURS = {
-      SAISIE: '#0050FF', ASSIGNE: '#4D9EFF', EN_COURS: '#f59e0b',
-      COMPTE_CREE: '#9333ea', INTEGRE: '#00b27e',
+      SAISIE: '#343F48', ASSIGNE: '#8C9BB8', EN_COURS: '#FF6D68',
+      COMPTE_CREE: '#6B7580', INTEGRE: '#343F48',
     };
     const pipelineStages = Object.entries(STAT_LABELS).map(([id, lbl]) => ({
       id, lbl, coul: STAT_COULEURS[id],
@@ -554,7 +554,7 @@ window.VueDashboardManager = {
     const W    = 290;
     const ROW  = 52;
     const H    = equipe.length * ROW + 4;
-    const PACE_COL = { ON_TRACK: '#00b27e', WATCH: '#f59e0b', AT_RISK: '#FA0000' };
+    const PACE_COL = { ON_TRACK: '#343F48', WATCH: '#6B7580', AT_RISK: '#FF6D68' };
     const bars = equipe.map((e, i) => {
       const wObj   = Math.max(4, Math.round(e.obj / maxVal * 210));
       const wCA    = e.ca > 0 ? Math.max(4, Math.round(e.ca / maxVal * 210)) : 0;
@@ -562,19 +562,20 @@ window.VueDashboardManager = {
       const y      = i * ROW + 2;
       const col    = PACE_COL[e.pace];
       const pctStr = `${e.pct}%`;
-      const xPct   = wObj + 6;
+      const xPct   = wObj + 10;
       const caInside = wCA > 40;
       const caX      = wCA > 20 ? wCA - 4 : xPct + pctStr.length * 6 + 6;
       const caAnchor = wCA > 20 ? 'end' : 'start';
       return `
         <text x="0" y="${y + 11}" font-size="11" font-weight="700" fill="var(--c-title)">${e.nom.toUpperCase()}</text>
-        <rect x="0" y="${y + 15}" width="${wObj}" height="12" fill="var(--c-border)" rx="3"/>
-        <rect x="0" y="${y + 15}" width="${wCA}"  height="12" fill="${col}"   rx="3" opacity=".88"/>
+        <g data-tip="${e.nom}\nRéalisé ${formatEUR(e.ca)} sur ${formatEUR(e.obj)} (${e.pct} %)" tabindex="0">
+        <rect x="0" y="${y + 15}" width="${wObj}" height="12" fill="#E6E9EC" rx="6"/>
+        <rect x="0" y="${y + 15}" width="${wCA}"  height="12" fill="${col}"   rx="6"/></g>
         <text x="${xPct}" y="${y + 25}" font-size="10" fill="var(--c-title)" font-weight="700">${pctStr}</text>
         <text x="${caX}" y="${y + 24}" font-size="9" fill="${caInside ? '#fff' : '#0E0D30'}" text-anchor="${caAnchor}">${formatEUR(e.ca)}</text>
         ${wFY26 > 0 ? `
-        <rect x="0" y="${y + 32}" width="${wFY26}" height="8" fill="none" stroke="#9333ea" stroke-width="1.5" stroke-dasharray="3 2" rx="2"/>
-        <text x="${wFY26 + 4}" y="${y + 40}" font-size="9" fill="#9333ea">FY26 ${formatEUR(e.caFY26)}</text>` : ''}
+        <rect x="0" y="${y + 32}" width="${wFY26}" height="8" fill="#B8BEC4" rx="4"/>
+        <text x="${wFY26 + 4}" y="${y + 40}" font-size="9" fill="#6B7580">FY26 ${formatEUR(e.caFY26)}</text>` : ''}
       `;
     }).join('');
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
@@ -812,12 +813,12 @@ window.VueDashboardManager = {
         <div class="dash-col-main">
         <p class="dash-date" style="color:var(--c-text-2);font-family:Montserrat,sans-serif;font-size:13px">${dateFr} · Suivi FY27</p>
 
-        ${section('Pipeline', '#9333ea', pipelineCorps)}
+        ${section('Pipeline', '#6B7580', pipelineCorps)}
         <!-- Bloc E (07/2026) — grille 2 colonnes desktop (≥1200px) au lieu
              d'un empilement plein-largeur, pour désencombrer le Reporting. -->
         <div class="dash-grid-2col">
-          ${section('Performance par CDS', '#00b27e', performanceCorps)}
-          ${section('CA', '#0050FF', caCorps)}
+          ${section('Performance par CDS', '#343F48', performanceCorps)}
+          ${section('CA', '#343F48', caCorps)}
         </div>
         </div><!-- /dash-col-main -->
 
@@ -870,9 +871,9 @@ window.VueDashboardManager = {
             <div style="font-size:11px;color:var(--c-text-2);margin-top:2px">/ ${formatEuro(d.objTotal)} obj. · <strong style="color:${d.pctTotal>=100?'var(--c-success)':d.pctTotal>=80?'var(--c-warning)':'var(--c-danger)'}">${d.pctTotal}%</strong></div>
           </div>
           ${d.caFY26Total > 0 ? `
-          <div class="stat-tuile" style="border-top:3px solid #9333ea">
-            <div class="stat-tuile-lbl" style="color:#9333ea">Réf. FY26/trim.</div>
-            <div class="stat-tuile-val" style="color:#9333ea">${formatEuro(d.caFY26Total)}</div>
+          <div class="stat-tuile" style="border-top:3px solid #6B7580">
+            <div class="stat-tuile-lbl" style="color:#6B7580">Réf. FY26/trim.</div>
+            <div class="stat-tuile-val" style="color:#6B7580">${formatEuro(d.caFY26Total)}</div>
             <div style="font-size:11px;color:var(--c-text-2);margin-top:2px">CA annuel ÷ 4 équipe</div>
           </div>` : ''}
           <div class="stat-tuile bleu" style="cursor:pointer" onclick="Router.aller('#/empower-tracker')">
@@ -891,7 +892,7 @@ window.VueDashboardManager = {
         <!-- Bloc E (07/2026) — grille 2 colonnes desktop (≥1200px) au lieu
              d'un empilement plein-largeur, pour désencombrer le Reporting. -->
         <div class="dash-grid-2col">
-        ${this._sectionThematique('CA', '#0050FF', `
+        ${this._sectionThematique('CA', '#343F48', `
           <div class="bloc-fiche dash-pace" style="margin-bottom:12px">
             <div class="bloc-titre">Équipe, Pace CA ${d.quarter}
               <span class="pace-badge ${d.pctTotal >= 100 ? 'pace-ok' : d.pctTotal >= 80 ? 'pace-watch' : 'pace-risk'}">${d.pctTotal}%</span>
@@ -904,15 +905,15 @@ window.VueDashboardManager = {
           <div class="bloc-titre">CA réalisé vs objectif par CDS, ${d.quarter}</div>
           ${this._svgCaEquipe(d.equipe)}
           <div style="display:flex;gap:16px;font-size:11px;color:var(--c-text-2);margin-top:8px;flex-wrap:wrap">
-            <span><span style="display:inline-block;width:10px;height:10px;background:#E8E8ED;border-radius:2px;vertical-align:middle"></span> Objectif</span>
-            <span><span style="display:inline-block;width:10px;height:10px;background:#00b27e;border-radius:2px;vertical-align:middle"></span> On Track</span>
-            <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;vertical-align:middle"></span> Watch</span>
-            <span><span style="display:inline-block;width:10px;height:10px;background:#FA0000;border-radius:2px;vertical-align:middle"></span> At Risk</span>
-            <span><span style="display:inline-block;width:10px;height:8px;border:1.5px dashed #9333ea;border-radius:2px;vertical-align:middle"></span> FY26 réf./trim.</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#E6E9EC;border-radius:99px;vertical-align:middle"></span> Objectif</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#343F48;border-radius:99px;vertical-align:middle"></span> On Track</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#6B7580;border-radius:99px;vertical-align:middle"></span> Watch</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#FF6D68;border-radius:99px;vertical-align:middle"></span> At Risk</span>
+            <span><span style="display:inline-block;width:10px;height:8px;background:#B8BEC4;border-radius:99px;vertical-align:middle"></span> FY26 réf./trim.</span>
           </div>
         `)}
 
-        ${this._sectionThematique('Pipeline', '#9333ea', `
+        ${this._sectionThematique('Pipeline', '#6B7580', `
           ${this._svgFunnel(d.pipelineStages)}
           <div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap">
             <button class="btn-lien" onclick="Router.aller('#/empower-tracker')" style="font-size:12px">Voir le Tracker →</button>
@@ -926,7 +927,7 @@ window.VueDashboardManager = {
           const ligneCDS = filtrePF ? d.pipelineFroidParCDS.find(c => c.pin === filtrePF) : null;
           const totalAffiche = ligneCDS || d.pipelineFroidTotal;
           const LBL = { PROSPECTION_FROIDE: 'Prospection froide', SUIVI_ACTIF: 'Suivi actif', ONBOARDING_EMPOWER: 'Onboarding Empower' };
-          const COUL = { PROSPECTION_FROIDE: '#0EA5E9', SUIVI_ACTIF: '#f59e0b', ONBOARDING_EMPOWER: '#00b27e' };
+          const COUL = { PROSPECTION_FROIDE: '#5B7A99', SUIVI_ACTIF: '#FF6D68', ONBOARDING_EMPOWER: '#343F48' };
           const pfCorps = `
             <p style="font-size:12px;color:var(--c-text-2);margin:0 0 10px">
               Répartition des visites par type, cadre dédié au suivi terrain, distinct du CA/objectifs.
@@ -957,11 +958,11 @@ window.VueDashboardManager = {
               </div>`).join('')}
             </div>` : ''}
           `;
-          return this._sectionThematique('Pipeline froid', '#0EA5E9', pfCorps);
+          return this._sectionThematique('Pipeline froid', '#5B7A99', pfCorps);
         })()}
 
         <div class="dash-grid-2col">
-        ${this._sectionThematique('Activité terrain', '#0EA5E9', `
+        ${this._sectionThematique('Activité terrain', '#5B7A99', `
           <p style="font-size:13px;color:var(--c-text-2);margin:0 0 10px">
             Cette semaine : <strong style="color:var(--c-text)">${d.equipe.reduce((s,e)=>s+e.visitesSem,0)} visite(s)</strong> ·
             <strong style="color:var(--c-text)">${d.equipe.reduce((s,e)=>s+e.appelsSem,0)} appel(s)</strong>
@@ -970,24 +971,24 @@ window.VueDashboardManager = {
           ${this._svgActiviteEquipe(d.activiteEquipe)}
         `)}
 
-        ${this._sectionThematique('Objectifs', '#f59e0b', `
+        ${this._sectionThematique('Objectifs', '#FF6D68', `
           <div class="tableau-equipe">
             <div class="te-ligne te-head" style="grid-template-columns:1.2fr 1.4fr 0.6fr 0.8fr 0.4fr 0.4fr 0.4fr 0.6fr">
-              <span>CDS</span><span>CA / OBJ</span><span>%</span><span style="color:#9333ea">FY26/trim</span><span>Vis.</span><span>App.</span><span>Leads</span><span title="Visites réalisées transformées en intérêt/commande, ce trimestre">Transfo.</span>
+              <span>CDS</span><span>CA / OBJ</span><span>%</span><span style="color:#6B7580">FY26/trim</span><span>Vis.</span><span>App.</span><span>Leads</span><span title="Visites réalisées transformées en intérêt/commande, ce trimestre">Transfo.</span>
             </div>
             ${d.equipe.map(e => `
             <div class="te-ligne" style="cursor:pointer;grid-template-columns:1.2fr 1.4fr 0.6fr 0.8fr 0.4fr 0.4fr 0.4fr 0.6fr" onclick="Router.aller('#/comptes?cds=${e.pin}')">
               <span style="display:flex;align-items:center;gap:8px">${avatarCDS(e.pin, 26)}<strong>${e.nom}</strong></span>
               <span style="font-size:12px">${formatEuro(e.ca)} / ${formatEuro(e.obj)}</span>
               <span class="pace-badge ${PACE[e.pace].cls}">${e.pct}%</span>
-              <span style="font-size:11px;color:#9333ea">${e.caFY26 > 0 ? formatEuro(e.caFY26) : 'n.c.'}</span>
+              <span style="font-size:11px;color:#6B7580">${e.caFY26 > 0 ? formatEuro(e.caFY26) : 'n.c.'}</span>
               <span>${e.visitesSem}</span>
               <span>${e.appelsSem}</span>
               <span>${e.leadsEnCours}</span>
               <span style="font-size:12px;font-weight:700;color:${e.tauxTransfo === null ? 'var(--c-text-2)' : e.tauxTransfo >= 25 ? 'var(--c-success)' : e.tauxTransfo >= 10 ? 'var(--c-warning)' : 'var(--c-danger)'}" title="${e.visitesRealiseesQ} visite(s) réalisée(s) ${d.quarter}">${e.tauxTransfo === null ? 'n.c.' : e.tauxTransfo + '%'}</span>
             </div>`).join('')}
           </div>
-          <p style="font-size:11px;color:var(--c-text-2);margin-top:8px">Vis. = visites ${d.semaine} · App. = appels ${d.semaine} · Leads = leads actifs · <span style="color:#9333ea">FY26/trim = CA FY26 annuel ÷ 4</span> · Transfo. = part des visites réalisées ${d.quarter} au résultat positif ou à statut EMPOWER avancé</p>
+          <p style="font-size:11px;color:var(--c-text-2);margin-top:8px">Vis. = visites ${d.semaine} · App. = appels ${d.semaine} · Leads = leads actifs · <span style="color:#6B7580">FY26/trim = CA FY26 annuel ÷ 4</span> · Transfo. = part des visites réalisées ${d.quarter} au résultat positif ou à statut EMPOWER avancé</p>
           <div style="height:1px;background:var(--c-border);margin:14px 0"></div>
           <div class="bloc-titre" style="padding:0">Saisie CA réalisé à date</div>
           <p style="font-size:12px;color:var(--c-text-2);margin:6px 0 12px">Renseignez le CA terrain pour un CDS, la valeur remplace le sell-in du quarter sélectionné.</p>

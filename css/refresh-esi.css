@@ -367,3 +367,45 @@ body.sidebar-collapsed .nav-marque { display: none; }
 .terr-legende { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); padding: 6px 8px 0; }
 .terr-legende i { width: 120px; height: 8px; border-radius: 9999px; background: linear-gradient(90deg, rgba(52,63,72,.18), rgba(52,63,72,.9)); }
 .terr-legende em { font-style: normal; margin-left: 6px; }
+
+/* ═══ Harmonisation des cartes et des blocs (interface SaaS) ═══
+   Une seule recette : fond surface, filet fin, angle 14 px, respiration 20 px, ni ombre ni liseré coloré,
+   titre de bloc en petites capitales discrètes. S'applique à toutes les vues héritées et aux nouvelles. */
+.bloc-fiche, .carte-compte, .carte-compte-v2, .kpi-card, .section-card, .stat-tuile, .carte-visite,
+.dash-pace, .an-card, .v7-card, .pilo-panneau, .pilo-kpi, .carte-lead, .kanban-carte, .terr-card {
+  background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-lg);
+  box-shadow: none; border-left-width: 1px;
+}
+.bloc-fiche { padding: 20px; }
+.bloc-fiche[style*="border-left"], .section-card[style*="border-left"], .dash-pace[style*="border-left"] { border-left: 1px solid var(--border-medium) !important; }
+.kpi-card:hover, .pilo-kpi:hover, .carte-compte-v2:hover { box-shadow: 0 6px 18px rgba(14,13,48,.08); transform: none; border-color: var(--ardoise); }
+.bloc-titre { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+.kpi-card .kpi-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+.kpi-card .kpi-value { color: var(--text-primary); letter-spacing: -.02em; }
+/* Barre d'en-tête de page : claire sur ordinateur, comme la barre de contexte de la maquette */
+@media (min-width: 900px) {
+  .header-vue { background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); box-shadow: none; }
+  .header-vue h1 { color: var(--text-primary); font-size: 17px; }
+  .header-vue .btn-retour { color: var(--text-primary); background: var(--c-control); border: 0; }
+  #app > *:not(.header-vue):not(.nav-principale):not(.fusion-tabs):not(.pilo):not(.terr) { max-width: 1280px; }
+}
+/* Tableaux : en-tête discret, lignes aérées, sans quadrillage lourd */
+table th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+table td, table th { border-color: var(--border-subtle); }
+/* Onglets de vues fusionnées : alignés sur la grille des pages */
+.fusion-tabs { max-width: 1280px; }
+/* Liserés colorés posés en style inline par les vues héritées : remplacés par le filet neutre */
+[style*="border-left:4px solid"], [style*="border-left: 4px solid"], [style*="border-left:3px solid"] { border-left: 1px solid var(--border-medium) !important; }
+.stat-tuile[style*="border-top"], [style*="border-top:3px solid"] { border-top: 1px solid var(--border-medium) !important; }
+details[style*="border:1.5px"] { border: 1px solid var(--border-medium) !important; border-radius: var(--radius-lg) !important; }
+
+/* Variante A « Sobre » : barres arrondies ardoise, corail seulement pour le risque, survol interactif */
+.pace-barre { height: 8px; border-radius: 99px; background: #E6E9EC; }
+.pace-barre-fill { border-radius: 99px; }
+.pace-barre-fill.pace-ok, .pace-barre-fill.pace-watch { background: var(--ardoise); }
+.pace-barre-fill.pace-risk { background: var(--corail, #FF6D68); }
+.pace-barre-fill.pace-ok, .pace-barre-fill.pace-watch, .pace-barre-fill.pace-risk { color: inherit; }
+.pace-ok, .pace-watch, .pace-risk { border-radius: 99px; }
+svg [data-tip] { cursor: pointer; transition: opacity .15s; }
+svg [data-tip]:hover, svg [data-tip]:focus { opacity: .8; outline: none; }
+.vue-barre, .barre-pipeline, .pipeline-barre { border-radius: 99px; }

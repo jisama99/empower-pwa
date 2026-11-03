@@ -8,7 +8,7 @@
 
 window.VueAnalyse = {
 
-  COUL: { Empower: '#2F6FEB', Grossiste: '#C98A1B', 'À qualifier': '#8A949E', actif: '#1E9E6A', inactif: '#B9C0C7' },
+  COUL: { Empower: '#343F48', Grossiste: '#FF6D68', 'À qualifier': '#8A949E', actif: '#343F48', inactif: '#C9D0D6' },
   PERIODES: ['FY25', 'FY26', 'Q1FY27', 'Q2FY27', 'Q3FY27', 'Q4FY27'],
   state: { chargement: true, erreur: null, comptes: [], objectifs: [], quarter: 'Q1', onglet: 'vue', sel: null, visites: [], leads: [] },
 
@@ -88,8 +88,8 @@ window.VueAnalyse = {
     const lignes = pins.map((p, i) => {
       const a = g[p].actif.length, n = g[p].inactif.length, y = 8 + i * 34, sc = (W - 130) / max;
       return `<text x="0" y="${y + 17}" font-size="12">${this._esc(this._nom(Number(p)))}</text>
-        <rect x="100" y="${y}" width="${Math.max(a * sc, 0)}" height="24" fill="${this.COUL.actif}" rx="3" tabindex="0" role="button" data-sel="trk:${p}:actif" data-tip="${this._esc(this._nom(Number(p)))} : ${a} activé${a > 1 ? 's' : ''} (1re commande passée)" aria-label="${a} activés"/>
-        <rect x="${100 + a * sc}" y="${y}" width="${Math.max(n * sc, 0)}" height="24" fill="${this.COUL.inactif}" rx="3" tabindex="0" role="button" data-sel="trk:${p}:inactif" data-tip="${this._esc(this._nom(Number(p)))} : ${n} non activé${n > 1 ? 's' : ''} (pas encore de commande)" aria-label="${n} non activés"/>
+        <rect x="100" y="${y}" width="${Math.max(a * sc, 0)}" height="24" fill="${this.COUL.actif}" rx="8" tabindex="0" role="button" data-sel="trk:${p}:actif" data-tip="${this._esc(this._nom(Number(p)))} : ${a} activé${a > 1 ? 's' : ''} (1re commande passée)" aria-label="${a} activés"/>
+        <rect x="${100 + a * sc}" y="${y}" width="${Math.max(n * sc, 0)}" height="24" fill="${this.COUL.inactif}" rx="8" tabindex="0" role="button" data-sel="trk:${p}:inactif" data-tip="${this._esc(this._nom(Number(p)))} : ${n} non activé${n > 1 ? 's' : ''} (pas encore de commande)" aria-label="${n} non activés"/>
         <text x="${104 + (a + n) * sc}" y="${y + 17}" font-size="12">${a}/${a + n}</text>`;
     }).join('');
     return `<svg viewBox="0 0 ${W} ${pins.length * 34 + 10}" role="group" aria-label="Tracker Empower">${lignes}</svg>
@@ -100,7 +100,7 @@ window.VueAnalyse = {
     const W = 420, sc = (W - 150) / Math.max(120, ...o.map(x => x.pct));
     return `<svg viewBox="0 0 ${W} ${o.length * 34 + 22}" role="group" aria-label="Atteinte des objectifs ${this.state.quarter}">
       ${o.map((x, i) => { const y = 8 + i * 34; return `<text x="0" y="${y + 17}" font-size="12">${this._esc(x.nom)}</text>
-        <rect x="100" y="${y}" width="${Math.max(x.pct * sc, 1)}" height="24" rx="3" fill="${x.pct >= 100 ? this.COUL.actif : x.pct >= 80 ? '#C98A1B' : '#C0453F'}" tabindex="0" role="button" data-sel="obj:${x.pin}" data-tip="${this._esc(x.nom)} : ${Math.round(x.pct)} % (${Math.round(x.ca)} € / ${Math.round(x.obj)} €)" aria-label="${Math.round(x.pct)} %"/>
+        <rect x="100" y="${y}" width="${Math.max(x.pct * sc, 1)}" height="24" rx="3" fill="${x.pct >= 100 ? this.COUL.actif : x.pct >= 80 ? '#6B7580' : '#FF6D68'}" tabindex="0" role="button" data-sel="obj:${x.pin}" data-tip="${this._esc(x.nom)} : ${Math.round(x.pct)} % (${Math.round(x.ca)} € / ${Math.round(x.obj)} €)" aria-label="${Math.round(x.pct)} %"/>
         <text x="${104 + x.pct * sc}" y="${y + 17}" font-size="12">${Math.round(x.pct)} %</text>`; }).join('')}
       <line x1="${100 + 100 * sc}" x2="${100 + 100 * sc}" y1="0" y2="${o.length * 34 + 8}" stroke="currentColor" stroke-dasharray="3 3" opacity=".5"/>
       <text x="${100 + 100 * sc}" y="${o.length * 34 + 20}" font-size="10" text-anchor="middle">objectif</text></svg>`;
@@ -379,11 +379,11 @@ window.VueAnalyse = {
       if (d.kind === 'atteinte') return d.lignes.length ? d.lignes.map((x, k) => `<div class="gj"><span class="ci" style="background:${pal[k % 4]}">${e(this._init(x.nom))}</span><div class="grow"><div class="gh"><b>${e(x.nom)}</b><span>${f(x.ca)} € sur ${f(x.obj)} €</span><strong>${x.pct} %</strong></div><div class="gt"><i style="width:${Math.min(100, x.pct)}%"></i></div></div></div>`).join('') : '<p>Aucun objectif pour ce trimestre.</p>';
       if (d.kind === 'portefeuille') { const Pf = D.portefeuille; let a = 0; const seg = Pf.canaux.map(([, n], i) => { const p = n / (Pf.total || 1) * 100, s = `${pal[i % 4]} ${a}% ${a + p}%`; a += p; return s; }).join(',');
         return `<div class="cols"><div class="don"><div class="ring" style="background:conic-gradient(${seg || '#' + C.clair + ' 0 100%'})"><span>${Pf.total}</span></div><ul>${Pf.canaux.map(([k, n], i) => `<li><i style="background:${pal[i % 4]}"></i>${e(k)} <b>${n}</b></li>`).join('')}</ul></div>
-          <div class="grow"><div class="hero"><b>${Pf.deps}</b><span>département${this._s(Pf.deps, '', 's')} avec au moins un compte, sur 96</span></div>${Pf.leads.length ? tab(['Pipeline : statut', 'Leads'], Pf.leads.slice(0, 5)) : '<p>Aucun lead dans le pipeline.</p>'}</div></div>`; }
+          <div class="grow"><div class="hero"><b>${Pf.deps}</b><span>département${this._s(Pf.deps, '', 's')} avec au moins un compte, sur 96</span></div>${Pf.leads.length ? tab(['Pipeline : statut', 'Leads'], Pf.leads.slice(0, 5).map(([k, n]) => [({ COMPTE_CREE: 'Compte créé', INTEGRE: 'Intégré', ASSIGNE: 'Assigné', ARCHIVE: 'Archivé', EN_COURS: 'En cours', SAISIE: 'À traiter' })[k] || String(k).replace(/_/g, ' ').toLowerCase().replace(/^./, c => c.toUpperCase()), n])) : '<p>Aucun lead dans le pipeline.</p>'}</div></div>`; }
       return d.lignes.map((l, k) => `<div class="pan"><span class="ci" style="background:${k === 1 ? '#' + C.rouge : '#' + C.ardoise}">${k + 1}</span><p>${e(l)}</p></div>`).join('');
     };
     const total = slides.length + 1;
-    const cover = `<section class="pg cover"><div class="logos"><img src="${location.origin}/img/logo-marvesting.png" alt="Marvesting" onerror="this.style.display='none'">${typeof NORTON_SVG === 'string' ? NORTON_SVG : ''}</div><div class="tag">ESI</div><h1>Reporting commercial</h1><p class="sub">${e(D.periode)}</p><p>${e(D.auteur)} · ${e(D.date)} · périmètre ${e(D.perimetre)}</p></section>`;
+    const cover = `<section class="pg cover"><div class="logos"><img src="${location.origin}/img/logo-marvesting.png" alt="Marvesting" onerror="this.style.display='none'"><img src="${location.origin}/img/norton-empower-reseller.png" alt="Norton Empower Reseller Program" onerror="this.style.display='none'"></div><div class="tag">ESI</div><h1>Reporting commercial</h1><p class="sub">${e(D.periode)}</p><p>${e(D.auteur)} · ${e(D.date)} · périmètre ${e(D.perimetre)}</p></section>`;
     let chap = 0, prev = null;
     const pages = slides.map((d, i) => { if (d.bloc !== prev) { chap++; prev = d.bloc; }
       return `<section class="pg"><header><span class="bd">${chap}</span><div class="grow"><h2>${e(d.titre)}</h2><p>${e(d.concl)}</p></div><span class="cap">${e(d.capsule)}</span></header><div class="body">${corps(d)}</div><footer><span>${e(D.auteur)} · Norton × ISM · FY27</span><span>${i + 2} / ${total}</span></footer></section>`; });
@@ -391,9 +391,9 @@ window.VueAnalyse = {
       .pg{width:297mm;height:210mm;page-break-after:always;break-after:page;position:relative;overflow:hidden;background:#fff}.grow{flex:1;min-width:0}
       .pg>header{display:flex;align-items:center;gap:6mm;background:#${C.ardoise};color:#fff;height:30mm;padding:0 14mm}.pg h2{margin:0;font-size:24px;font-weight:700}.pg>header p{margin:3px 0 0;font-size:14px;font-weight:700;color:#${C.rouge}}
       .bd{display:flex;align-items:center;justify-content:center;width:13mm;height:13mm;border-radius:4mm;background:#${C.rouge};font-weight:700;font-size:18px;transform:rotate(-6deg)}.cap{background:#fff;color:#${C.ardoise};border-radius:99px;padding:3mm 6mm;font-weight:700;font-size:15px;white-space:nowrap}
-      .body{padding:10mm 14mm}.pg>footer{position:absolute;left:14mm;right:14mm;bottom:7mm;display:flex;justify-content:space-between;font-size:12px}
+      .body{padding:0 14mm;height:150mm;display:flex;flex-direction:column;justify-content:center}.pg>footer{position:absolute;left:14mm;right:14mm;bottom:7mm;display:flex;justify-content:space-between;font-size:12px}
       .cover{background:#${C.ardoise};color:#fff;padding:20mm 22mm}.cover h1{font-size:44px;margin:14mm 0 4mm}.cover .sub{font-size:22px;color:#${C.corail};margin:0 0 8mm}.cover p{font-size:15px}.tag{display:inline-block;background:#${C.rouge};border-radius:99px;padding:3mm 8mm;font-weight:700;margin-top:16mm}
-      .logos{display:flex;align-items:center;gap:12mm;color:#${C.ardoise};background:#fff;border-radius:5mm;padding:6mm 9mm;width:fit-content}.logos img{height:14mm}.logos svg{height:14mm;width:14mm}
+      .logos{display:flex;align-items:center;gap:12mm;color:#${C.ardoise};background:#fff;border-radius:5mm;padding:6mm 9mm;width:fit-content}.logos img{height:14mm;width:auto}.logos svg{height:14mm;width:14mm}
       .cols{display:flex;gap:10mm;align-items:flex-start}.hero{min-width:46mm}.hero b{display:block;font-size:56px;line-height:1;color:#${C.rouge}}.hero span{font-size:12px}
       table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}th,td{padding:2.2mm 3mm;text-align:left}th{background:#${C.ardoise};color:#fff}td.r,th.r{text-align:right}tbody tr:nth-child(odd) td{background:#${C.clair}}
       th:first-child{border-radius:3mm 0 0 3mm}th:last-child{border-radius:0 3mm 3mm 0}

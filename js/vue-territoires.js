@@ -13,6 +13,13 @@ window.VueTerritoires = {
          '32': 'Hauts-de-France', '44': 'Grand Est', '52': 'Pays de la Loire', '53': 'Bretagne', '75': 'Nouvelle-Aquitaine',
          '76': 'Occitanie', '84': 'Auvergne-Rhône-Alpes', '93': 'Provence-Alpes-Côte d’Azur', '94': 'Corse' },
 
+  // Le plein écran ajoute une entrée d'historique : « retour » (bouton, geste, Échap) le ferme sans quitter la vue.
+  _basculerPlein(rerender) {
+    const s = this.state, h = window.history;
+    if (!s.plein) { h.pushState({ ...(h.state || {}), terrPlein: true }, '', window.location.href); s.plein = true; rerender(); }
+    else if (h.state && h.state.terrPlein) h.back();
+    else { s.plein = false; rerender(); }
+  },
   state: { chargement: true, erreur: null, comptes: [], visites: [], reg: '', dep: '', calque: 'comptes', plein: false, com: '', canal: '' },
 
 
@@ -128,6 +135,7 @@ window.VueTerritoires = {
     const par = this._dataDeps(), nonLoc = this._comptesF().filter(c => !c.dep).length;
     const regs = Object.keys(this.REG).filter(r => window.FR.deps.some(d => d.r === r));
     const deps = window.FR.deps.filter(d => !s.reg || d.r === s.reg);
+    s.plein = !!(window.history.state && window.history.state.terrPlein);
     app.innerHTML = `<style>
       .terr{--terr-fill:#343F48;--terr-sel:#FF6D68;--terr-vide:#E6E9EC;--terr-trait:#fff;padding:12px 16px 80px}
       @media (prefers-color-scheme:dark){.terr{--terr-vide:#2b333a;--terr-trait:#14181c}}
@@ -171,14 +179,14 @@ window.VueTerritoires = {
     app.querySelectorAll('[data-ariane]').forEach(b => b.onclick = () => { const k = b.dataset.ariane; if (k === 'fr') { s.reg = ''; s.dep = ''; } else if (k === 'reg') { s.dep = ''; } rerender(); });
     app.querySelector('#terr-dep').onchange = e => { s.dep = e.target.value; rerender(); };
     app.querySelectorAll('[data-calque]').forEach(b => b.onclick = () => { s.calque = b.dataset.calque; rerender(); });
-    app.querySelector('#terr-fs').onclick = () => { s.plein = !s.plein; rerender(); };
+    app.querySelector('#terr-fs').onclick = () => this._basculerPlein(rerender);
     app.querySelectorAll('path[data-dep]').forEach(p => {
       const go = () => { const c = p.dataset.dep; s.dep = s.dep === c ? '' : c; rerender(); };
       p.onclick = go; p.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
     });
     if (!this._esc2) {
       this._esc2 = true;
-      document.addEventListener('keydown', e => { if (e.key === 'Escape' && this.state.plein && document.querySelector('.terr')) { this.state.plein = false; this.render(); } });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && this.state.plein && document.querySelector('.terr')) this._basculerPlein(() => this.render()); });
     }
   },
 };

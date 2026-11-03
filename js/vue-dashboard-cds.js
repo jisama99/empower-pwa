@@ -80,7 +80,7 @@ window.VueDashboardCDS = {
     // BLOC 02 §4 — les blocs analytiques déplacés depuis l'Accueil (top 5,
     // base prospects, comptes à réactiver, primes) vivent ici, dans Analyse.
     const d = this.state.donnees || {};
-    const potCoul = { Fort: '#00b27e', Moyen: '#f59e0b', Faible: '#626264' };
+    const potCoul = { Fort: '#343F48', Moyen: '#FF6D68', Faible: '#626264' };
 
     app.innerHTML = `
       <header class="dash-page-header">
@@ -429,7 +429,7 @@ window.VueDashboardCDS = {
       AT_RISK:  { lbl: 'AT RISK',  cls: 'pace-risk' },
     }[d.pace];
     const nbAlertes = d.comptesRouges.length + d.nextStepsDepasses.length + d.leadsATraiter.length;
-    const potCoul   = { Fort: '#00b27e', Moyen: '#f59e0b', Faible: '#626264' };
+    const potCoul   = { Fort: '#343F48', Moyen: '#FF6D68', Faible: '#626264' };
 
     // ── Delta vs semaine précédente (Bloc 2 refonte desktop — audit UX §
     //    "Home / cockpit") : activiteSemaines couvre déjà 6 semaines glissantes,
