@@ -4,7 +4,7 @@
 //  selon la région. Sources : COMPTES et VISITES (SheetsAPI), géométrie :
 //  js/france-deps.js (window.FR, GeoJSON simplifié, aucun appel externe).
 //  Périmètre : ADMIN / CHANNEL_MANAGER = tout ; CDS = ses comptes et visites ;
-//  EXTERNE = agrégats par département seulement (aucun nom de compte).
+//  EXTERNE (fournisseur de leads) = tous les comptes, SANS aucune visite.
 // ═══════════════════════════════════════
 
 window.VueTerritoires = {
@@ -14,6 +14,7 @@ window.VueTerritoires = {
          '76': 'Occitanie', '84': 'Auvergne-Rhône-Alpes', '93': 'Provence-Alpes-Côte d’Azur', '94': 'Corse' },
 
   state: { chargement: true, erreur: null, comptes: [], visites: [], reg: '', dep: '', calque: 'comptes', plein: false },
+
 
   _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
 
@@ -33,11 +34,12 @@ window.VueTerritoires = {
 
   async init() {
     this.state.chargement = true; this.state.erreur = null;
+    if (Session.estExterne()) this.state.calque = 'comptes';
     this.render();
     try {
       const [comptes, visites] = await Promise.all([
         SheetsAPI.lire('EMPOWER_MDB', 'COMPTES'),
-        SheetsAPI.lire('EMPOWER_MDB', 'VISITES').catch(() => []),
+        Session.estExterne() ? Promise.resolve([]) : SheetsAPI.lire('EMPOWER_MDB', 'VISITES').catch(() => []),
       ]);
       const ok = r => !String(r.deleted || '').toUpperCase().includes('TRUE');
       const monPerimetre = pin => Session.voitTout() || Session.estExterne() || Number(pin) === Session.pin;
@@ -102,7 +104,6 @@ window.VueTerritoires = {
 
   _liste() {
     const s = this.state;
-    if (Session.estExterne()) return '';
     const deps = new Set(((window.FR && window.FR.deps) || []).filter(d => (!s.reg || d.r === s.reg) && (!s.dep || d.c === s.dep)).map(d => d.c));
     const l = s.comptes.filter(c => c.dep && deps.has(c.dep)).sort((a, b) => String(a.nom).localeCompare(String(b.nom)));
     return `<section aria-label="Comptes du périmètre"><h2>Comptes (${l.length})</h2><ul class="terr-liste">${
@@ -140,12 +141,12 @@ window.VueTerritoires = {
         <select id="terr-reg" aria-label="Région"><option value="">Toutes les régions</option>${regs.map(r => `<option value="${r}"${s.reg === r ? ' selected' : ''}>${this.REG[r]}</option>`).join('')}</select>
         <select id="terr-dep" aria-label="Département"><option value="">Tous les départements</option>${deps.map(d => `<option value="${d.c}"${s.dep === d.c ? ' selected' : ''}>${d.c} ${this._esc(d.n)}</option>`).join('')}</select>
         <button data-calque="comptes" aria-pressed="${s.calque === 'comptes'}">Comptes</button>
-        <button data-calque="visites" aria-pressed="${s.calque === 'visites'}">Visites</button>
+        ${Session.estExterne() ? '' : `<button data-calque="visites" aria-pressed="${s.calque === 'visites'}">Visites</button>`}
       </div>
       <div class="terr-map">${this._carte(par)}<button class="terr-fs" id="terr-fs" aria-label="${s.plein ? 'Quitter le plein écran' : 'Carte en plein écran'}">${s.plein ? '⤡' : '⤢'}</button></div>
       ${nonLoc ? `<p class="terr-sub">${nonLoc} compte${nonLoc > 1 ? 's' : ''} sans département : non placés sur la carte.</p>` : ''}
-      <h2>Visites par commercial${s.reg ? ' · ' + this.REG[s.reg] : ''}${s.dep ? ' · ' + s.dep : ''}</h2>
-      <div class="terr-grid">${this._cartesCommerciaux()}</div>
+      ${Session.estExterne() ? '' : `<h2>Visites par commercial${s.reg ? ' · ' + this.REG[s.reg] : ''}${s.dep ? ' · ' + s.dep : ''}</h2>
+      <div class="terr-grid">${this._cartesCommerciaux()}</div>`}
       ${this._liste()}
     </div>`;
     this._bind(app);

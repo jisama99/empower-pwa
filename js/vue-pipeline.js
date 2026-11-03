@@ -60,10 +60,26 @@ window.VuePipeline = {
 
   // ── Droits (Bloc 4) ──
   // Voir tous les leads : ADMIN + CHANNEL_MANAGER (Alexandra). CDS : ses propres leads. EXTERNE (Flavie) : saisie.
-  _voitTous()    { return Session.voitTout(); },
+  // EXTERNE (fournisseur de leads) : voit tous les leads, comme le Channel (décision du 3 nov. 2026).
+  _voitTous()    { return Session.voitTout() || Session.estExterne(); },
+  // Fournisseur de leads (EXTERNE) : ses leads = ceux qu'il a saisis (PIN_Channel) ou, pour l'historique
+  // sans PIN_Channel, ceux dont l'ORIGINE porte son prénom (ex. « Flavie »).
+  _estLeadExterne(l) {
+    if (!Session.estExterne()) return false;
+    if (Number(l.PIN_Channel) === Number(Session.pin)) return true;
+    const prenom = String(Session.nom || '').trim().split(/\s+/)[0].toLowerCase();
+    return !!prenom && String(l.ORIGINE || '').trim().toLowerCase() === prenom;
+  },
+  // Indicateur « contacté » pour le fournisseur : une action enregistrée ou un statut au-delà de « À traiter ».
+  _contacte(l) {
+    const st = String(l._statut || l.STATUT_EMPOWER || '').toUpperCase();
+    const date = String(l.Date_Derniere_Action || '').slice(0, 10);
+    return { oui: !!date || !['', 'SAISIE'].includes(st), date };
+  },
   // Attribuer / avancer / éditer un lead : ADMIN + CHANNEL_MANAGER (Alexandra a un niveau
   // proche de l'admin sur le Tracker, pas une simple lecture seule).
-  _peutAssigner(){ return Session.estManager() || Session.estChannel(); },
+  // Le fournisseur de leads attribue le lead au commercial dès la saisie, selon le besoin.
+  _peutAssigner(){ return Session.estManager() || Session.estChannel() || Session.estExterne(); },
   // Saisir un nouveau lead : ADMIN + CHANNEL_MANAGER (Alexandra) + CDS (commercial terrain).
   _peutSaisir()  { return Session.estManager() || Session.estChannel() || Session.estCDS() || Session.estExterne(); },
 
@@ -579,7 +595,9 @@ window.VuePipeline = {
       Date_Import: dateISOLocale(),
       Timestamp: new Date().toISOString(),
       STATUT_EMPOWER: statutInit, POTENTIEL: vals.potentiel,
-      ORIGINE: vals.origine, CONTACT_NOM: vals.contact, CONTACT_FONCTION: vals.fonction,
+      ORIGINE: vals.origine || (Session.estExterne() ? String(Session.nom || '').split(/\s+/)[0] : vals.origine), CONTACT_NOM: vals.contact, CONTACT_FONCTION: vals.fonction,
+      // Traçabilité de la saisie (colonnes pin_channel / nom_channel déjà en base) : permet à un fournisseur de retrouver ses leads
+      ...((Session.estExterne() || Session.estChannel()) ? { PIN_Channel: Number(Session.pin), Nom_Channel: Session.nom || '' } : {}),
     };
 
     this.state.envoiEnCours = true;
@@ -1324,7 +1342,7 @@ window.VuePipeline = {
     if (!l) return '';
     // Droits Bloc 4 : ADMIN gère tout ; CDS édite/avance SES leads ; Alexandra (CHANNEL_MANAGER) = lecture seule ; EXTERNE = saisie seule.
     const peutAssigner = this._peutAssigner();   // attribution CDS → ADMIN uniquement
-    const peutEditer = Session.estManager() || Session.estChannel() || (Session.estCDS() && Number(l.PIN_CDS_Assigne) === Session.pin); // suivi + avancement
+    const peutEditer = Session.estManager() || Session.estChannel() || (Session.estCDS() && Number(l.PIN_CDS_Assigne) === Session.pin) || this._estLeadExterne(l); // suivi + avancement
     const cdsList = this.CDS.length ? this.CDS : this.CDS_FALLBACK;
     const statut = this.STATUTS.find(s => s.id === l._statut);
     const FLAGS = ['SAISIE','A_RELANCER','EN_COURS','A_RAPPELER','INTERESSE','WELCOME_PACK_ENVOYE','NON_INTERESSE','PERDU'];
@@ -1343,6 +1361,7 @@ window.VuePipeline = {
                     display:flex;align-items:flex-start;gap:10px">
           <div style="flex:1;min-width:0">
             <h3 style="margin:0 0 4px">${l.Nom_Compte}</h3>
+            ${Session.estExterne() ? (() => { const c = this._contacte(l); return `<div class="badge-contacte" style="font-size:12px;font-weight:600;color:${c.oui ? 'var(--c-success)' : 'var(--c-text-2)'}">${c.oui ? 'Contacté' + (c.date ? ' le ' + c.date : '') : 'Pas encore contacté'}</div>`; })() : ''}
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <span class="status-badge status-${(l._statut||'').toLowerCase()}">${statut?.lbl||l._statut}</span>
               ${l.POTENTIEL ? `<span class="pot-pill pot-${(l.POTENTIEL||'').toLowerCase()}">${l.POTENTIEL}</span>` : ''}

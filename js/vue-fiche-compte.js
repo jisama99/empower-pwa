@@ -106,6 +106,8 @@ window.VueFicheCompte = {
     this.state.v17     = rawV17.find(r => normaliserNom(r.RESELLER) === nomNorm) || null;
     this.state.visites = visites.filter(v => String(v.ID_Cible) === String(idCompte))
       .sort((a, b) => new Date(b.Date) - new Date(a.Date));
+    // Fournisseur de leads (EXTERNE) : aucune visite terrain visible sur la fiche
+    if (Session.estExterne()) this.state.visites = [];
     // Bloc Phoning (07/2026) — une réservation planifiée/fermée n'est pas un
     // vrai appel : exclue de "Appels (N)"/dernier appel (cf. estAppelRealise).
     this.state.appels  = appels.filter(a => String(a.ID_Cible) === String(idCompte) && estAppelRealise(a))
@@ -524,9 +526,9 @@ window.VueFicheCompte = {
               </button>` : ''}
             </span>
           </div>
-          <div class="id-ligne"><span>Dernière visite</span><strong>${this._dateLigne(this._dernierVisiteRealisee())}</strong></div>
+          ${Session.estExterne() ? '' : `<div class="id-ligne"><span>Dernière visite</span><strong>${this._dateLigne(this._dernierVisiteRealisee())}</strong></div>`}
           <div class="id-ligne"><span>Dernier appel</span><strong>${this._dateLigne(this.state.appels[0]?.Date)}</strong></div>
-          <div class="id-ligne"><span>Prochaine visite</span><strong>${this._dateLigne(this._prochaineVisitePlanifiee())}</strong></div>
+          ${Session.estExterne() ? '' : `<div class="id-ligne"><span>Prochaine visite</span><strong>${this._dateLigne(this._prochaineVisitePlanifiee())}</strong></div>`}
           <div class="id-ligne"><span>CA FY25</span><strong>${window.fmtCA(this.state.v17?.['CA FY25 €'] ?? c.CA_FY25)} €</strong></div>
           <div class="id-ligne"><span>CA FY26</span><strong>${window.fmtCA(this.state.v17?.['CA FY26 €'] ?? c.CA_FY26)} €</strong></div>
           <div class="id-ligne"><span>Dernier Q (${this.state.quarter}·27)</span><strong>${(() => {

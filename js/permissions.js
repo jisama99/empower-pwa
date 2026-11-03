@@ -69,6 +69,8 @@
     if (/^#\/mailing$/.test(h))                return 'mailing';
     if (/^#\/a-contacter$/.test(h))            return 'a_contacter';
     if (/^#\/territoires$/.test(h))            return 'territoires';
+    if (/^#\/analyse$/.test(h))                return ['reporting', 'reporting_cds'];
+    if (/^#\/parametres-primes$/.test(h))      return 'admin';
 
     return null;
   }

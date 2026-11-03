@@ -164,7 +164,7 @@ window.VueComptes = {
       this.state.quarter = paramMap.QuarterActif || 'Q1';
       // BUG-06 : CDS ne voit que ses comptes dès l'ouverture
       this.state.comptes = raw.filter(c =>
-        Session.voitTout() || Number(c.PIN_CDS_Assigne) === Session.pin
+        Session.voitTout() || Session.estExterne() || Number(c.PIN_CDS_Assigne) === Session.pin
       );
       // Lot 3 — le filtre « À reprendre » porte sur TOUS les comptes (un CDS reprend ceux des autres)
       this.state.tousComptes = raw;

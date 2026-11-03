@@ -12,7 +12,7 @@ const ROLES = ['ADMIN', 'CDS', 'CHANNEL_MANAGER', 'EXTERNE']
 const SECTIONS = [
   'home', 'tracker', 'historiques', 'phoning', 'visites', 'visites_fdv',
   'objectifs', 'primes', 'comptes', 'manager', 'reporting', 'reporting_cds',
-  'admin', 'questionnaire', 'photos', 'mailing', 'a_contacter',
+  'admin', 'questionnaire', 'photos', 'mailing', 'a_contacter', 'territoires',
 ]
 
 async function sha256(str) {

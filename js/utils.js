@@ -329,12 +329,14 @@ function NavBar(actif) {
   // ── Catalogue complet des items de navigation ──
   const TOUS = [
     // CRM (mobile bottom nav + desktop sidebar)
-    { id: 'home',        hash: '#/dashboard',           mobileNav: true,  lbl: 'Accueil',
+    { id: 'home',        hash: '#/dashboard',           mobileNav: true,  lbl: 'Pilotage',
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' },
     { id: 'tracker',     hash: '#/empower-tracker',     mobileNav: true,  lbl: 'Tracker',
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/></svg>' },
-    { id: 'comptes',     hash: '#/comptes',             mobileNav: true,  lbl: 'Comptes',
+    { id: 'comptes',     hash: '#/comptes',             mobileNav: true,  lbl: 'Portefeuille', any: ['tracker', 'comptes', 'territoires'],
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v8h4"/><path d="M18 9h2a2 2 0 0 1 2 2v11h-4"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>' },
+    { id: 'analyse',     hash: '#/analyse',             mobileNav: false, lbl: 'Reporting', any: ['reporting', 'reporting_cds'],
+      icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>' },
     { id: 'territoires', hash: '#/territoires',         mobileNav: false, lbl: 'Territoires',
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>' },
     { id: 'reporting',   hash: '#/manager',             mobileNav: false, lbl: 'Reporting',
@@ -384,19 +386,21 @@ function NavBar(actif) {
   //   F2/F4 reporting_cds + reporting (#/manager) → onglets de l'Accueil
   //   F3 photos → onglet de Mon Planning · F5 visites_fdv → idem (CHANNEL)
   // Les routes fusionnées restent valides (rétro-compat) mais sortent de la nav.
+  // Navigation fusionnée (validée 2 nov. 2026) : Pilotage (Accueil, Équipe/Analyse, Objectifs, Primes, Barèmes),
+  // Portefeuille (Pipeline, Comptes, Historique CA, Territoires), Activité, Reporting ; Administration en bas.
   const SECTIONS = [
-    { lbl: null,        ids: ['home', 'tracker', 'comptes', 'territoires'] },
+    { lbl: null,        ids: ['home', 'comptes'] },
     { lbl: 'Activité',  ids: ['a_contacter', 'visites', 'phoning', 'mailing'] },
-    { lbl: 'Données',   ids: ['objectifs'] },
-    { lbl: 'Admin',     ids: ['admin'] },
+    { lbl: 'Reporting', ids: ['analyse'] },
   ];
+  const SECTION_BAS = { lbl: null, ids: ['admin'] };
 
   // Route fusionnée → entrée de nav à montrer active
   const ALIAS_ACTIF = {
-    reporting: 'home', reporting_cds: 'home',
-    historiques: 'comptes',
+    reporting: 'home', reporting_cds: 'home', manager: 'home',
+    objectifs: 'home', primes: 'home', parametres_primes: 'home',
+    tracker: 'comptes', territoires: 'comptes', historiques: 'comptes',
     photos: 'visites', visites_fdv: 'visites',
-    primes: 'objectifs',
   };
   actif = ALIAS_ACTIF[actif] || actif;
 
@@ -429,7 +433,7 @@ function NavBar(actif) {
   function _sectionHtml(sec) {
     const visibles = sec.ids
       .map(id => itemMap[id])
-      .filter(i => i && autorises.indexOf(i.id) !== -1);
+      .filter(i => i && (i.any ? i.any.some(t => autorises.indexOf(t) !== -1) : autorises.indexOf(i.id) !== -1));
     if (!visibles.length) return '';
     return `<div class="nav-section">
       ${sec.lbl ? `<span class="nav-section-lbl">${sec.lbl}</span>` : ''}
@@ -439,6 +443,7 @@ function NavBar(actif) {
 
   // ── Toutes les sections (mobile + desktop) ──
   const sidebarSections = role ? SECTIONS.map(_sectionHtml).join('') : '';
+  const sectionBas = role ? _sectionHtml(SECTION_BAS) : '';
 
   // SVG icônes footer
   const ICO_SYNC = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>';
@@ -480,8 +485,9 @@ function NavBar(actif) {
       <!-- Sections : transparent (display:contents) sur mobile → bottom nav ; colonnes groupées sur desktop -->
       ${sidebarSections}
 
-      <!-- Footer : utilisateur + actions -->
+      <!-- Footer : Administration (en bas) + utilisateur + actions -->
       <div class="nav-sidebar-footer">
+        ${sectionBas}
         <div class="nav-sidebar-user" title="${nomUser} · ${role || ''}">
           <div class="nav-sidebar-avatar">${initiale}</div>
           <div class="nav-sidebar-user-info">
@@ -551,6 +557,9 @@ FusionTabs.pilotage = () => FusionTabs([
   { hash: '#/objectifs',     lbl: 'Objectifs', si: _peutTab('objectifs') },
   { hash: '#/primes',        lbl: 'Primes',
     si: _peutTab('primes') && typeof Session !== 'undefined' && !Session.estChannel() },
+  { hash: '#/analyse',       lbl: 'Reporting', si: _peutTab('reporting') || _peutTab('reporting_cds') },
+  { hash: '#/parametres-primes', lbl: 'Barèmes',
+    si: typeof Session !== 'undefined' && Session.estManager() },
 ]);
 FusionTabs.accueil = FusionTabs.pilotage;
 // « Portefeuille » = Tracker (pipeline) + Comptes + Historique CA + Territoires
