@@ -146,6 +146,7 @@
   function routeAutorisee(role, hash) {
     const h = (hash || '').split('?')[0];
     if (/^#\/login$/.test(h)) return true; // login toujours accessible
+    if (/^#\/aide$/.test(h)) return true;  // Aide & Suggestions : ouvert à tous les rôles connectés
     const tab = hashVersTab(h);
     if (tab === null) return false;        // route inconnue → refus
     return peut(role, tab);

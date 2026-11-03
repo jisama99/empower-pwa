@@ -46,6 +46,7 @@ const Router = {
     { pattern: /^#\/photos$/,                       vue: 'VuePhotos',             auth: true  },
     { pattern: /^#\/analyse$/,                       vue: 'VueAnalyse',            auth: true  },
     { pattern: /^#\/parametres-primes$/,             vue: 'VueParametresPrimes',   auth: true  },
+    { pattern: /^#\/aide$/,                         vue: 'VueAide',              auth: true  },
     { pattern: /^#\/territoires$/,                  vue: 'VueTerritoires',        auth: true  },
     { pattern: /^#\/mailing$/,                      vue: 'VueMailing',            auth: true  },
     { pattern: /^#\/a-contacter$/,                  vue: 'VueAContacter',         auth: true  },
