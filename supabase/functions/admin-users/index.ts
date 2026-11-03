@@ -12,13 +12,8 @@ const ROLES = ['ADMIN', 'CDS', 'CHANNEL_MANAGER', 'EXTERNE']
 const SECTIONS = [
   'home', 'tracker', 'historiques', 'phoning', 'visites', 'visites_fdv',
   'objectifs', 'primes', 'comptes', 'manager', 'reporting', 'reporting_cds',
-  'admin', 'questionnaire', 'photos', 'mailing', 'a_contacter',
+  'admin', 'questionnaire', 'photos', 'mailing', 'a_contacter', 'territoires',
 ]
-
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
-  return Array.from(new Uint8Array(buf)).map(b => ('0' + b.toString(16)).slice(-2)).join('')
-}
 
 // Hachage des mots de passe : PBKDF2-SHA256 (210 000 itérations), format « pbkdf2$<itérations>$<hex> ».
 // Les anciens hachages (SHA-256 simple, 64 caractères hexa) restent acceptés et sont remplacés à la connexion suivante.
@@ -30,12 +25,6 @@ async function pbkdf2(motdepasse, salt, iter = PBKDF2_ITER) {
 }
 async function hasherMotdepasse(motdepasse, salt) {
   return `pbkdf2$${PBKDF2_ITER}$${await pbkdf2(motdepasse, salt)}`
-}
-function egal(a, b) {
-  if (a.length !== b.length) return false
-  let r = 0
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return r === 0
 }
 
 function randomHex() {
