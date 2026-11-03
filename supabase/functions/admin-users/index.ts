@@ -13,6 +13,7 @@ const SECTIONS = [
   'home', 'tracker', 'historiques', 'phoning', 'visites', 'visites_fdv',
   'objectifs', 'primes', 'comptes', 'manager', 'reporting', 'reporting_cds',
   'admin', 'questionnaire', 'photos', 'mailing', 'a_contacter', 'territoires',
+  'admin_primes', 'admin_baremes', 'admin_reporting',
 ]
 
 // Hachage des mots de passe : PBKDF2-SHA256 (210 000 itérations), format « pbkdf2$<itérations>$<hex> ».
@@ -67,6 +68,18 @@ Deno.serve(async (req) => {
     return { ok: true, pin: u.pin }
   }
 
+  // Lot 5 : il doit toujours rester au moins un ADMIN actif (hors l'utilisateur ciblé).
+  async function autresAdminsActifs(pinExclu) {
+    const { data } = await sb.from('utilisateurs').select('pin').eq('role', 'ADMIN').eq('actif', true).neq('pin', pinExclu)
+    return (data || []).length
+  }
+  async function tracer(type, auteurPin, resume) {
+    try {
+      await sb.from('actions').insert({ type_action: type, source: 'ESI_ADMIN', pin_cds: auteurPin, nom_compte: resume })
+    } catch { /* trace non bloquante */ }
+  }
+  const refus = (msg, status = 400) => Response.json({ ok: false, erreur: msg }, { headers: CORS, status })
+
   try {
     const auth = await verifierAdmin()
     if (!auth.ok) return Response.json({ ok: false, erreur: auth.erreur }, { headers: CORS, status: 403 })
@@ -118,6 +131,12 @@ Deno.serve(async (req) => {
       const { targetPin, role } = body
       if (!targetPin || !role) return Response.json({ ok: false, erreur: 'Paramètres manquants' }, { headers: CORS, status: 400 })
       if (!ROLES.includes(role)) return Response.json({ ok: false, erreur: 'Rôle inconnu' }, { headers: CORS, status: 400 })
+      const { data: cibleRole } = await sb.from('utilisateurs').select('role,actif').eq('pin', targetPin).limit(1)
+      if (!cibleRole || cibleRole.length === 0) return refus('Utilisateur introuvable', 404)
+      if (cibleRole[0].role === 'ADMIN' && role !== 'ADMIN') {
+        if (targetPin === auth.pin) return refus('Impossible de retirer son propre rôle administrateur')
+        if (cibleRole[0].actif && await autresAdminsActifs(targetPin) === 0) return refus('Dernier administrateur actif : son rôle ne peut pas être modifié')
+      }
       // Changer de rôle repart des droits par défaut du nouveau rôle.
       const { error } = await sb.from('utilisateurs').update({ role, droits: null }).eq('pin', targetPin)
       if (error) return Response.json({ ok: false, erreur: error.message }, { headers: CORS, status: 500 })
@@ -128,8 +147,34 @@ Deno.serve(async (req) => {
       const { targetPin, actif } = body
       if (!targetPin || typeof actif !== 'boolean') return Response.json({ ok: false, erreur: 'Paramètres manquants' }, { headers: CORS, status: 400 })
       if (targetPin === auth.pin) return Response.json({ ok: false, erreur: 'Impossible de désactiver son propre compte' }, { headers: CORS, status: 400 })
+      if (actif === false) {
+        const { data: cibleAct } = await sb.from('utilisateurs').select('role,actif').eq('pin', targetPin).limit(1)
+        if (cibleAct && cibleAct[0] && cibleAct[0].role === 'ADMIN' && cibleAct[0].actif && await autresAdminsActifs(targetPin) === 0)
+          return refus('Dernier administrateur actif : impossible de le désactiver')
+      }
       const { error } = await sb.from('utilisateurs').update({ actif }).eq('pin', targetPin)
       if (error) return Response.json({ ok: false, erreur: error.message }, { headers: CORS, status: 500 })
+      return Response.json({ ok: true }, { headers: CORS })
+    }
+
+    // Lot 5 : suppression définitive d'un accès (ADMIN seul ; jamais soi-même ni le dernier administrateur actif).
+    // Les comptes, leads, visites et appels rattachés au PIN ne sont pas supprimés : seul l'accès à l'application disparaît.
+    if (action === 'delete') {
+      const { targetPin } = body
+      if (!targetPin) return refus('Paramètres manquants')
+      if (body.confirmation !== true) return refus('Confirmation requise')
+      if (targetPin === auth.pin) return refus('Impossible de supprimer son propre compte')
+      const { data: cibleSup } = await sb.from('utilisateurs').select('pin,nom,email,role,actif').eq('pin', targetPin).limit(1)
+      if (!cibleSup || cibleSup.length === 0) return refus('Utilisateur introuvable', 404)
+      const c = cibleSup[0]
+      if (c.role === 'ADMIN' && c.actif && await autresAdminsActifs(targetPin) === 0)
+        return refus('Dernier administrateur actif : impossible de le supprimer')
+      const { error } = await sb.from('utilisateurs').delete().eq('pin', targetPin)
+      if (error) {
+        if (error.code === '23503') return refus('Cet utilisateur a modifié des barèmes de primes : désactivez son accès plutôt que de le supprimer', 409)
+        return refus(error.message, 500)
+      }
+      await tracer('USER_SUPPRIME', auth.pin, `${c.nom} (${c.role}, PIN ${c.pin}) supprimé`)
       return Response.json({ ok: true }, { headers: CORS })
     }
 

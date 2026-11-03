@@ -281,6 +281,37 @@ window.VueAdmin = {
     } catch(e) { Toast.afficher('' + e.message, 'erreur'); }
   },
 
+  // Lot 5 : suppression définitive d'un accès (ADMIN seul). Les comptes, leads, visites et appels rattachés au PIN restent.
+  supprimerUtilisateur(pin, nom) {
+    if (pin === Session.pin) { Toast.afficher('Impossible de supprimer son propre compte', 'warning'); return; }
+    const nomSafe = String(nom || '').replace(/[<>&"]/g, '');
+    ConfirmModal.demander({
+      titre: 'Supprimer cet accès ?',
+      message: `${nomSafe} (PIN ${pin}) ne pourra plus se connecter. Cette action est définitive.`,
+      detail: 'Ses comptes, leads, visites et appels restent dans l’application. Pour un retrait temporaire, préférez « Désactiver ».\nTape SUPPRIMER pour confirmer.',
+      labelConfirmer: 'Supprimer définitivement', danger: true,
+      champ: { placeholder: 'SUPPRIMER' },
+      onConfirm: (saisie) => {
+        if (String(saisie || '').trim().toUpperCase() !== 'SUPPRIMER') { Toast.afficher('Suppression annulée : confirmation incorrecte', 'warning'); return; }
+        this._supprimerUtilisateurConfirme(pin);
+      },
+    });
+  },
+
+  async _supprimerUtilisateurConfirme(pin) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ action: 'delete', token: SheetsAPI.TOKEN, targetPin: pin, confirmation: true }),
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.erreur || 'Suppression impossible (fonction non à jour ?)');
+      Toast.afficher('Accès supprimé', 'succes');
+      await this._chargerUtilisateurs();
+    } catch(e) { Toast.afficher('' + e.message, 'erreur'); }
+  },
+
   ouvrirModalReset(pin, nom) {
     this.state.usersState.resetTarget = { pin, nom };
     this.state.usersState.resetMdp = '';
@@ -339,6 +370,9 @@ window.VueAdmin = {
                     <button class="btn-lien" style="font-size:12px;color:${u.actif ? 'var(--c-danger)' : 'var(--c-success,#1a9e5c)'}"
                             ${u.pin === Session.pin ? 'disabled title="Impossible de modifier son propre compte"' : ''}
                             onclick="VueAdmin.toggleActifUtilisateur(${u.pin}, ${u.actif})">${u.actif ? 'Désactiver' : 'Réactiver'}</button>
+                    <button class="btn-lien" style="font-size:12px;color:var(--c-danger)"
+                            ${u.pin === Session.pin ? 'disabled title="Impossible de supprimer son propre compte"' : ''}
+                            onclick="VueAdmin.supprimerUtilisateur(${u.pin}, '${(u.nom || '').replace(/'/g, "\\'")}')">Supprimer</button>
                   </td>
                 </tr>`).join('')}
             </tbody>
