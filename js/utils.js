@@ -337,6 +337,8 @@ function NavBar(actif) {
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v8h4"/><path d="M18 9h2a2 2 0 0 1 2 2v11h-4"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>' },
     { id: 'analyse',     hash: '#/analyse',             mobileNav: false, lbl: 'Reporting', any: ['reporting', 'reporting_cds'],
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>' },
+    { id: 'coach',       hash: '#/coach',               mobileNav: false, lbl: 'Coach',
+      icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>' },
     { id: 'territoires', hash: '#/territoires',         mobileNav: false, lbl: 'Territoires',
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>' },
     { id: 'reporting',   hash: '#/manager',             mobileNav: false, lbl: 'Reporting',
@@ -392,7 +394,7 @@ function NavBar(actif) {
   // Navigation fusionnée (validée 2 nov. 2026) : Pilotage (Accueil, Équipe/Analyse, Objectifs, Primes, Barèmes),
   // Portefeuille (Pipeline, Comptes, Historique CA, Territoires), Activité, Reporting ; Administration en bas.
   const SECTIONS = [
-    { lbl: null,        ids: ['home', 'comptes', 'territoires'] },
+    { lbl: null,        ids: ['home', 'coach', 'comptes', 'territoires'] },
     { lbl: 'Activité',  ids: ['a_contacter', 'visites', 'phoning', 'mailing'] },
     { lbl: 'Reporting', ids: ['analyse'] },
   ];
@@ -426,7 +428,7 @@ function NavBar(actif) {
   // mobileNav:true  → pas de nav-sidebar-only → visible mobile bottom nav + sidebar desktop
   // mobileNav:false → nav-sidebar-only → caché mobile, visible uniquement sidebar desktop
   // Pictogrammes Marvesting (blancs, pour fond ardoise) ; repli sur le SVG d'origine si absent
-  const PICTO = window.PICTOS_MARVESTING = window.PICTOS_MARVESTING || { home: 'ordinateur', tracker: 'relance', a_contacter: 'relance', comptes: 'magasin', territoires: 'localisation', visites: 'horloge', visites_fdv: 'horloge', reporting: 'bouclier_valide', reporting_cds: 'bouclier_valide', analyse: 'bouclier_valide', primes: 'etiquette_prix', photos: 'mobile', admin: 'equipe' };
+  const PICTO = window.PICTOS_MARVESTING = window.PICTOS_MARVESTING || { home: 'ordinateur', tracker: 'relance', a_contacter: 'relance', comptes: 'magasin', coach: 'etiquette_prix', territoires: 'localisation', visites: 'horloge', visites_fdv: 'horloge', reporting: 'bouclier_valide', reporting_cds: 'bouclier_valide', analyse: 'bouclier_valide', primes: 'etiquette_prix', photos: 'mobile', admin: 'equipe' };
   const imgPicto = id => `<img class="mi-ico" src="img/icones/${PICTO[id]}.png" alt="" width="22" height="22">`;
   function _itemHtml(i) {
     const cls = [

@@ -1,0 +1,291 @@
+// ═══════════════════════════════════════
+//  vue-coach.js — Coach commercial : page 3 colonnes (droit « coach »)
+//  Gauche : plan de la semaine (actions cochées automatiquement quand la donnée le prouve) + trajectoire.
+//  Centre : conversation. Les réponses guidées sont construites par le code à partir des données de l'app,
+//          du catalogue et des règles du séminaire ; la question libre sans correspondance passe par l'IA
+//          avec les seuls chiffres calculés, et la réponse est signalée comme telle.
+//  Droite : calculateur de marge toujours visible (catalogue des Réglages, cotations en cours incluses) + qualité des données.
+//  Périmètre : CDS = ses comptes et son objectif ; ADMIN / CHANNEL_MANAGER = tout, avec filtre par commercial.
+//  Moteur : js/coach-moteur.js ; prix : js/catalogue.js (Réglages › Prix et cotations).
+// ═══════════════════════════════════════
+window.VueCoach = {
+  state: { chargement: true, erreur: null, d: null, pin: '', col: 'chat', fil: [], panier: [['n360-del5', 6]], grossiste: 'pa_td', volume: false, compteSel: '', ia: false, maj: null },
+  _raw: null, _suivi: new Map(),
+  PANIER_REF: [['n360-del5', 6]],   // hypothèse de « première commande type » (modifiable dans le calculateur)
+
+  _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+  _eur(n) { return Math.round(n || 0).toLocaleString('fr-FR') + ' €'; },
+  _eur2(n) { return (n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'; },
+  _prenom() { return String(Session.nom || '').split(' ')[0]; },
+
+  async init() {
+    const s = this.state; s.chargement = true; s.erreur = null; this.render();
+    try {
+      const L = t => SheetsAPI.lire('EMPOWER_MDB', t, { nocache: true });
+      const [comptes, leads, visites, appels, objectifs, params, suivi] = await Promise.all([
+        L('COMPTES'), L('LEADS'), L('VISITES'), L('PHONING'), L('OBJECTIFS_PRIMES'), SheetsAPI.lire('EMPOWER_MDB', 'PARAMS'),
+        L('V_COMPTES_SUIVI').catch(() => []),
+        window.Catalogue.charger(SheetsAPI._sb),
+      ]);
+      this._raw = { comptes: comptes || [], leads: leads || [], visites: visites || [], appels: appels || [], objectifs: objectifs || [], params: params || [] };
+      this._suivi = new Map((suivi || []).map(r => [String(r._uuid), r]));
+      if (!s.pin && !Session.voitTout()) s.pin = String(Session.pin);
+      this._calculer();
+      if (!s.fil.length) s.fil.push({ r: 'a', h: `<b>Bonjour ${this._esc(this._prenom())}.</b> Je m'appuie sur vos chiffres, le catalogue et les règles du séminaire. Choisissez une question ci-dessus ou écrivez la vôtre.` });
+      s.maj = new Date();
+    } catch (e) { s.erreur = e.message || String(e); }
+    s.chargement = false; this.render();
+  },
+
+  // ── Contexte du moteur : branche les règles de l'app (Empower, activé, localisé, paliers) ──
+  _ctx(extra) {
+    const dernier = c => { const e = this._suivi.get(String(c._uuid)); if (!e) return null; const ds = [e.Derniere_Visite, e.Dernier_Appel].filter(Boolean).map(x => String(x).slice(0, 10)).sort(); return ds.length ? ds[ds.length - 1] : null; };
+    const onb = c => { const t = Date.parse(String(c.Date_Onboarding_Empower || '').slice(0, 10) + 'T00:00:00Z'); return Number.isFinite(t) ? Math.floor((Date.now() - t) / 86400000) : null; };
+    return Object.assign({
+      now: new Date(), estEmpower: c => !!window.estEmpower(c), active: c => !!window.FlagsCanal.active(c), dernierContact: dernier,
+      localise: c => !!window.ESI_GEO.depDe(c), palier: c => window.Paliers.palier(c), caEmpower: c => window.Paliers.caEmpower(c),
+      adresseOk: c => !!window.ContactsObjectif.etat(c).adresse, depuisOnboarding: onb,
+    }, extra || {});
+  },
+
+  _calculer() {
+    const s = this.state, M = window.CoachMoteur, raw = this._raw, norm = v => String(v || '').trim().toUpperCase();
+    const pin = s.pin ? Number(s.pin) : null, mien = p => pin == null ? true : Number(p) === pin;
+    const params = Object.fromEntries(raw.params.map(p => [p.Parametre, p.Valeur]));
+    const tri = M.trimestre(new Date()) || M.trimestre(new Date(), params.QuarterActif || 'Q3');
+    const comptes = raw.comptes.filter(c => String(c.deleted || '').toUpperCase() !== 'TRUE' && (Session.voitTout() || Number(c.PIN_CDS_Assigne) === Number(Session.pin)) && mien(c.PIN_CDS_Assigne));
+    const leads = raw.leads.filter(p => {
+      const src = norm(p.Source_Import);
+      return norm(p.Flag_traite) !== 'DELETED' && !src.includes('FLAVIE') && src !== 'BASE_PROSPECTS_RELANCER' && src !== 'ESI_VISITE_FROID'
+        && !['ARCHIVE', 'INTEGRE'].includes(norm(p.STATUT_EMPOWER)) && (Session.voitTout() ? mien(p.PIN_CDS_Assigne) : Number(p.PIN_CDS_Assigne) === Number(Session.pin));
+    });
+    // Contacts de la semaine calendaire (visites et appels réels) → coche automatique des actions « appeler / visiter »
+    const dansSem = d => { try { return FiscalWeeks.dansSemaineCalendaire(d); } catch (e) { return false; } };
+    const touches = new Set();
+    raw.visites.filter(v => !v.deleted && dansSem(v.Date) && v.ID_Compte).forEach(v => touches.add(String(v.ID_Compte)));
+    raw.appels.filter(a => dansSem(a.Date) && a.ID_Compte && (typeof estAppelRealise !== 'function' || estAppelRealise(a))).forEach(a => touches.add(String(a.ID_Compte)));
+    const ctx = this._ctx({ pin });
+    const toutes = M.cibles(comptes, ctx, 100000), cibles = toutes.slice(0, 5);
+    const al = M.alertes({ leads, comptes }, ctx);
+    const plan = M.planSemaine(toutes, al, { faitCompte: c => touches.has(String(c.ID_Compte)), adressesCompletees: 0 }).map(a => Object.assign({}, a, { manuel: this._coche(tri, a.id) }));
+    const trajs = tri ? M.trajectoire(raw.objectifs.filter(o => Session.voitTout() || Number(o.PIN_CDS) === Number(Session.pin)), tri) : [];
+    const sel = tri ? (pin != null ? (trajs.find(t => t.pin === pin) || M.agreger([], tri)) : M.agreger(trajs, tri)) : null;
+    const st = window.ContactsObjectif.stats(comptes);
+    const loc = comptes.filter(c => ctx.localise(c)).length;
+    this.state.d = { tri, comptes, cibles, nbCibles: toutes.length, alertes: al, plan, trajs, sel, qualite: { tot: comptes.length, loc, contact: st.contact, complet: st.complet },
+                     quarterParam: params.QuarterActif || '' };
+  },
+
+  _cle(tri) { return `esi.coach.plan.${Session.pin}.${tri ? tri.quarter + '-' + tri.semaine : 'x'}`; },
+  _coche(tri, id) { try { return !!(JSON.parse(localStorage.getItem(this._cle(tri)) || '{}')[id]); } catch (e) { return false; } },
+  basculer(id) {
+    const d = this.state.d; if (!d) return;
+    try { const k = this._cle(d.tri), o = JSON.parse(localStorage.getItem(k) || '{}'); o[id] ? delete o[id] : (o[id] = 1); localStorage.setItem(k, JSON.stringify(o)); } catch (e) {}
+    this._calculer(); this.render();
+  },
+
+  setPin(v) { this.state.pin = v; this._calculer(); this.render(); },
+  setCol(c) { this.state.col = c; this.render(); },
+
+  // ── Cartes et blocs de réponse ──
+  _carteCible(x, sel) {
+    const E = this._esc, conf = x.loc ? 'h' : 'l';
+    return `<div class="co-cible"><div class="t"><b>${E(x.nom)}</b><span class="co-sp"></span><span class="co-conf ${conf}">${x.loc ? 'confiance haute' : 'confiance faible'}</span></div>
+      <div class="co-mut">${E(x.ville || 'Ville n.c.')} · ${x.raisons.map(E).join(' · ')}</div>
+      <div class="co-score"><span>Potentiel</span><div class="co-bar"><i style="width:${x.pot}%"></i></div><span>Momentum</span><div class="co-bar"><i style="width:${x.mom}%"></i></div><span>Facilité</span><div class="co-bar"><i style="width:${x.fac}%"></i></div></div>
+      <div class="co-actions"><button class="co-btn p" onclick="VueCoach.preparerVisite('${E(String(x.id))}')">Préparer la visite</button><a class="co-btn" href="#/compte/${encodeURIComponent(x.id)}">Voir la fiche</a><a class="co-btn" href="#/phoning/${encodeURIComponent(x.id)}">Appeler</a></div></div>`;
+  },
+  _statutLib: { rythme: 'au rythme', surveiller: 'à surveiller', decrochage: 'en décrochage', sans_objectif: 'objectif non renseigné' },
+
+  _repObjectif() {
+    const d = this.state.d, t = d.sel, tri = d.tri, E = this._esc, C = window.Catalogue;
+    if (!tri) return 'Le trimestre en cours est hors du calendrier fiscal chargé : je ne peux pas calculer de rythme.';
+    if (!t || t.obj <= 0) return `<b>L'objectif ${E(tri.quarter)} n'est pas renseigné</b> pour ce périmètre : renseignez-le dans Administration › Objectifs pour activer la trajectoire.`;
+    const ref = C.calculer(this.PANIER_REF, 'pa_empower');
+    const n = ref.cout > 0 ? Math.ceil(t.reste / ref.cout) : null;
+    const al = k => d.alertes.find(a => a.id === k);
+    const etapes = [];
+    const hyp = `Hypothèse : première commande type de ${C.libelle(C.par(this.PANIER_REF[0][0]))} × ${this.PANIER_REF[0][1]} = ${this._eur(ref.cout)} d'achat Empower, ${this._eur(ref.marge)} de marge revendeur.`;
+    if (t.reste > 0 && ref.cout > 0) {
+      const couvre = d.nbCibles * ref.cout, pl = (k, a, b) => k > 1 ? b : a;
+      if (d.nbCibles === 0) etapes.push(`<b>Développer le chiffre sur les comptes déjà actifs et ouvrir de nouveaux comptes Empower</b><br><span class="co-mut">Aucun compte Empower sans première commande dans ce périmètre. ${hyp}</span>`);
+      else if (n <= d.nbCibles) etapes.push(`<b>Obtenir ${n} première${pl(n, '', 's')} commande${pl(n, '', 's')} Empower</b><br><span class="co-mut">${d.nbCibles} compte${pl(d.nbCibles, '', 's')} Empower sans commande dans le périmètre. ${hyp}</span>`);
+      else etapes.push(`<b>Obtenir une première commande chez les ${d.nbCibles} compte${pl(d.nbCibles, '', 's')} Empower sans commande</b><br><span class="co-mut">Environ ${this._eur(couvre)} sur ${this._eur(t.reste)} d'écart : les ${this._eur(t.reste - couvre)} restants viendront des réassorts des comptes actifs et de nouveaux comptes à ouvrir. ${hyp}</span>`);
+    }
+    if (al('proches')) etapes.push(`<b>Faire passer ${al('proches').n} compte${al('proches').n > 1 ? 's' : ''} Éveil au palier Actif</b><br><span class="co-mut">Moins de 150 € du seuil de 1 000 € de CA Empower : une commande complémentaire suffit.</span>`);
+    if (al('hors48')) etapes.push(`<b>Traiter ${al('hors48').n} rappel${al('hors48').n > 1 ? 's' : ''} échu${al('hors48').n > 1 ? 's' : ''} depuis plus de 48 h</b><br><span class="co-mut">Un rappel en retard de plus de 48 h, c'est un lead qui refroidit.</span>`);
+    if (al('sans_adresse')) etapes.push(`<b>Compléter ${Math.min(5, al('sans_adresse').n)} fiche${Math.min(5, al('sans_adresse').n) > 1 ? 's' : ''} sans adresse</b><br><span class="co-mut">${al('sans_adresse').n} fiche${al('sans_adresse').n > 1 ? 's' : ''} sans adresse : chaque adresse place le compte sur la carte et fiabilise le ciblage.</span>`);
+    return `<b>Objectif ${E(tri.quarter)} : ${this._eur(t.obj)}. Réalisé : ${this._eur(t.ca)} (${t.pct} %). Écart : ${this._eur(t.reste)}.</b> Il reste ${Math.round(tri.semainesRestantes)} semaines${t.reste > 0 ? `, soit <b>${this._eur(t.parSemaine)} à produire par semaine</b>` : ''}. Rythme attendu ${tri.pct} % : vous êtes <b>${this._statutLib[t.statut]}</b>.
+      ${etapes.map((e, i) => `<div class="co-step"><span class="co-num">${i + 1}</span><div>${e}</div></div>`).join('') || '<p>Objectif atteint : consolidez les comptes actifs.</p>'}
+      <div class="co-src">Calculé à partir de : objectifs ${E(tri.quarter)}, CA réalisé (sell-in), catalogue ${E(C.version)}. Aucun chiffre n'est inventé par l'assistant.</div>`;
+  },
+
+  _repRelancer() {
+    const d = this.state.d, E = this._esc;
+    if (!d.cibles.length) return '<b>Aucun compte Empower sans première commande</b> dans ce périmètre. Les relances se concentrent sur les paliers : voir « Comment j\'atteins mon objectif ? ».';
+    const a48 = d.alertes.find(a => a.id === 'hors48');
+    return `<b>${Math.min(3, d.cibles.length)} compte${d.cibles.length > 1 ? 's' : ''} à traiter en priorité</b>, classés par chance de commande :${a48 ? `<div class="co-alerte"><span>${E(a48.titre)}</span><a class="co-btn p" href="${a48.to}">${E(a48.action)}</a></div>` : ''}
+      ${d.cibles.slice(0, 3).map(x => this._carteCible(x)).join('')}
+      <div class="co-src">Score = potentiel 40 % + momentum 35 % + facilité 25 %. Confiance faible : la fiche n'est pas localisée.${d.nbCibles > 3 ? ' ' + (d.nbCibles - 3) + ' autres comptes dans le vivier.' : ''}</div>`;
+  },
+
+  _repVisite(id) {
+    const d = this.state.d, C = window.Catalogue, E = this._esc;
+    const x = (id && d.cibles.find(c => String(c.id) === String(id))) || (id && this._unCompte(id)) || d.cibles[0];
+    if (!x) return 'Aucun compte à préparer : ouvrez une fiche ou choisissez un compte dans « Qui relancer aujourd\'hui ? ».';
+    this.state.compteSel = String(x.id);
+    const cmp = C.comparer([['n360-std', 1]]), e = cmp.empower, g = cmp.grossiste;
+    const cote = cmp.cotations && cmp.cotations.length ? ` Une cotation grossiste est en cours (${E(cmp.cotations.join(', '))}) : le grossiste est plus proche, la marge Empower reste ${e.pct > g.pct ? 'supérieure' : 'à comparer'}.` : '';
+    return `<b>Visite chez ${E(x.nom)}${x.ville ? ' (' + E(x.ville) + ')' : ''} : obtenir la première commande.</b>
+      <div class="co-step"><span class="co-num">1</span><div><b>Ouvrir sur la rentabilité</b><br><span class="co-mut">Norton 360 Standard : marge de ${e.pct.toString().replace('.', ',')} % via Empower (${this._eur2(e.marge)} par licence) contre ${g.pct.toString().replace('.', ',')} % chez le grossiste. Zéro stock, commande après encaissement.${cote}</span></div></div>
+      <div class="co-step"><span class="co-num">2</span><div><b>Trois questions de découverte</b><br><span class="co-mut">Combien de clients équipez-vous en antivirus ? Qui gère le renouvellement aujourd'hui ? Quelle part de vos clients est professionnelle (TPE) ?</span></div></div>
+      <div class="co-step"><span class="co-num">3</span><div><b>Si « pas de place pour du stock »</b><br><span class="co-mut">Les licences se commandent à la demande, après encaissement du client : rien à stocker.</span></div></div>
+      <div class="co-step"><span class="co-num">4</span><div><b>Engagement à obtenir</b><br><span class="co-mut">Une première commande de 4 licences d'ici vendredi, ou une date de rappel.</span></div></div>
+      <div class="co-actions"><button class="co-btn p" onclick="VueCoach.ouvrirCalc()">Calculer la marge de cette commande</button><a class="co-btn" href="#/compte/${encodeURIComponent(x.id)}">Voir la fiche</a></div>
+      <div class="co-src">Sources : catalogue ${E(C.version)} (prix des Réglages), fiche du compte, règles du séminaire.</div>`;
+  },
+  _unCompte(id) {
+    const c = this.state.d.comptes.find(k => String(k.ID_Compte || k._uuid) === String(id)); if (!c) return null;
+    return { id: c.ID_Compte || c._uuid, nom: c.Nom_Compte, ville: c.Ville };
+  },
+
+  _repRattrapage() {
+    const d = this.state.d, t = d.sel, tri = d.tri, C = window.Catalogue;
+    if (!tri || !t || t.obj <= 0) return this._repObjectif();
+    if (t.reste <= 0) return '<b>Objectif atteint.</b> Le plan de rattrapage n\'est pas nécessaire : consolidez les comptes actifs et préparez le trimestre suivant.';
+    const ref = C.calculer(this.PANIER_REF, 'pa_empower'), sem = Math.max(1, Math.round(Math.min(4, tri.semainesRestantes)));
+    const lignes = []; for (let i = 1; i <= sem; i++) lignes.push(`<div class="co-step"><span class="co-num">S${i}</span><div><b>${this._eur(t.parSemaine)} à produire</b><br><span class="co-mut">Soit ${ref.cout > 0 ? Math.ceil(t.parSemaine / ref.cout) : 'n.c.'} première${Math.ceil(t.parSemaine / (ref.cout || 1)) > 1 ? 's' : ''} commande${Math.ceil(t.parSemaine / (ref.cout || 1)) > 1 ? 's' : ''} type, cumul visé : ${this._eur(t.ca + t.parSemaine * i)}</span></div></div>`);
+    return `<b>${t.statut === 'rythme' ? 'Plan pour tenir le rythme' : 'Plan de rattrapage'} sur ${sem} semaine${sem > 1 ? 's' : ''}</b> : ${this._eur(t.reste)} d'écart sur ${Math.round(tri.semainesRestantes)} semaines restantes.${lignes.join('')}
+      <div class="co-src">Hypothèse : première commande type ${this._eur(ref.cout)} d'achat Empower. Les semaines suivantes gardent le même effort hebdomadaire.</div>`;
+  },
+
+  _repMarge() { setTimeout(() => this.ouvrirCalc(), 0); return '<b>Le calculateur est à droite.</b> Choisissez les produits et les quantités : la marge Empower et la marge grossiste se calculent avec les prix des Réglages, cotation en cours comprise.'; },
+
+  _faits() {
+    const d = this.state.d, t = d.sel, tri = d.tri;
+    const l = [];
+    if (tri) l.push(`Trimestre ${tri.quarter}, semaine ${tri.semaine}, rythme attendu ${tri.pct} %, ${Math.round(tri.semainesRestantes)} semaines restantes.`);
+    if (t && t.obj > 0) l.push(`Objectif ${this._eur(t.obj)}, réalisé ${this._eur(t.ca)} (${t.pct} %), écart ${this._eur(t.reste)}, ${this._eur(t.parSemaine)} par semaine, statut ${this._statutLib[t.statut]}.`);
+    l.push(`${d.nbCibles} comptes Empower sans première commande. Fiches localisées ${d.qualite.loc} sur ${d.qualite.tot}.`);
+    d.alertes.forEach(a => l.push(a.titre + '.'));
+    d.cibles.slice(0, 3).forEach(x => l.push(`Cible : ${x.nom} (${x.ville || 'ville n.c.'}), score ${x.score}.`));
+    return l.join('\n');
+  },
+
+  // ── Interactions ──
+  poser(q, rep) { const s = this.state; s.fil.push({ r: 'u', h: this._esc(q) }); s.fil.push({ r: 'a', h: rep }); this.render(); this._basFil(); },
+  chip(k) {
+    const Q = { objectif: ['Comment j\'atteins mon objectif ?', () => this._repObjectif()], relancer: ['Qui relancer aujourd\'hui ?', () => this._repRelancer()],
+                visite: ['Prépare ma prochaine visite', () => this._repVisite()], marge: ['Calcule ma marge', () => this._repMarge()], rattrapage: ['Plan de rattrapage', () => this._repRattrapage()] }[k];
+    if (Q) this.poser(Q[0], Q[1]());
+  },
+  preparerVisite(id) { this.poser('Prépare la visite de ce compte', this._repVisite(id)); },
+  _route(t) {
+    const x = String(t || '').toLowerCase();
+    if (/objectif|atteindre|trajectoire|[ée]cart|retard/.test(x)) return 'objectif';
+    if (/rattrap|30 ?j|plan d/.test(x)) return 'rattrapage';
+    if (/relanc|appeler|contacter|prioritaire|cibl|qui /.test(x)) return 'relancer';
+    if (/visite|rendez|pr[ée]par/.test(x)) return 'visite';
+    if (/marge|prix|devis|calcul|rentab/.test(x)) return 'marge';
+    return null;
+  },
+  async envoyer() {
+    const inp = document.getElementById('co-q'); const q = (inp && inp.value || '').trim(); if (!q || this.state.ia) return;
+    if (inp) inp.value = '';
+    const k = this._route(q);
+    if (k) return this.chip(k);
+    const s = this.state; s.fil.push({ r: 'u', h: this._esc(q) }); s.ia = true; s.fil.push({ r: 'a', h: '<span class="co-mut">Réflexion en cours…</span>', tmp: true }); this.render(); this._basFil();
+    let h;
+    try {
+      const prompt = `Tu es un coach commercial B2B expert de la vente indirecte (revendeurs informatique, Norton). Réponds en français, en 6 lignes maximum, de façon concrète et actionnable.\nRègle absolue : n'utilise AUCUN chiffre qui ne figure pas dans le bloc FAITS ; si une donnée manque, dis-le.\n\nFAITS :\n${this._faits()}\n\nQUESTION DU COMMERCIAL :\n${q.slice(0, 500)}`;
+      const txt = await window.GeminiAPI._appeler(prompt, 'Coach commercial ESI');
+      h = `<span class="co-ia">Rédigé par l'IA à partir des chiffres de l'app</span><br>${this._esc(txt).replace(/\n/g, '<br>')}`;
+    } catch (e) { h = 'Je n\'ai pas pu joindre l\'assistant. Les réponses guidées restent disponibles ci-dessus.'; }
+    s.fil = s.fil.filter(m => !m.tmp); s.fil.push({ r: 'a', h }); s.ia = false; this.render(); this._basFil();
+  },
+  touche(ev) { if (ev.key === 'Enter') { ev.preventDefault(); this.envoyer(); } },
+  _basFil() { const f = document.getElementById('co-fil'); if (f) f.scrollTop = f.scrollHeight; },
+  ouvrirCalc() { this.state.col = 'calc'; this.render(); const c = document.getElementById('co-calc'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); },
+
+  // ── Calculateur ──
+  majLigne(i, champ, v) { const p = this.state.panier[i]; if (!p) return; if (champ === 'id') p[0] = v; else p[1] = Math.max(0, Math.min(9999, Math.floor(Number(v) || 0))); this._majCalc(); },
+  ajouterLigne() { const l = window.Catalogue.listeProduits(); if (this.state.panier.length < 8 && l.length) { this.state.panier.push([l[0].id, 1]); this._majCalc(); } },
+  retirerLigne(i) { this.state.panier.splice(i, 1); this._majCalc(); },
+  setGrossiste(v) { this.state.grossiste = v === 'pa_ingram' ? 'pa_ingram' : 'pa_td'; this._majCalc(); },
+  setVolume(v) { this.state.volume = !!v; this._majCalc(); },
+  _majCalc() { const el = document.getElementById('co-calc'); if (el) el.outerHTML = this._calcHtml(); else this.render(); },
+
+  _calcHtml() {
+    const s = this.state, C = window.Catalogue, E = this._esc, d = s.d;
+    const lignes = s.panier.filter(([id, q]) => q > 0);
+    const opts = { volume: s.volume, grossiste: s.grossiste };
+    const cmp = C.comparer(lignes, opts), e = cmp.empower, g = cmp.grossiste;
+    const produits = C.listeProduits();
+    const sel = (id) => produits.map(p => `<option value="${E(p.id)}" ${p.id === id ? 'selected' : ''}>${E(C.libelle(p))}${p.pa_empower == null ? ' (prix Empower n.c.)' : ''}</option>`).join('');
+    const compte = s.compteSel && d ? d.comptes.find(c => String(c.ID_Compte || c._uuid) === s.compteSel) : null;
+    const deja = compte ? window.Paliers.caEmpower(compte) : 0, reste = C.resteAuPalier(deja + e.cout);
+    const cotes = (g.cotations || []);
+    const nomG = s.grossiste === 'pa_ingram' ? 'Ingram' : 'Tech Data';
+    return `<div class="co-carte co-calc" id="co-calc"><div class="co-row"><div class="co-eyebrow">Calculateur de marge</div><span class="co-sp"></span><span class="co-mut">Catalogue ${E(C.version)}${C.source() === 'base' ? '' : ' (défaut)'}</span></div>
+      ${s.panier.map(([id, q], i) => `<div class="co-ligne"><select aria-label="Produit ${i + 1}" onchange="VueCoach.majLigne(${i},'id',this.value)">${sel(id)}</select><input type="number" min="0" max="9999" inputmode="numeric" value="${q}" aria-label="Quantité ${i + 1}" onchange="VueCoach.majLigne(${i},'q',this.value)"/><button class="co-x" aria-label="Retirer la ligne" onclick="VueCoach.retirerLigne(${i})">×</button></div>`).join('')}
+      <div class="co-row" style="margin:6px 0"><button class="co-btn" onclick="VueCoach.ajouterLigne()">+ Ajouter un produit</button><span class="co-sp"></span>
+        <select style="width:auto" aria-label="Grossiste de comparaison" onchange="VueCoach.setGrossiste(this.value)"><option value="pa_td" ${s.grossiste === 'pa_td' ? 'selected' : ''}>vs Tech Data</option><option value="pa_ingram" ${s.grossiste === 'pa_ingram' ? 'selected' : ''}>vs Ingram</option></select></div>
+      <label class="co-opt"><input type="checkbox" ${s.volume ? 'checked' : ''} onchange="VueCoach.setVolume(this.checked)"/> Offre volume : -${Math.round(C.remise_volume.taux * 100)} % sur l'achat dès ${C.remise_volume.seuil} licences (à valider)</label>
+      ${lignes.length ? `<div class="co-res"><div class="co-soft"><div class="co-eyebrow">Via Empower</div><div class="co-kv big"><span>Marge</span><b class="co-pos">${this._eur(e.marge)}</b></div><div class="co-kv"><span>Taux</span><b>${String(e.pct).replace('.', ',')} %</b></div><div class="co-kv"><span>Achat HT</span><b>${this._eur2(e.cout)}</b></div></div>
+        <div class="co-soft"><div class="co-eyebrow">Via ${nomG}</div><div class="co-kv big"><span>Marge</span><b>${this._eur(g.marge)}</b></div><div class="co-kv"><span>Taux</span><b>${String(g.pct).replace('.', ',')} %</b></div><div class="co-kv"><span>Achat HT</span><b>${this._eur2(g.cout)}</b></div></div></div>
+        <p style="margin:10px 0 0;font-size:13px">Passer ce panier par Empower rapporte <b class="co-pos">${cmp.gain >= 0 ? '+' : ''}${this._eur(cmp.gain)}</b> de marge. CA revendeur HT : ${this._eur(e.ca)}.</p>
+        <p style="margin:6px 0 0;font-size:13px">${compte ? `${E(compte.Nom_Compte)} : ` : ''}cette commande fait <b>${this._eur(e.cout)}</b> de CA Empower${compte ? ` (${this._eur(deja)} déjà réalisés)` : ''}. ${reste > 0 ? `Il reste <b>${this._eur(reste)}</b> pour atteindre le palier Actif (1 000 €).` : 'Le palier Actif (1 000 €) est atteint.'}</p>`
+        : '<p class="co-mut" style="margin-top:10px">Ajoutez une quantité pour voir la marge.</p>'}
+      ${cotes.length ? `<div class="co-cot"><b>Cotation grossiste en cours : ${E(cotes.join(', '))}.</b> Le prix d'achat ${nomG} en tient compte.</div>` : ''}
+      ${cmp.exclus.length ? `<p class="co-mut" style="margin-top:8px">Exclu de la comparaison (prix non renseigné sur un canal) : ${E(cmp.exclus.join(', '))}.</p>` : ''}
+      <p class="co-mut" style="margin-top:8px">PVP HT = PVP TTC / 1,20. Marge = PVP HT moins prix d'achat. Revenue share Empower : jusqu'à ${Math.round(C.revenue_share.taux_max * 100)} % sur les renouvellements pendant ${C.revenue_share.annees} ans (assiette à confirmer, non chiffré ici).</p></div>`;
+  },
+
+  _planHtml() {
+    const d = this.state.d, E = this._esc, tri = d.tri, t = d.sel;
+    const lignes = d.plan.length ? d.plan.map(a => {
+      const fait = a.fait || a.manuel;
+      return `<div class="co-step"><button class="co-tick ${fait ? 'on' : ''}" ${a.fait ? 'disabled title="Validé automatiquement par votre activité de la semaine"' : `aria-label="Cocher : ${E(a.texte)}" onclick="VueCoach.basculer('${E(a.id)}')"`}>${fait ? '✓' : ''}</button>
+        <div style="font-size:13px" class="${fait ? 'co-fait' : ''}">${a.to ? `<a href="${a.to}"><b>${E(a.texte)}</b></a>` : `<b>${E(a.texte)}</b>`}<br><span class="co-mut">${E(a.detail || '')}</span></div></div>`;
+    }).join('') : '<p class="co-mut">Aucune action prioritaire cette semaine : le périmètre est à jour.</p>';
+    const barre = t && t.obj > 0 ? `<div class="co-soft" style="margin-top:10px"><div class="co-eyebrow">Trajectoire ${E(tri.quarter)}</div><div class="co-bar" style="margin:6px 0"><i class="${t.statut === 'rythme' ? 'g' : t.statut === 'decrochage' ? 'c' : ''}" style="width:${Math.min(100, t.pct)}%"></i></div><div class="co-mut">${t.pct} % de l'objectif, rythme attendu ${tri.pct} % · ${this._statutLib[t.statut]}</div></div>`
+      : `<div class="co-soft" style="margin-top:10px"><div class="co-eyebrow">Trajectoire</div><div class="co-mut">Objectif du trimestre non renseigné pour ce périmètre.</div></div>`;
+    return `<div class="co-carte"><div class="co-eyebrow">Mon plan · semaine ${tri ? tri.semaine : 'n.c.'}</div><h2>${d.plan.length} action${d.plan.length > 1 ? 's' : ''}</h2>${lignes}${barre}<p class="co-mut" style="margin-top:10px">Les actions « appeler » et « visiter » se cochent seules quand votre activité de la semaine le prouve.</p></div>`;
+  },
+
+  _qualiteHtml() {
+    const q = this.state.d.qualite, E = this._esc, pct = q.tot ? Math.round(q.loc / q.tot * 100) : 0, a = q.tot - q.loc;
+    return `<div class="co-carte"><div class="co-eyebrow">Qualité des données</div>
+      <div class="co-kv"><span>Fiches localisées</span><b>${q.loc} / ${q.tot}</b></div><div class="co-bar"><i style="width:${pct}%"></i></div>
+      <div class="co-kv"><span>Contacts renseignés</span><b>${q.contact} / ${q.tot}</b></div>
+      <p class="co-mut" style="margin-top:8px">Chaque adresse renseignée améliore le ciblage et la carte. <b>${a} fiche${a > 1 ? 's' : ''} à compléter</b> dans ce périmètre.</p>
+      <div class="co-actions"><a class="co-btn" href="#/comptes">Compléter les fiches</a><a class="co-btn" href="#/territoires">Voir la carte</a></div></div>`;
+  },
+
+  render() {
+    const app = document.getElementById('app'); if (!app) return;
+    const s = this.state, E = this._esc;
+    let corps;
+    if (s.chargement) corps = '<p class="pilo-vide" style="padding:16px">Chargement…</p>';
+    else if (s.erreur) corps = `<div class="erreur">Erreur : ${E(s.erreur)}</div>`;
+    else {
+      const d = s.d;
+      const heure = s.maj ? s.maj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+      const sel = Session.voitTout() ? `<select aria-label="Commercial" onchange="VueCoach.setPin(this.value)"><option value="">Tout le réseau</option>${(this._raw.objectifs || []).map(o => `<option value="${E(o.PIN_CDS)}" ${String(s.pin) === String(o.PIN_CDS) ? 'selected' : ''}>${E(window.resolveCDS(o.PIN_CDS))}</option>`).join('')}</select>` : `<span class="co-mut">${E(Session.nom)}</span>`;
+      const note = d.tri && d.quarterParam && d.quarterParam !== d.tri.quarter ? `<p class="co-mut">Le trimestre actif des paramètres est ${E(d.quarterParam)} ; le Coach suit la date du jour (${E(d.tri.quarter)}).</p>` : '';
+      corps = `<div class="coach">
+        <div class="coach-barre">${sel}<span class="co-sp"></span><span class="coach-frais"><i></i>Données de ${E(heure)} · ${d.qualite.loc} fiches localisées sur ${d.qualite.tot} · <button class="co-lien" style="border:0;background:none;color:inherit;text-decoration:underline;cursor:pointer;font:inherit" onclick="VueCoach.init()">Actualiser</button></span></div>${note}
+        <div class="coach-onglets" role="tablist">${[['plan', 'Mon plan'], ['chat', 'Conversation'], ['calc', 'Calculateur']].map(([k, l]) => `<button role="tab" aria-selected="${s.col === k}" onclick="VueCoach.setCol('${k}')">${l}</button>`).join('')}</div>
+        <div class="coach-cols" data-vue="${s.col}">
+          <div class="coach-col c-plan">${this._planHtml()}</div>
+          <div class="coach-col c-chat"><div class="co-carte"><div class="co-row"><b style="font-size:15px;color:var(--co-ink)">Conversation</b></div>
+            <div class="co-chips">${[['objectif', 'Comment j\'atteins mon objectif ?'], ['relancer', 'Qui relancer aujourd\'hui ?'], ['visite', 'Prépare ma visite'], ['marge', 'Calcule ma marge'], ['rattrapage', 'Plan de rattrapage']].map(([k, l]) => `<button class="co-chip" onclick="VueCoach.chip('${k}')">${l}</button>`).join('')}</div>
+            <div class="co-fil" id="co-fil" aria-live="polite">${s.fil.map(m => `<div class="co-bulle ${m.r}">${m.h}</div>`).join('')}</div>
+            <div class="co-saisie"><input id="co-q" type="text" maxlength="300" placeholder="Posez votre question…" aria-label="Votre question" onkeydown="VueCoach.touche(event)"/><button class="co-btn p" onclick="VueCoach.envoyer()">Envoyer</button></div></div></div>
+          <div class="coach-col c-calc">${this._calcHtml()}${this._qualiteHtml()}</div>
+        </div></div>`;
+    }
+    app.innerHTML = `<header class="header-vue"><h1>Coach</h1></header>${NavBar('coach')}<div class="pilo">${corps}</div>`;
+    this._basFil();
+  },
+};

@@ -282,6 +282,39 @@ window.VuePilotage = {
     return `<div class="cs-jauges">${part === 'entonnoir' ? sE : part === 'contacts' ? sC : sC + sE}</div>`;
   },
 
+  // ── Cockpit de trajectoire (manager) : qui est en retard sur le trimestre et que faire ──
+  // Réalisé / objectif des commerciaux contre le rythme du trimestre fiscal, alertes du séminaire, coaching suggéré (règles lisibles).
+  _cockpit(d) {
+    const E = this._esc, M = window.CoachMoteur, raw = this._raw, eur = n => Math.round(n).toLocaleString('fr-FR') + ' €';
+    const tri = M && M.trimestre(new Date());
+    if (!tri) return '<p class="pilo-vide">Le trimestre en cours est hors du calendrier fiscal chargé : trajectoire indisponible.</p>';
+    const COUL = { rythme: '#1E7B55', surveiller: '#343F48', decrochage: '#FF6D68', sans_objectif: '#B8C1C9' };
+    const LIB = { rythme: 'Au rythme', surveiller: 'À surveiller', decrochage: 'Décrochage', sans_objectif: 'Objectif absent' };
+    const comptes = (raw.comptes || []).filter(c => String(c.deleted || '').toUpperCase() !== 'TRUE');
+    const ctx = window.VueCoach ? VueCoach._ctx() : null;
+    const trajs = M.trajectoire(raw.objectifs || [], tri);
+    const al = ctx ? M.alertes({ leads: d.ouverts, comptes }, ctx) : [];
+    const ligne = t => `<div class="pilo-hbar" style="cursor:default"><span class="pilo-hbar-l">${E(t.nom)}</span>
+        <span class="pilo-hbar-t"><i style="width:${t.pct == null ? 0 : Math.min(100, Math.max(2, t.pct))}%;background:${COUL[t.statut]}"></i></span><b>${t.pct == null ? 'n.c.' : t.pct + ' %'}</b></div>
+        <div class="pilo-note" style="margin:-2px 0 8px">${t.obj > 0 ? `${eur(t.ca)} sur ${eur(t.obj)} · ${LIB[t.statut]}${t.statut !== 'rythme' && t.obj > 0 ? ` · ${eur(t.parSemaine)} par semaine pour finir` : ''}` : 'Objectif non renseigné (Administration › Objectifs)'}</div>`;
+    const retard = trajs.filter(t => t.statut === 'surveiller' || t.statut === 'decrochage');
+    const coaching = retard.map(t => {
+      const pin = t.pin, mon = d.equipe.find(m => m.pin === pin) || {};
+      const cptes = comptes.filter(c => Number(c.PIN_CDS_Assigne) === pin);
+      const diag = M.diagnostic(t, { ouverts: mon.ouverts || 0, activite7: mon.act || 0, integres: d.integres.filter(p => Number(p.PIN_CDS_Assigne) === pin).length,
+        sansAdresse: ctx ? cptes.filter(c => !ctx.adresseOk(c)).length : 0, echus: mon.echus || 0 });
+      return `<div class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">${E(LIB[t.statut])}</span><h3>${E(t.nom)}</h3></div></div>
+        <p style="margin:0 0 10px;font-size:13px">${E(diag)}</p><button class="pilo-lien" onclick="Router.aller('#/empower-tracker')">Voir son pipeline ›</button></div>`;
+    }).join('');
+    const A = al.length ? al.map(a => `<div class="pilo-task" style="cursor:default"><span class="pilo-task-main"><strong>${E(a.titre)}</strong></span><button class="pilo-lien" onclick="Router.aller('${a.to}')">${E(a.action)} ›</button></div>`).join('') : '<p class="pilo-vide">Aucune alerte : tout est dans les règles.</p>';
+    return `<div class="pilo-grille"><section class="pilo-panneau" aria-label="Trajectoire du trimestre"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Trajectoire ${E(tri.quarter)} · rythme attendu ${tri.pct} %</span><h3>Réalisé contre objectif</h3></div></div>
+        ${trajs.length ? trajs.map(ligne).join('') : '<p class="pilo-vide">Aucun objectif chargé.</p>'}
+        <p class="pilo-note">Vert : au rythme. Gris : jusqu'à 15 points de retard. Corail : décrochage. Semaine ${tri.semaine} sur 13.</p></section>
+      <section class="pilo-panneau" aria-label="Alertes de la semaine"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Alertes de la semaine</span><h3>Règles du séminaire</h3></div>
+        ${Permissions.peut(Session.role, 'coach') ? `<button class="pilo-lien" onclick="Router.aller('#/coach')">Ouvrir le Coach ›</button>` : ''}</div>${A}</section></div>
+      ${coaching ? `<div class="pilo-grille pilo-grille-g">${coaching}</div>` : '<p class="pilo-note" style="margin-top:12px">Aucun commercial en retard sur le rythme du trimestre.</p>'}`;
+  },
+
   render() {
     const s = this.state, app = document.getElementById('app');
     if (!s || !app) return;
@@ -299,12 +332,13 @@ window.VuePilotage = {
       if (kpisHaut.length < 3) { const ac = kpis.find(k => k.l === 'À contacter'); if (ac) { kpisHaut.push(ac); kpisReste.splice(kpisReste.indexOf(ac), 1); } }
       const channel = Session.estChannel && Session.estChannel();
       const onglets = this._ONGLETS.filter(([k]) => !(channel && k === 'ventes'));
-      const onglet = onglets.some(([k]) => k === s.onglet) ? s.onglet : 'activite';
+      if (manager && !channel && window.CoachMoteur) onglets.unshift(['trajectoire', 'Trajectoire']);
+      const onglet = onglets.some(([k]) => k === s.onglet) ? s.onglet : onglets[0][0];
       const fGlob = this._raw ? window.calculerCamembertsActivite(this._raw) : null;
       const g = fGlob ? this._graphiques(fGlob) : { activite: '', ventes: '', portefeuille: '', objectifs: '' };
       const kr = kpisReste.length ? `<div class="pilo-kpis">${kpisReste.map(k => this._kpiHtml(k)).join('')}</div>` : '';
       const equipeBloc = manager ? `<div class="pilo-grille"><section class="pilo-panneau" aria-label="Synthèse d'équipe"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Synthèse d’équipe</span><h3>Charge et points d’attention</h3></div></div>${this._equipe(d)}</section></div>` : '';
-      const contenu = { activite: kr + equipeBloc + g.activite, ventes: g.ventes, portefeuille: this._jaugesObjectifs(manager, 'entonnoir') + g.portefeuille, objectifs: this._jaugesObjectifs(manager, 'contacts') + g.objectifs }[onglet];
+      const contenu = { trajectoire: onglet === 'trajectoire' ? this._cockpit(d) : '', activite: kr + equipeBloc + g.activite, ventes: g.ventes, portefeuille: this._jaugesObjectifs(manager, 'entonnoir') + g.portefeuille, objectifs: this._jaugesObjectifs(manager, 'contacts') + g.objectifs }[onglet];
       corps = `
       <div class="pilo-contexte">
         <nav class="pilo-ariane" aria-label="Fil d'Ariane"><span>Pilotage</span><i>›</i><strong>Synthèse</strong></nav>
@@ -315,6 +349,7 @@ window.VuePilotage = {
       <div class="pilo-intro">
         <h2>${manager ? 'Où agir aujourd’hui ?' : `Bonjour ${E(prenom)}, voici vos priorités`}</h2>
         <p>${manager ? 'Vue manager · ' + (d.equipe.length || '') + ' commerciaux' : 'Votre activité terrain'} · trimestre ${E(d.quarter)}</p>
+        ${window.Permissions && Permissions.peut(Session.role, 'coach') ? '<button class="pilo-lien" onclick="Router.aller(\'#/coach\')">Ouvrir le Coach ›</button>' : ''}
       </div>
       <p class="pilo-fraicheur">Données actualisées aujourd’hui à ${heure} · <button onclick="VuePilotage.init()">Actualiser</button></p>
       <div class="pilo-kpis">${kpisHaut.map(k => this._kpiHtml(k)).join('')}</div>
@@ -328,7 +363,7 @@ window.VuePilotage = {
       <style>.pilo-filtres-glob{margin:0 0 12px}.pilo [role=tabpanel] .dash-filtres-camembert,.pilo [role=tabpanel] .dash-camembert-actif-pin{display:none}.pilo-onglets{display:flex;gap:6px;overflow-x:auto;margin:18px 0 12px;padding-bottom:2px;scrollbar-width:none}.pilo-onglets::-webkit-scrollbar{display:none}
         .pilo-onglets button{flex:0 0 auto;padding:9px 16px;border:0;border-radius:999px;background:var(--c-surface-2,rgba(52,63,72,.07));color:inherit;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
         .pilo-onglets button[aria-selected=true]{background:#343F48;color:#fff}.pilo-onglets .pilo-onglet-n{margin-left:6px;opacity:.7;font-weight:500}</style>
-      ${fGlob ? this._barreFiltres(fGlob) : ''}
+      ${fGlob && onglet !== 'trajectoire' ? this._barreFiltres(fGlob) : ''}
       <div class="pilo-onglets" role="tablist" aria-label="Thèmes du pilotage">${onglets.map(([k, l]) => `<button role="tab" aria-selected="${k === onglet}" onclick="VuePilotage.setOnglet('${k}')">${l}</button>`).join('')}</div>
       <div role="tabpanel">${contenu}</div>`;
     }

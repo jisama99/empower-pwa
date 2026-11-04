@@ -1,0 +1,298 @@
+// ═══════════════════════════════════════
+//  catalogue.js — Catalogue Norton et calcul de marge revendeur (Assistant commercial)
+//  Sources : BOOK DU COMMERCIAL Empower et Grossiste (février 2026). PA = prix d'achat HT revendeur.
+//  Règles : PVP HT = PVP TTC / 1,20 ; marge % = (PVP HT - PA) / PVP HT. Tout est calculé par le code,
+//  jamais par un modèle de langage. Un produit sans prix d'achat sur un canal est exclu du calcul de ce canal
+//  et signalé (jamais de prix inventé). Les incohérences des sources sont listées pour validation.
+//  Ce module sert la page Coach, et servira aux générateurs PDF (proposition, bienvenue, exceptionnelle).
+// ═══════════════════════════════════════
+(function (root) {
+  const DATA = {
+   "version": "2026-02",
+   "tva": 0.2,
+   "produits": [
+    {
+     "id": "n360-std",
+     "famille": "N360",
+     "nom": "Norton 360 Standard",
+     "appareils": 1,
+     "pvp_ttc": 39.99,
+     "pa_td": 25.0,
+     "pa_ingram": 25.0,
+     "pa_empower": 11.61,
+     "sku_td": "21404856",
+     "sku_ingram": "21404971",
+     "sku_boite": "21409190"
+    },
+    {
+     "id": "n360-del3",
+     "famille": "N360",
+     "nom": "Norton 360 Deluxe",
+     "appareils": 3,
+     "pvp_ttc": 49.99,
+     "pa_td": 32.08,
+     "pa_ingram": 32.08,
+     "pa_empower": 15.11,
+     "sku_td": "21404977",
+     "sku_ingram": "21404910",
+     "sku_boite": "21409191"
+    },
+    {
+     "id": "n360-del5",
+     "famille": "N360",
+     "nom": "Norton 360 Deluxe",
+     "appareils": 5,
+     "pvp_ttc": 59.99,
+     "pa_td": 33.33,
+     "pa_ingram": 33.33,
+     "pa_empower": 16.24,
+     "sku_td": "21404968",
+     "sku_ingram": "21404845",
+     "sku_boite": "21409192"
+    },
+    {
+     "id": "n360-prem10",
+     "famille": "N360",
+     "nom": "Norton 360 Premium",
+     "appareils": 10,
+     "pvp_ttc": 69.99,
+     "pa_td": 37.5,
+     "pa_ingram": 37.5,
+     "pa_empower": null,
+     "sku_td": "21404987",
+     "sku_ingram": "21404998",
+     "sku_boite": "21409193"
+    },
+    {
+     "id": "n360-gam3",
+     "famille": "N360",
+     "nom": "Norton 360 For Gamers",
+     "appareils": 3,
+     "pvp_ttc": 49.99,
+     "pa_td": 32.25,
+     "pa_ingram": 32.25,
+     "pa_empower": 15.11,
+     "sku_td": "21417152",
+     "sku_ingram": "21416747",
+     "sku_boite": "21416609"
+    },
+    {
+     "id": "n360-adv10",
+     "famille": "N360",
+     "nom": "Norton 360 Advanced",
+     "appareils": 10,
+     "pvp_ttc": 104.99,
+     "pa_td": 36.27,
+     "pa_ingram": 36.27,
+     "pa_empower": 25.1,
+     "sku_td": "21444054",
+     "sku_ingram": "21444054",
+     "sku_boite": null
+    },
+    {
+     "id": "n360-plat20",
+     "famille": "N360",
+     "nom": "Norton 360 Platinum",
+     "appareils": 20,
+     "pvp_ttc": 79.99,
+     "pa_td": 52.08,
+     "pa_ingram": 52.08,
+     "pa_empower": null,
+     "sku_td": "21444053",
+     "sku_ingram": "21444053",
+     "sku_boite": null
+    },
+    {
+     "id": "nav-plus1",
+     "famille": "AV",
+     "nom": "Norton Antivirus Plus",
+     "appareils": 1,
+     "pvp_ttc": 29.99,
+     "pa_td": null,
+     "pa_ingram": null,
+     "pa_empower": 14.55,
+     "sku_td": null,
+     "sku_ingram": null,
+     "sku_boite": null
+    },
+    {
+     "id": "nsb-6",
+     "famille": "NSB",
+     "nom": "Norton Small Business",
+     "appareils": 6,
+     "pvp_ttc": 99.99,
+     "pa_td": 41.66,
+     "pa_ingram": 41.66,
+     "pa_empower": 17.86,
+     "sku_td": "21453221",
+     "sku_ingram": "21453842",
+     "sku_boite": null
+    },
+    {
+     "id": "nsb-10",
+     "famille": "NSB",
+     "nom": "Norton Small Business",
+     "appareils": 10,
+     "pvp_ttc": 139.99,
+     "pa_td": 58.33,
+     "pa_ingram": 58.33,
+     "pa_empower": 29.79,
+     "sku_td": "21453240",
+     "sku_ingram": "21453846",
+     "sku_boite": null
+    },
+    {
+     "id": "nsb-20",
+     "famille": "NSB",
+     "nom": "Norton Small Business",
+     "appareils": 20,
+     "pvp_ttc": 199.99,
+     "pa_td": 83.33,
+     "pa_ingram": 83.33,
+     "pa_empower": 53.61,
+     "sku_td": "21453225",
+     "sku_ingram": "21453844",
+     "sku_boite": null
+    },
+    {
+     "id": "nsbp-10",
+     "famille": "NSB",
+     "nom": "Norton Small Business Premium",
+     "appareils": 10,
+     "pvp_ttc": 199.99,
+     "pa_td": 83.33,
+     "pa_ingram": 83.33,
+     "pa_empower": 62.9,
+     "sku_td": "21453254",
+     "sku_ingram": "21453850",
+     "sku_boite": null
+    },
+    {
+     "id": "nsbp-20",
+     "famille": "NSB",
+     "nom": "Norton Small Business Premium",
+     "appareils": 20,
+     "pvp_ttc": 299.99,
+     "pa_td": 125.0,
+     "pa_ingram": 125.0,
+     "pa_empower": 95.33,
+     "sku_td": "21453236",
+     "sku_ingram": "21453851",
+     "sku_boite": null
+    }
+   ],
+   "remise_volume": {
+    "seuil": 10,
+    "taux": 0.2,
+    "note": "Offre volume -20 % sur le PA dès 10 licences, soumise à validation budget commercial"
+   },
+   "revenue_share": {
+    "taux_max": 0.25,
+    "annees": 3
+   },
+   "incoherences": [
+    "Advanced 10 : PVP TTC 104,99 € dans le Book Grossiste, 59,99 € dans le Book Empower et la cotation Back2School.",
+    "Platinum 20 : PVP TTC 79,99 € chez Tech Data et 99,99 € chez Ingram dans le Book Grossiste ; 99,90 € dans la cotation Back2School.",
+    "Premium 10 : PVP TTC 69,99 € (Book) ou 69,90 € (cotation).",
+    "Advanced et Platinum : mêmes SKU (21444054, 21444053) chez Tech Data et Ingram ; références boîte identiques chez les deux distributeurs.",
+    "Premium 10 et Platinum 20 : absents de la grille portail Empower (prix d'achat Empower à fournir).",
+    "Prix d'achat grossiste « sans cotation » ; la cotation Back2School (jusqu'à -50 %) a pris fin le 30/09/2026, prix d'achat cotés non fournis."
+   ]
+  };
+
+  let PRODUITS = DATA.produits;          // remplacé par les prix des Réglages (base) quand ils sont chargés
+  let COTATIONS = [];                    // cotations des Réglages
+  let SOURCE = 'defaut';                 // 'base' | 'defaut'
+  const par = id => PRODUITS.find(p => p.id === id) || null;
+  const pvpHT = p => p.pvp_ttc / (1 + DATA.tva);
+  const arr2 = n => Math.round(n * 100) / 100;
+  const aujourdhui = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+  // ── Cotations : active si actif et debut <= jour <= fin ; ne joue que sur les canaux grossistes (td, ingram) ──
+  function cotationsActives(date, canal) {
+    const d = (date || aujourdhui()).slice(0, 10);
+    return COTATIONS.filter(c => c.actif !== false && c.debut <= d && d <= c.fin && (!canal || (c.canaux || []).includes(canal)));
+  }
+  // Prix d'achat effectif d'un produit sur un canal ('pa_empower' | 'pa_td' | 'pa_ingram') à une date.
+  // Prix coté explicite prioritaire, sinon remise en %, la cotation la plus basse l'emporte ; jamais de prix inventé.
+  function paEffectif(p, canal, date) {
+    const base = p[canal] == null ? null : Number(p[canal]);
+    if (canal === 'pa_empower') return { pa: base, base, cotation: null };
+    const c = canal.slice(3); let best = base, cot = null;
+    cotationsActives(date, c).forEach(k => {
+      const ex = k.prix && k.prix[p.id] != null ? Number(k.prix[p.id]) : null;
+      const v = Number.isFinite(ex) && ex != null ? ex : (base != null && k.remise_pct ? base * (1 - Number(k.remise_pct) / 100) : null);
+      if (v != null && (best == null || v < best)) { best = v; cot = k; }
+    });
+    return { pa: best, base, cotation: cot };
+  }
+
+  // lignes : [[idProduit, quantité], …] ; canal : 'pa_empower' | 'pa_td' | 'pa_ingram'
+  // opts : { volume } offre -20 % dès 10 licences (désactivée par défaut, soumise à validation budget) ;
+  //        { date } jour de référence des cotations ; { sansCotation } ignore les cotations.
+  function calculer(lignes, canal, opts) {
+    const o = opts || {};
+    let ca = 0, cout = 0, licences = 0; const manquants = [], detail = [], cotes = new Set();
+    (lignes || []).forEach(([id, q]) => {
+      const qt = Math.max(0, Math.floor(Number(q) || 0)); const p = par(id);
+      if (!p || !qt) return;
+      const e = o.sansCotation ? { pa: p[canal] == null ? null : Number(p[canal]), cotation: null } : paEffectif(p, canal, o.date);
+      let pa = e.pa;
+      if (pa == null || p.pvp_ttc == null) { manquants.push(p.nom + ' ' + p.appareils); return; }
+      if (o.volume && qt >= DATA.remise_volume.seuil) pa = pa * (1 - DATA.remise_volume.taux);
+      const ht = pvpHT(p);
+      if (e.cotation) cotes.add(e.cotation.libelle);
+      ca += qt * ht; cout += qt * pa; licences += qt;
+      detail.push({ id, nom: p.nom, appareils: p.appareils, qte: qt, pvp_ttc: Number(p.pvp_ttc), pvp_ht: arr2(ht), pa: arr2(pa), marge_unit: arr2(ht - pa), marge: arr2(qt * (ht - pa)), cotation: e.cotation ? e.cotation.libelle : null });
+    });
+    return { ca: arr2(ca), cout: arr2(cout), marge: arr2(ca - cout), pct: ca > 0 ? Math.round((ca - cout) / ca * 1000) / 10 : 0, licences, manquants, detail, cotations: [...cotes] };
+  }
+
+  // Même panier par Empower et par grossiste (canal 'pa_td' par défaut ou 'pa_ingram') ; gain = marge Empower - marge grossiste,
+  // sur les seuls produits chiffrables des DEUX canaux. Une cotation active baisse le PA grossiste, donc le gain.
+  function comparer(lignes, opts) {
+    const o = opts || {}, cg = o.grossiste || 'pa_td';
+    const communs = (lignes || []).filter(([id]) => { const p = par(id); return p && p.pa_empower != null && paEffectif(p, cg, o.date).pa != null; });
+    const emp = calculer(communs, 'pa_empower', o), gro = calculer(communs, cg, o);
+    const exclus = (lignes || []).filter(([id, q]) => q > 0 && !communs.some(([i]) => i === id)).map(([id]) => { const p = par(id); return p ? p.nom + ' ' + p.appareils : id; });
+    return { empower: emp, grossiste: gro, gain: arr2(emp.marge - gro.marge), exclus, cotations: gro.cotations };
+  }
+
+  // Charge les prix et cotations des Réglages (Supabase). En cas d'échec ou de table vide, le catalogue de février 2026 reste en vigueur.
+  async function charger(sb) {
+    if (!sb) return { source: SOURCE };
+    try {
+      const [p, c] = await Promise.all([
+        sb.from('catalogue_produits').select('*').eq('actif', true).order('ordre'),
+        sb.from('catalogue_cotations').select('*').order('debut', { ascending: false }),
+      ]);
+      if (p.error) throw p.error;
+      if (p.data && p.data.length) {
+        PRODUITS = p.data.map(r => ({ id: r.produit_id, famille: r.famille, nom: r.nom, appareils: r.appareils,
+          pvp_ttc: r.pvp_ttc == null ? null : Number(r.pvp_ttc), pa_empower: r.pa_empower == null ? null : Number(r.pa_empower),
+          pa_td: r.pa_td == null ? null : Number(r.pa_td), pa_ingram: r.pa_ingram == null ? null : Number(r.pa_ingram),
+          sku_td: r.sku_td, sku_ingram: r.sku_ingram }));
+        API.produits = PRODUITS; SOURCE = 'base';
+      }
+      COTATIONS = (!c.error && c.data) ? c.data.map(r => ({ id: r.id, libelle: r.libelle, canaux: r.canaux || [], debut: String(r.debut).slice(0, 10), fin: String(r.fin).slice(0, 10),
+        remise_pct: r.remise_pct == null ? null : Number(r.remise_pct), prix: r.prix || {}, actif: r.actif !== false })) : [];
+      API.cotations = COTATIONS;
+    } catch (e) { /* repli : catalogue par défaut */ }
+    return { source: SOURCE, cotations: COTATIONS.length };
+  }
+  // Pour les tests et le rechargement après une modification dans les Réglages.
+  function definir(produits, cotations) { if (produits) { PRODUITS = produits; API.produits = produits; SOURCE = 'base'; } if (cotations) { COTATIONS = cotations; API.cotations = cotations; } }
+
+  // Reste à acheter (CA Empower, c.-à-d. achat HT portail) pour atteindre un palier du séminaire.
+  function resteAuPalier(achatEmpower, seuil) { return Math.max(0, arr2((seuil || 1000) - (achatEmpower || 0))); }
+
+  // Produits proposables selon le canal (Empower : seulement ceux qui ont un PA Empower).
+  function listeProduits(canal) { return PRODUITS.filter(p => p.pvp_ttc != null && (canal ? p[canal] != null : true)); }
+  function libelle(p) { return p.nom.replace('Norton ', '') + ' · ' + p.appareils + ' appareil' + (p.appareils > 1 ? 's' : ''); }
+
+  const API = { version: DATA.version, tva: DATA.tva, produits: PRODUITS, cotations: COTATIONS, remise_volume: DATA.remise_volume,
+                revenue_share: DATA.revenue_share, incoherences: DATA.incoherences, par, pvpHT, paEffectif, cotationsActives, calculer, comparer,
+                resteAuPalier, listeProduits, libelle, charger, definir, source: () => SOURCE };
+  root.Catalogue = API;
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+})(typeof window !== 'undefined' ? window : globalThis);

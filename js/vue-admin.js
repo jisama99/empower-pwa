@@ -1701,7 +1701,7 @@ window.VueAdmin = {
         ${FusionTabs.administration()}
         <!-- Onglets -->
         <div style="display:flex;border-bottom:2px solid var(--c-border);background:var(--c-surface)">
-          ${[['exports','Exports'],['leads','Leads'],['suivi','Suivi'],['secteurs','Secteurs CP'],['equipe','Équipe']].map(([t, l]) => `
+          ${[['exports','Exports'],['leads','Leads'],['suivi','Suivi'],['secteurs','Secteurs CP'],['prix','Prix'],['equipe','Équipe']].map(([t, l]) => `
             <button onclick="VueAdmin.setAlexTab('${t}')"
                     style="flex:1;padding:12px 6px;border:none;border-bottom:${tab===t?'3px solid var(--c-primary)':'3px solid transparent'};
                            background:transparent;font-weight:${tab===t?'700':'400'};font-size:13px;
@@ -1711,6 +1711,7 @@ window.VueAdmin = {
           <div class="dash-col-main">
           ${tab === 'suivi' ? this._renderSuivi()
           : tab === 'secteurs' ? AdminSecteurs.html()
+          : tab === 'prix' ? AdminPrix.html()
           : tab === 'equipe' ? EquipeContacts.html()
           : tab === 'exports' ? `
             <div class="bloc-fiche">
@@ -1737,6 +1738,7 @@ window.VueAdmin = {
       ['journal',      'Journal'],
       ['equipe',       'Équipe et contacts'],
       ['secteurs',     'Secteurs CP'],
+      ['prix',         'Prix et cotations'],
       ['maintenance',  'Maintenance'],
     ];
 
@@ -1990,6 +1992,7 @@ window.VueAdmin = {
 
         ${adminTab === 'equipe' ? EquipeContacts.html() : ''}
         ${adminTab === 'secteurs' ? AdminSecteurs.html() : ''}
+        ${adminTab === 'prix' ? AdminPrix.html() : ''}
 
         ${adminTab === 'maintenance' ? `
         <!-- MAINTENANCE -->
