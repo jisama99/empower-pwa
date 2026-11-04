@@ -333,7 +333,7 @@ function NavBar(actif) {
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' },
     { id: 'tracker',     hash: '#/empower-tracker',     mobileNav: true,  lbl: 'Tracker',
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/></svg>' },
-    { id: 'comptes',     hash: '#/comptes',             mobileNav: true,  lbl: 'Portefeuille', any: ['tracker', 'comptes', 'territoires'],
+    { id: 'comptes',     hash: '#/comptes',             mobileNav: true,  lbl: 'Portefeuille', any: ['tracker', 'comptes'],
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v8h4"/><path d="M18 9h2a2 2 0 0 1 2 2v11h-4"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>' },
     { id: 'analyse',     hash: '#/analyse',             mobileNav: false, lbl: 'Reporting', any: ['reporting', 'reporting_cds'],
       icone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>' },
@@ -392,7 +392,7 @@ function NavBar(actif) {
   // Navigation fusionnée (validée 2 nov. 2026) : Pilotage (Accueil, Équipe/Analyse, Objectifs, Primes, Barèmes),
   // Portefeuille (Pipeline, Comptes, Historique CA, Territoires), Activité, Reporting ; Administration en bas.
   const SECTIONS = [
-    { lbl: null,        ids: ['home', 'comptes'] },
+    { lbl: null,        ids: ['home', 'comptes', 'territoires'] },
     { lbl: 'Activité',  ids: ['a_contacter', 'visites', 'phoning', 'mailing'] },
     { lbl: 'Reporting', ids: ['analyse'] },
   ];
@@ -406,7 +406,7 @@ function NavBar(actif) {
   const ALIAS_ACTIF = {
     reporting: 'home', reporting_cds: 'home', manager: 'home',
     objectifs: 'home', primes: 'home', parametres_primes: 'home',
-    tracker: 'comptes', territoires: 'comptes', historiques: 'comptes',
+    tracker: 'comptes', historiques: 'comptes',
     photos: 'visites', visites_fdv: 'visites',
   };
   actif = ALIAS_ACTIF[actif] || actif;
@@ -580,7 +580,6 @@ FusionTabs.portefeuille = () => FusionTabs([
   { hash: '#/empower-tracker',      lbl: 'Pipeline',    si: _peutTab('tracker') },
   { hash: '#/comptes',              lbl: 'Comptes',     si: _peutTab('comptes') },
   { hash: '#/comptes-historiques',  lbl: 'Historique CA', si: _peutTab('historiques') },
-  { hash: '#/territoires',          lbl: 'Territoires', si: _peutTab('territoires') },
 ]);
 FusionTabs.planning = () => FusionTabs([
   { hash: '#/visites',     lbl: 'Planning' },
