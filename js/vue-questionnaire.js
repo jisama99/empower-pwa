@@ -114,6 +114,12 @@ window.VueQuestionnaire = {
       localStorage.setItem(this._CLE_BROUILLON, JSON.stringify({
         cle, ts: Date.now(),
         cible: this.state.cible, typeSource: this.state.typeSource, recherche: this.state.recherche,
+        // La visite planifiée voyage avec le brouillon : après un rechargement
+        // (page tuée par l'appli caméra), _visitePlanifiee est perdue en mémoire
+        // et la clé du brouillon ne correspondait plus (visite à froid planifiée
+        // = clé ID_Visite à l'enregistrement, 'NOUVELLE' au retour) : la saisie
+        // n'était jamais restaurée.
+        visitePlanifiee: this._visitePlanifiee || null,
         etape: this.state.etape, d: this.state.d, photos: this.state.photos,
         gps: this.state.gps, debut: this.state.debut,
         _sourceVerrouillee: this._sourceVerrouillee, _modeFroid: this._modeFroid,
@@ -215,6 +221,19 @@ window.VueQuestionnaire = {
     // sans rapport — "Visite à froid" verrouillée s'affichait pour un
     // revendeur pourtant bien existant, sans aucun moyen de revenir en
     // arrière (cf. _sourceVerrouillee, utilisé par _etape0()).
+    // Rechargement de la page (OS qui tue la PWA pendant la prise de photo) :
+    // la visite planifiée en mémoire est perdue, on la reprend depuis le
+    // brouillon si, et seulement si, elle concerne bien cette route.
+    if (!this._visitePlanifiee) {
+      try {
+        const b = JSON.parse(localStorage.getItem(this._CLE_BROUILLON) || 'null');
+        const vp = b && b.visitePlanifiee;
+        if (vp && Date.now() - (b.ts || 0) <= 12 * 3600000 && (
+          (idCible === null && (vp.ID_Cible === 'HORS_BASE' || vp.Source_Visite === 'ESI_VISITE_FROID')) ||
+          (idCible !== null && String(vp.ID_Cible) === String(idCible))
+        )) this._visitePlanifiee = vp;
+      } catch {}
+    }
     const visitePertinente = this._visitePlanifiee && (
       (idCible === null && (this._visitePlanifiee.ID_Cible === 'HORS_BASE' || this._visitePlanifiee.Source_Visite === 'ESI_VISITE_FROID')) ||
       (idCible !== null && String(this._visitePlanifiee.ID_Cible) === String(idCible))
