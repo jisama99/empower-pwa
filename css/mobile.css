@@ -73,3 +73,37 @@
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
 }
+
+/* ═══ Recherche de compte (Nouvelle visite, planification) ═══
+   Le champ gris-bleu sur fond crème se noyait : fond clair de surface, ombre douce,
+   pas de liseré ; la liste des comptes est visible dès l'ouverture, défilable. */
+.q-champs .q-input[placeholder^="Rechercher"],
+#visites-recherche-modal input {
+  background: #FFFFFF; color: var(--c-text);
+  box-shadow: 0 1px 2px rgba(20,30,50,.10), 0 4px 14px rgba(20,30,50,.06);
+  border-color: transparent; min-height: 46px; font-size: 16px;
+  padding-left: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23697386' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 13px center;
+}
+.q-champs .q-input[placeholder^="Rechercher"]:focus,
+#visites-recherche-modal input:focus { box-shadow: 0 0 0 3px rgba(4,0,245,.15), 0 4px 14px rgba(20,30,50,.08); }
+:root[data-theme="dark"] .q-champs .q-input[placeholder^="Rechercher"],
+:root[data-theme="dark"] #visites-recherche-modal input { background-color: #1E2A38; }
+.q-sugg-liste { max-height: 46vh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 2px 2px 6px; }
+.q-sugg-liste .q-arbre-btn {
+  display: block; width: 100%; border: 0; background: #FFFFFF; color: var(--c-text);
+  box-shadow: 0 1px 2px rgba(20,30,50,.08); min-height: 48px;
+}
+:root[data-theme="dark"] .q-sugg-liste .q-arbre-btn { background: #1E2A38; }
+.q-sugg-liste .q-arbre-btn:active { background: var(--c-control); }
+.visites-compte-label { font-size: 14px; font-weight: 500; margin: 4px 0 6px; }
+.visites-compte-liste { max-height: 240px; margin-bottom: 8px; }
+.visites-compte-opt.sel { background: var(--c-primary-soft, #FDE9E7); box-shadow: 0 0 0 0 transparent, inset 4px 0 0 0 transparent; font-weight: 600; }
+.visites-compte-opt.sel strong { color: var(--c-primary); }
+#visites-recherche-modal > div:first-child { min-width: 0; }
+#visites-recherche-modal > div:first-child label { min-width: 0; }
+#visites-recherche-modal > div:first-child input { min-width: 0; }
+/* La recherche par département (champ court) garde un champ simple, et les rangées de la modale ne débordent plus */
+#visites-recherche-modal > div:first-child label:nth-child(2) input { padding-left: 12px; background-image: none; min-height: 46px; }
+.modal label, .modal input, .modal select { min-width: 0; max-width: 100%; }

@@ -1868,15 +1868,16 @@ window.VueVisites = {
          Créer une visite à froid
        </button>
      </div>` : ''}
-     <label>Compte * <span style="font-size:11px;color:var(--c-text-2);font-weight:400">${actif ? comptesFiltres.length + ' résultat(s)' : 'trié par nom'}</span>
-       <select required size="7" style="height:180px"
-               onchange="VueVisites.setCible(this.value, this.options[this.selectedIndex].dataset.nom)">
-         <option value="">sélectionner</option>
-         ${comptesFiltres.map(c =>
-           `<option value="${c.ID_Compte}" data-nom="${c.Nom_Compte}" ${f.idCible === c.ID_Compte ? 'selected' : ''}>${c.urgent ? '! ' : ''}${c.Nom_Compte}${c.Departement ? ' [' + c.Departement + ']' : ''}${c.Ville ? ', ' + c.Ville : ''}${c.silence != null ? ' · ' + c.silence + 's' : ''}</option>`
-         ).join('')}
-       </select>
-     </label>
+     <div class="visites-compte-label">Compte * <span style="font-size:11px;color:var(--c-text-2);font-weight:400">${actif ? comptesFiltres.length + ' résultat(s)' : 'trié par nom'}</span></div>
+     <div class="q-sugg-liste visites-compte-liste" role="listbox" aria-label="Comptes">
+       ${comptesFiltres.length ? comptesFiltres.map(c => {
+         const nom = String(c.Nom_Compte || '').replace(/"/g, '&quot;');
+         return `<button type="button" role="option" aria-selected="${f.idCible === c.ID_Compte}" class="q-arbre-btn visites-compte-opt ${f.idCible === c.ID_Compte ? 'sel' : ''}" data-id="${c.ID_Compte}" data-nom="${nom}" onclick="VueVisites.setCible(this.dataset.id, this.dataset.nom)">
+           <strong>${c.urgent ? '! ' : ''}${c.Nom_Compte}</strong>
+           <span style="color:var(--c-text-2);font-size:12px">${c.Departement ? ' [' + c.Departement + ']' : ''}${c.Ville ? ' · ' + c.Ville : ''}${c.silence != null ? ' · ' + c.silence + ' sem.' : ''}</span>
+         </button>`;
+       }).join('') : '<div style="font-size:13px;color:var(--c-text-2);padding:10px">Aucun compte.</div>'}
+     </div>
      ${this._ficheCompteSelectionne(f.idCible)}`;
   },
 

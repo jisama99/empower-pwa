@@ -162,7 +162,7 @@ window.VueQuestionnaire = {
       filtreProspect: { source: 'TOUS', pin: 'TOUS', secteur: 'TOUS' },
       cible: null,
       dernieresVisites: [],
-      recherche: '', suggestionsOuvertes: false,
+      recherche: '', suggestionsOuvertes: true,
       gps: { lat: '', lng: '' },
       debut: Date.now(),
       photos: [],
@@ -358,10 +358,12 @@ window.VueQuestionnaire = {
     const q = normaliserNom(this.state.recherche);
     if (this.state.typeSource === 'PROSPECT') {
       const pool = this._poolProspects();
-      return (q.length < 2 ? pool : pool.filter(c => normaliserNom(c.Nom_Compte).includes(q))).slice(0, 8);
+      const l = q.length < 1 ? pool : pool.filter(c => normaliserNom(c.Nom_Compte).includes(q) || normaliserNom(c.Ville || '').includes(q));
+      return l.slice().sort((a, b) => (a.Nom_Compte || '').localeCompare(b.Nom_Compte || '', 'fr')).slice(0, 40);
     }
-    if (q.length < 2) return [];
-    return this.sourceListe.filter(c => normaliserNom(c.Nom_Compte).includes(q)).slice(0, 6);
+    // Existant : la liste est visible dès l'ouverture (ordre alphabétique), la saisie la filtre (nom ou ville).
+    const l = q.length < 1 ? this.sourceListe : this.sourceListe.filter(c => normaliserNom(c.Nom_Compte).includes(q) || normaliserNom(c.Ville || '').includes(q));
+    return l.slice().sort((a, b) => (a.Nom_Compte || '').localeCompare(b.Nom_Compte || '', 'fr')).slice(0, 40);
   },
   setFiltreProspect(cle, v) {
     this.state.filtreProspect[cle] = v;
@@ -389,9 +391,9 @@ window.VueQuestionnaire = {
     } else {
       this._modeFroid = false;
     }
-    this.state.suggestionsOuvertes = s === 'PROSPECT';
+    this.state.suggestionsOuvertes = s === 'PROSPECT' || s === 'EXISTANT';
     this.render();
-    if (s === 'PROSPECT') this._renderSuggestions();
+    if (s === 'PROSPECT' || s === 'EXISTANT') this._renderSuggestions();
   },
 
   // Générique — utilisé par le formulaire à froid ET, depuis l'audit fiche
@@ -575,7 +577,9 @@ window.VueQuestionnaire = {
   _renderSuggestions() {
     const zone = document.getElementById('q-suggestions');
     if (!zone) return;
-    zone.innerHTML = (this.state.suggestionsOuvertes ? this.suggestions : []).map((c, i) => `
+    const liste = this.state.suggestionsOuvertes ? this.suggestions : [];
+    zone.classList.toggle('q-sugg-liste', liste.length > 0);
+    zone.innerHTML = liste.map((c, i) => `
       <div class="q-arbre-btn" style="margin-top:4px" onclick="VueQuestionnaire.choisirCible(${i})">
         <strong>${c.Nom_Compte}</strong>
         <span style="color:var(--c-text-2);font-size:12px"> · ${c.Ville||'n.c.'}${c.STATUT_COMPTE?' · '+c.STATUT_COMPTE:''}${c._src ? ' · ' + (c._src === 'LEAD' ? 'Lead Tracker' : 'Base comptes') : ''}</span>
