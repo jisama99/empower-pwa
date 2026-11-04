@@ -28,7 +28,7 @@ window.VueTerritoires = {
     else { s.plein = false; rerender(); }
   },
   state: { chargement: true, erreur: null, comptes: [], leads: [], visites: [], secteurs: [], reg: '', dep: '', calque: 'rev',
-           plein: false, com: '', canal: '', avecLeads: false, sel: '', nonLoc: false },
+           plein: false, com: '', canal: '', avecLeads: false, sel: '', nonLoc: false, points: true, z: 1, cx: null, cy: null, _zk: '' },
 
   _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
 
@@ -108,12 +108,48 @@ window.VueTerritoires = {
     const pad = Math.max(b[2], b[3]) * .12 + 1; let [x, y, w, h] = [b[0] - pad, b[1] - pad, b[2] + 2 * pad, b[3] + 2 * pad];
     const ar = window.FR.w / window.FR.h;
     if (w / h < ar) { const nw = h * ar; x -= (nw - w) / 2; w = nw; } else { const nh = w / ar; y -= (nh - h) / 2; h = nh; }
+    const z = Math.max(1, Math.min(10, s.z || 1));
+    if (z > 1) {
+      const nw = w / z, nh = h / z, mx = s.cx == null ? x + w / 2 : s.cx, my = s.cy == null ? y + h / 2 : s.cy;
+      const cx = Math.min(x + w - nw / 2, Math.max(x + nw / 2, mx)), cy = Math.min(y + h - nh / 2, Math.max(y + nh / 2, my));
+      s.cx = cx; s.cy = cy; return [cx - nw / 2, cy - nh / 2, nw, nh];
+    }
+    s.cx = null; s.cy = null;
     return [x, y, w, h];
   },
 
+  // Points revendeurs : uniquement quand la lecture le permet (département choisi, région ou zoom suffisant), jamais sur la vue nationale
+  _pointsVisibles() { const s = this.state; return s.points && (!!s.dep || (!!s.reg && s.z >= 1.6) || s.z >= 3); },
+  _couleurPoint(c) { return c.lead ? '#3E8E9B' : c.active ? '#343F48' : c.empower ? '#7B8A97' : '#C2CAD1'; },
+  _points(par, vb, sc) {
+    const s = this.state; if (!this._pointsVisibles()) return { svg: '', deps: new Set(), n: 0, plus: 0 };
+    const [vx, vy, vw, vh] = vb, parDep = {};
+    this._lignes().forEach(c => { if (c.dep) (parDep[c.dep] = parDep[c.dep] || []).push(c); });
+    const rd = 2.6 * sc, MAX = 30, deps = new Set(); let svg = '', n = 0, plus = 0;
+    window.FR.deps.forEach(d => {
+      if (s.reg && d.r !== s.reg) return; if (s.dep && d.c !== s.dep) return;
+      if (d.cx < vx - 4 || d.cx > vx + vw + 4 || d.cy < vy - 4 || d.cy > vy + vh + 4) return;
+      const l = parDep[d.c]; if (!l || !l.length) return;
+      deps.add(d.c);
+      // Ordre stable : activés d'abord, puis Empower, grossistes, leads ; spirale régulière autour du centre du département
+      const tri = l.slice().sort((a, b) => (b.active - a.active) || (b.empower - a.empower) || (a.lead ? 1 : 0) - (b.lead ? 1 : 0) || String(a.nom).localeCompare(String(b.nom)));
+      tri.slice(0, MAX).forEach((c, i) => {
+        const r = rd * 2.3 * Math.sqrt(i + .6), a = i * 2.39996, x = d.cx + r * Math.cos(a), y = d.cy + r * Math.sin(a), sel = String(s.sel) === String(c.id);
+        const tip = `${c.nom}${c.lead ? ' (lead)' : ''}\n${c.ville || 'Ville n.c.'} · ${d.c}\n${c.lead ? 'Lead' : c.active ? 'Revendeur activé' : c.empower ? 'Empower, pas encore activé' : 'Grossiste'}\nPosition au département`;
+        svg += `<circle class="terr-pt-m" data-pt="${c.lead ? '' : this._esc(c.id)}" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(sel ? rd * 1.7 : rd).toFixed(3)}" fill="${sel ? 'var(--terr-sel)' : this._couleurPoint(c)}" stroke="#fff" stroke-width="${(rd * .35).toFixed(3)}" data-tip="${this._esc(tip)}"></circle>`;
+        n++;
+      });
+      if (tri.length > MAX) {
+        plus += tri.length - MAX;
+        svg += `<text x="${(d.cx).toFixed(2)}" y="${(d.cy + rd * 2.3 * Math.sqrt(MAX + .6) + rd * 3).toFixed(2)}" font-size="${(rd * 3).toFixed(3)}" text-anchor="middle" class="dcode" pointer-events="none">+${tri.length - MAX}</text>`;
+      }
+    });
+    return { svg, deps, n, plus };
+  },
+
   _carte(par) {
-    const s = this.state, deps = window.FR.deps, [vx, vy, vw, vh] = this._viewBox();
-    const sc = Math.max(vw / window.FR.w * .5, .2), tot = Math.max(1, ...deps.map(d => this._valeur(par[d.c])));
+    const s = this.state, deps = window.FR.deps, vb = this._viewBox(), [vx, vy, vw, vh] = vb;
+    const sc = Math.max(vw / window.FR.w * .5, .05), pts = this._points(par, vb, sc), tot = Math.max(1, ...deps.map(d => this._valeur(par[d.c])));
     const paths = deps.map(d => {
       const o = par[d.c] || {}, v = this._valeur(o), pins = this._pinsDep(d.c);
       const dim = (s.reg && d.r !== s.reg) || (s.dep && d.c !== s.dep) || (s.com && pins.length && !pins.includes(Number(s.com)));
@@ -122,7 +158,7 @@ window.VueTerritoires = {
       if (pins.length > 1) { fill = 'url(#terr-hach)'; }
       else if (pins.length === 1) { fill = this._couleur(pins[0]); op = s.calque === 'num' ? .28 : (v ? Math.min(.35 + .6 * v / tot, .95) : .14); }
       else if (v) { fill = 'var(--terr-fill)'; op = .18 + .72 * v / tot; }
-      if (sel) { fill = 'var(--terr-sel)'; op = 1; }
+      if (sel) { fill = 'var(--terr-sel)'; op = this._pointsVisibles() ? .16 : 1; }
       const noms = pins.map(p => window.resolveCDS(p)).join(', ') || 'secteur non attribué';
       const blanche = s.calque === 'act' && pins.length && !v;
       const tip = `${d.n} (${d.c})\nSecteur : ${noms}\n${o.comptes || 0} compte${(o.comptes || 0) > 1 ? 's' : ''} · ${o.empower || 0} Empower · ${o.actives || 0} activé${(o.actives || 0) > 1 ? 's' : ''}` +
@@ -137,11 +173,11 @@ window.VueTerritoires = {
     const zoom = !!(s.reg || s.dep);
     const montrerCodes = s.calque === 'num' || zoom;
     const montrerBulles = s.calque !== 'num';
-    const codes = montrerCodes ? deps.filter(d => (!s.reg || d.r === s.reg) && (!s.dep || d.c === s.dep)).map(d => {
+    const codes = montrerCodes ? deps.filter(d => (!s.reg || d.r === s.reg) && (!s.dep || d.c === s.dep) && !pts.deps.has(d.c)).map(d => {
       const v = this._valeur((par)[d.c]), dy = (montrerBulles && v) ? -5.2 * sc : 1.4 * sc;
       return `<text class="dcode" x="${d.cx.toFixed(2)}" y="${(d.cy + dy).toFixed(2)}" font-size="${(zoom ? 8 : 5.2) * sc}" text-anchor="middle" pointer-events="none">${d.c}</text>`;
     }).join('') : '';
-    const bulles = montrerBulles ? deps.filter(d => (!s.reg || d.r === s.reg) && (!s.dep || d.c === s.dep)).map(d => {
+    const bulles = montrerBulles ? deps.filter(d => (!s.reg || d.r === s.reg) && (!s.dep || d.c === s.dep) && !pts.deps.has(d.c)).map(d => {
       const v = this._valeur(par[d.c]); if (!v) return '';
       return `<g transform="translate(${d.cx.toFixed(2)} ${d.cy.toFixed(2)}) scale(${sc.toFixed(4)})" pointer-events="none">
         <circle r="${v > 99 ? 4.6 : 3.8}" fill="var(--terr-bulle)" stroke="#fff" stroke-width=".8"/>
@@ -149,7 +185,7 @@ window.VueTerritoires = {
     }).join('') : '';
     return `<svg viewBox="${[vx, vy, vw, vh].map(v => v.toFixed(1)).join(' ')}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Carte des départements" class="terr-svg" data-tipzone>
       <defs><pattern id="terr-hach" width="2.2" height="2.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.2" height="2.2" fill="#8A949E"/><rect width="1" height="2.2" fill="#E1E5E8"/></pattern></defs>
-      ${paths}${codes}${bulles}<path id="terr-hov" d=""></path></svg>`;
+      ${paths}${codes}${bulles}<path id="terr-hov" d=""></path>${pts.svg}</svg>`;
   },
   _libCalque() { return { rev: 'revendeur(s)', num: 'revendeur(s)', act: 'activé(s)', vis: 'visite(s)' }[this.state.calque]; },
 
@@ -271,6 +307,7 @@ window.VueTerritoires = {
     if (!app) return;
     if (s.chargement) { app.innerHTML = '<div class="header-vue"><h1>Territoires</h1></div><p style="padding:16px">Chargement…</p>'; return; }
     if (s.erreur) { app.innerHTML = `<div class="header-vue"><h1>Territoires</h1></div><p style="padding:16px">Erreur : ${this._esc(s.erreur)}</p>`; return; }
+    const zk = s.reg + '|' + s.dep; if (s._zk !== zk) { s._zk = zk; s.z = 1; s.cx = null; s.cy = null; }
     const par = this._dataDeps();
     const regs = Object.keys(this.REG).filter(r => window.FR.deps.some(d => d.r === r));
     const deps = window.FR.deps.filter(d => !s.reg || d.r === s.reg).slice().sort((a, b) => a.c.localeCompare(b.c));
@@ -279,8 +316,8 @@ window.VueTerritoires = {
     s.plein = !!(window.history.state && window.history.state.terrPlein);
     const calques = [['rev', 'Revendeurs'], ['num', 'N° de départements'], ['act', 'Activés Empower']].concat(Session.estExterne() ? [] : [['vis', 'Visites']]);
     app.innerHTML = `<style>
-      .terr{--terr-fill:#343F48;--terr-sel:#FF6D68;--terr-vide:#E6E9EC;--terr-trait:#fff;--terr-bulle:#343F48;--terr-fond:#F1F3F4;padding:12px 16px 80px}
-      @media (prefers-color-scheme:dark){.terr{--terr-vide:#2b333a;--terr-trait:#14181c;--terr-fond:#1f262c}}
+      .terr{--terr-fill:#343F48;--terr-sel:#FF6D68;--terr-vide:#F7FAFB;--terr-trait:#fff;--terr-bulle:#343F48;--terr-fond:#F1F3F4;--terr-mer:#DCEAEE;padding:12px 16px 80px}
+      @media (prefers-color-scheme:dark){.terr{--terr-vide:#2c3a41;--terr-trait:#14181c;--terr-fond:#1f262c;--terr-mer:#17252b}}
       .terr-bar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;align-items:center}.terr-bar select{padding:8px 10px;border-radius:8px;border:0;background:var(--terr-fond);color:inherit;font:inherit}
       .terr-chip{padding:6px 12px;border-radius:999px;border:0;background:var(--terr-fond);color:inherit;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
       .terr-chip[aria-pressed=true]{background:#343F48;color:#fff}
@@ -288,7 +325,8 @@ window.VueTerritoires = {
       .terr-seg{display:inline-flex;border-radius:10px;overflow:hidden;background:var(--terr-fond)}.terr-seg button{padding:7px 12px;border:0;background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer}
       .terr-seg button[aria-pressed=true]{background:#343F48;color:#fff}
       .terr-ws{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}@media(max-width:900px){.terr-ws{grid-template-columns:1fr}}
-      .terr-map{position:relative;background:var(--terr-fond);border-radius:14px;padding:8px}.terr-svg{width:100%;max-height:70vh;display:block}
+      .terr-map{position:relative;background:var(--terr-mer);border-radius:14px;padding:8px;overflow:hidden}.terr-svg{width:100%;max-height:70vh;display:block;touch-action:none;cursor:grab}.terr-svg.drag{cursor:grabbing}
+      .terr-svg .terr-pt-m{cursor:pointer;transition:r .12s}.terr-svg .terr-pt-m:hover{opacity:.8}
       .terr-svg path{cursor:pointer;outline:none;transition:fill-opacity .15s}.terr-svg path:focus-visible{stroke:#FF6D68;stroke-width:.8}
       .terr-svg #terr-hov{fill:none;stroke:#FF6D68;stroke-width:.9;stroke-linejoin:round;pointer-events:none;opacity:0;transition:opacity .08s}.terr-svg #terr-hov.on{opacity:1}
       .terr-svg .dcode{fill:var(--c-title,#1c2228);font-weight:700;paint-order:stroke;stroke:var(--bg-surface,#fff);stroke-width:.6}
@@ -331,12 +369,13 @@ window.VueTerritoires = {
         <select id="terr-dep" aria-label="Département"><option value="">Tous les départements</option>${deps.map(d => `<option value="${d.c}"${s.dep === d.c ? ' selected' : ''}>${d.c} · ${this._esc(d.n)}</option>`).join('')}</select>
         <select id="terr-canal" aria-label="Canal"><option value="">Tous les canaux</option><option value="EMPOWER"${s.canal === 'EMPOWER' ? ' selected' : ''}>Empower</option><option value="GROSSISTE"${s.canal === 'GROSSISTE' ? ' selected' : ''}>Grossiste</option></select>
         <button class="terr-chip" id="terr-leads" aria-pressed="${s.avecLeads}">Inclure les leads (${s.leads.length})</button>
+        <button class="terr-chip" id="terr-pts" aria-pressed="${s.points}" title="Affiche les revendeurs un par un dès qu'un département ou une région est choisi, ou en zoomant">Points revendeurs</button>
       </div>
       <div class="terr-ws">
         <div>
           <div class="terr-map">${this._carte(par)}
-            <div class="terr-tools"><button id="terr-up" aria-label="Niveau supérieur" title="Niveau supérieur">↑</button><button id="terr-fs" aria-label="${s.plein ? 'Quitter le plein écran' : 'Carte en plein écran'}" title="${s.plein ? 'Quitter le plein écran (Échap)' : 'Plein écran'}">${s.plein ? '⤡' : '⤢'}</button></div>
-            <div class="terr-legende" aria-hidden="true"><span><i style="background:#343F48;opacity:.35"></i>Teinte plus soutenue = plus de ${s.calque === 'vis' ? 'visites' : s.calque === 'act' ? 'activés' : 'revendeurs'} (max ${maxLeg})</span><span><i style="background:repeating-linear-gradient(45deg,#8A949E 0 3px,#E1E5E8 3px 6px)"></i>Département partagé</span><span><i style="background:#FF6D68"></i>Sélectionné</span>${s.calque === 'act' ? '<span><i style="background:repeating-linear-gradient(90deg,#FF6D68 0 3px,transparent 3px 5px)"></i>Zone blanche</span>' : ''}</div>
+            <div class="terr-tools"><button id="terr-zi" aria-label="Zoom avant" title="Zoom avant">+</button><button id="terr-zo" aria-label="Zoom arrière" title="Zoom arrière">−</button><button id="terr-zr" aria-label="Recentrer" title="Recentrer" style="font-size:13px">⌖</button><button id="terr-up" aria-label="Niveau supérieur" title="Niveau supérieur">↑</button><button id="terr-fs" aria-label="${s.plein ? 'Quitter le plein écran' : 'Carte en plein écran'}" title="${s.plein ? 'Quitter le plein écran (Échap)' : 'Plein écran'}">${s.plein ? '⤡' : '⤢'}</button></div>
+            <div class="terr-legende" aria-hidden="true"><span><i style="background:#343F48;opacity:.35"></i>Teinte plus soutenue = plus de ${s.calque === 'vis' ? 'visites' : s.calque === 'act' ? 'activés' : 'revendeurs'} (max ${maxLeg})</span><span><i style="background:repeating-linear-gradient(45deg,#8A949E 0 3px,#E1E5E8 3px 6px)"></i>Département partagé</span><span><i style="background:#FF6D68"></i>Sélectionné</span>${this._pointsVisibles() ? `<span><i style="background:#343F48;border-radius:50%"></i>Activé</span><span><i style="background:#7B8A97;border-radius:50%"></i>Empower</span><span><i style="background:#C2CAD1;border-radius:50%"></i>Grossiste</span>${s.avecLeads ? '<span><i style="background:#3E8E9B;border-radius:50%"></i>Lead</span>' : ''}<span style="opacity:.7">Points placés au département</span>` : ''}${s.calque === 'act' ? '<span><i style="background:repeating-linear-gradient(90deg,#FF6D68 0 3px,transparent 3px 5px)"></i>Zone blanche</span>' : ''}</div>
           </div>
           ${this._zonesBlanches()}
         </div>
@@ -365,6 +404,42 @@ window.VueTerritoires = {
     app.querySelector('#terr-leads').onclick = () => { s.avecLeads = !s.avecLeads; rerender(); };
     app.querySelectorAll('[data-ariane]').forEach(b => b.onclick = () => { const k = b.dataset.ariane; if (k === 'fr') { s.reg = ''; s.dep = ''; s.sel = ''; } else if (k === 'reg') { s.dep = ''; s.sel = ''; } rerender(); });
     app.querySelectorAll('[data-calque]').forEach(b => b.onclick = () => { s.calque = b.dataset.calque; rerender(); });
+    app.querySelector('#terr-pts').onclick = () => { s.points = !s.points; rerender(); };
+    const zoomer = (f, px, py) => { // px, py : point fixe en coordonnées du viewBox
+      const vb = this._viewBox(), nz = Math.max(1, Math.min(10, s.z * f)); if (nz === s.z) return;
+      const k = s.z / nz; s.z = nz;
+      if (px != null) { s.cx = px - (px - (vb[0] + vb[2] / 2)) * k; s.cy = py - (py - (vb[1] + vb[3] / 2)) * k; }
+      rerender();
+    };
+    app.querySelector('#terr-zi').onclick = () => zoomer(1.6);
+    app.querySelector('#terr-zo').onclick = () => zoomer(1 / 1.6);
+    app.querySelector('#terr-zr').onclick = () => { s.z = 1; s.cx = null; s.cy = null; rerender(); };
+    const svg = app.querySelector('.terr-svg');
+    if (svg) {
+      const pos = (cx, cy) => { const vb = svg.viewBox.baseVal, r = svg.getBoundingClientRect(), k = Math.max(vb.width / r.width, vb.height / r.height);
+        return { k, x: vb.x + vb.width / 2 + (cx - r.left - r.width / 2) * k, y: vb.y + vb.height / 2 + (cy - r.top - r.height / 2) * k }; };
+      let tw = null;
+      svg.addEventListener('wheel', e => { e.preventDefault(); const q = pos(e.clientX, e.clientY); const f = e.deltaY < 0 ? 1.25 : 1 / 1.25;
+        const vb = this._viewBox(), nz = Math.max(1, Math.min(10, s.z * f)); if (nz === s.z) return;
+        const k = s.z / nz; s.z = nz; s.cx = q.x - (q.x - (vb[0] + vb[2] / 2)) * k; s.cy = q.y - (q.y - (vb[1] + vb[3] / 2)) * k;
+        clearTimeout(tw); tw = setTimeout(rerender, 120); }, { passive: false });
+      const ptrs = new Map(); let d0 = 0, z0 = 1, mv = 0, dernier = null;
+      svg.addEventListener('pointerdown', e => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); mv = 0; dernier = { x: e.clientX, y: e.clientY }; z0 = s.z;
+        if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; d0 = Math.hypot(a.x - b.x, a.y - b.y); } });
+      svg.addEventListener('pointermove', e => {
+        if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (ptrs.size === 2 && d0) { const [a, b] = [...ptrs.values()]; s.z = Math.max(1, Math.min(10, z0 * Math.hypot(a.x - b.x, a.y - b.y) / d0)); mv = 99; this._viewBox(); svg.setAttribute('viewBox', this._viewBox().map(v => v.toFixed(1)).join(' ')); return; }
+        if (s.z <= 1) return;
+        const dx = e.clientX - dernier.x, dy = e.clientY - dernier.y; mv += Math.abs(dx) + Math.abs(dy); if (mv < 6) return;
+        const q = pos(0, 0), r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal, k = Math.max(vb.width / r.width, vb.height / r.height);
+        s.cx = (s.cx == null ? vb.x + vb.width / 2 : s.cx) - dx * k; s.cy = (s.cy == null ? vb.y + vb.height / 2 : s.cy) - dy * k;
+        dernier = { x: e.clientX, y: e.clientY }; svg.classList.add('drag'); svg.setAttribute('viewBox', this._viewBox().map(v => v.toFixed(1)).join(' ')); });
+      const fin = e => { const bouge = mv > 5; ptrs.delete(e.pointerId); svg.classList.remove('drag'); if (bouge) { s._glisse = true; setTimeout(() => { s._glisse = false; }, 60); if (!ptrs.size) rerender(); } };
+      svg.addEventListener('pointerup', fin); svg.addEventListener('pointercancel', fin);
+      svg.addEventListener('click', e => { if (s._glisse) { e.stopPropagation(); e.preventDefault(); } }, true);
+      svg.querySelectorAll('[data-pt]').forEach(c => c.addEventListener('click', e => { e.stopPropagation(); const id = c.dataset.pt; if (!id) return;
+        s.sel = id; const cp = s.comptes.find(x => String(x.id) === String(id)); if (cp && cp.dep) { const d = window.FR.deps.find(x => x.c === cp.dep); if (d) { s.reg = d.r; s.dep = d.c; } } rerender(); }));
+    }
     app.querySelector('#terr-fs').onclick = () => this._basculerPlein(rerender);
     app.querySelector('#terr-up').onclick = () => { this._monter(); rerender(); };
     const nl = app.querySelector('[data-nonloc]'); if (nl) nl.onclick = () => { s.nonLoc = !s.nonLoc; rerender(); };
