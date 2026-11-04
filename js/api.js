@@ -253,7 +253,6 @@ const SheetsAPI = {
       q2_obj_initial: 'Q2_Obj_Initial', q2_obj_revise: 'Q2_Obj_Revise', q2_ca_realise: 'Q2_CA_Realise',
       q3_obj_initial: 'Q3_Obj_Initial', q3_obj_revise: 'Q3_Obj_Revise', q3_ca_realise: 'Q3_CA_Realise',
       q4_obj_initial: 'Q4_Obj_Initial', q4_obj_revise: 'Q4_Obj_Revise', q4_ca_realise: 'Q4_CA_Realise',
-      prime_q1: 'Prime_Q1', prime_q2: 'Prime_Q2', prime_q3: 'Prime_Q3', prime_q4: 'Prime_Q4',
       fy27_obj: 'FY27_Obj', bonus_manager_eligible: 'Bonus_Manager_Eligible', id: '_uuid',
     },
     visites: {
