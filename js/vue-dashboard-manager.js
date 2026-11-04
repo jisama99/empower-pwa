@@ -674,6 +674,8 @@ window.VueDashboardManager = {
               </div>`).join('')}
           </div>
 
+          ${this._raw ? window.renderJaugeActivation(this._raw.comptes) : ''}
+
           <div class="bloc-fiche">
             <div class="bloc-titre">Pipeline onboarding</div>
             <p style="font-size:13px;color:var(--c-text-2);margin:0">
