@@ -61,7 +61,7 @@ window.VueKit = {
     if (ok && !d.interne && !echu && this._peutEnvoyer()) actions.push(`<button class="co-btn p" onclick="VueKit.envoyer('${id}')">Envoyer</button>`);
     if (this._admin()) actions.push(`<label class="co-btn kit-up">${ok ? 'Remplacer' : 'Ajouter le fichier'}<input type="file" accept=".pdf,.pptx,.docx,.md,.png,.jpg,.jpeg" hidden onchange="VueKit.televerser('${id}',this)"/></label>`,
       `<label class="kit-val" title="Date de validité">Valide jusqu’au <input type="date" value="${E(String(d.valide_au || '').slice(0, 10))}" onchange="VueKit.majValidite('${id}',this.value)"/></label>`);
-    const dispo = ok ? `<span class="co-mut">${E(d.fichier_nom || '')} ${E(this._taille(d.taille))}</span>` : '<span class="co-mut">Fichier bientôt disponible</span>';
+    const dispo = (ok ? `<span class="co-mut">${E(d.fichier_nom || '')} ${E(this._taille(d.taille))}</span>` : '<span class="co-mut">Fichier bientôt disponible</span>') + (this._admin() ? ` <span class="co-mut">Identifiant : <code>${id}</code></span>` : '');
     return `<div class="kit-ligne ${echu ? 'kit-echu' : ''}"><div class="kit-t"><b>${E(d.titre)}</b><div class="kit-b">${badges}</div>${dispo}</div><div class="kit-a">${this.state.occupe === d.id ? '<span class="co-mut">En cours…</span>' : actions.join('')}</div></div>`;
   },
 
@@ -89,6 +89,7 @@ window.VueKit = {
       <p class="co-mut">Les documents à remettre aux revendeurs. Les documents internes ne sont visibles que par l'équipe Impact.${this._peutEnvoyer() ? ' « Envoyer » copie un lien valable ' + this.LIEN_JOURS + ' jours et inscrit l’envoi au journal du compte.' : ''}</p>
       ${s.erreur ? `<div class="co-cot">${E(s.erreur)}</div>` : ''}${bandeau}
       <div class="co-chips">${this.CATS.map(([k, l]) => `<button class="co-chip" ${s.cat === k ? 'style="background:#343F48;color:#fff"' : ''} onclick="VueKit.setCat('${k}')">${l}</button>`).join('')}</div>
+      ${this._admin() ? `<div class="co-soft kit-cible"><label class="co-btn kit-up">Importer plusieurs fichiers<input type="file" multiple accept=".pdf,.pptx,.docx,.md,.png,.jpg,.jpeg" hidden onchange="VueKit.importerLot(this)"/></label> <span class="co-mut">Nommez chaque fichier avec l’identifiant affiché sous le titre (ex. book-empower.pdf).</span></div>` : ''}
       <input type="search" class="kit-q" placeholder="Rechercher un document" aria-label="Rechercher" value="${E(s.q)}" oninput="VueKit.setQ(this.value)"/></div>
       ${this._outilsHtml()}<div id="kit-liste">${this._listeHtml()}</div>${s.envoi ? this._modaleEnvoi() : ''}</div>`;
     if (!s.comptes && window.SheetsAPI && s.compteCible) this._chargerComptes();
@@ -155,26 +156,48 @@ window.VueKit = {
   },
 
   // ── Administration de la bibliothèque (ADMIN, CHANNEL_MANAGER) ──
-  async televerser(id, input) {
-    const f = input && input.files && input.files[0]; if (!f || !this._admin()) return;
+  // Envoie un fichier pour un document : contrôles (droit, extension, taille), dépôt, mise à jour de la fiche, suppression de l'ancien fichier.
+  async _deposer(d, f) {
     const ext = (f.name.split('.').pop() || '').toLowerCase();
-    if (!this.EXT_OK.includes(ext)) { if (window.Toast) Toast.afficher('Format non accepté (pdf, pptx, docx, md, png, jpg)', 'erreur'); input.value = ''; return; }
-    if (f.size > 52428800) { if (window.Toast) Toast.afficher('Fichier trop lourd (50 Mo maximum)', 'erreur'); input.value = ''; return; }
-    const s = this.state, d = s.docs.find(x => x.id === id); if (!d) return;
-    s.occupe = id; this._majListe();
-    const chemin = id + '/' + Date.now() + '.' + ext, ancien = d.fichier_path;
+    if (!this._admin()) return 'droits insuffisants';
+    if (!this.EXT_OK.includes(ext)) return 'format non accepté (pdf, pptx, docx, md, png, jpg)';
+    if (f.size > 52428800) return 'fichier trop lourd (50 Mo maximum)';
+    const chemin = d.id + '/' + Date.now() + '.' + ext, ancien = d.fichier_path;
     try {
       const sb = this._sb(), st = sb.storage.from('kit-commercial');
       const up = await st.upload(chemin, f, { upsert: false, contentType: f.type || undefined });
       if (up.error) throw up.error;
       const maj = { fichier_path: chemin, fichier_nom: f.name.slice(0, 160), taille: f.size, maj_par: Session.pin, updated_at: new Date().toISOString() };
-      const r = await sb.from('kit_documents').update(maj).eq('id', id);
+      const r = await sb.from('kit_documents').update(maj).eq('id', d.id);
       if (r.error) throw r.error;
       Object.assign(d, maj);
       if (ancien) { try { await st.remove([ancien]); } catch { /* ancien fichier conservé en cas d'échec */ } }
-      if (window.Toast) Toast.afficher('Fichier enregistré', 'succes');
-    } catch (e) { if (window.Toast) Toast.afficher('Téléversement impossible : ' + (e.message || e), 'erreur', 5000); }
+      return '';
+    } catch (e) { return (e && e.message) || 'téléversement impossible'; }
+  },
+  async televerser(id, input) {
+    const f = input && input.files && input.files[0]; if (!f || !this._admin()) return;
+    const s = this.state, d = s.docs.find(x => x.id === id); if (!d) return;
+    s.occupe = id; this._majListe();
+    const err = await this._deposer(d, f);
+    if (input) input.value = '';
+    if (window.Toast) Toast.afficher(err ? 'Téléversement impossible : ' + err : 'Fichier enregistré', err ? 'erreur' : 'succes', err ? 5000 : 3000);
     s.occupe = ''; this._majListe();
+  },
+  // Import en lot : chaque fichier porte l'identifiant du document (ex. book-empower.pdf) ; les noms inconnus sont signalés, jamais devinés.
+  async importerLot(input) {
+    const fichiers = Array.from((input && input.files) || []); if (!fichiers.length || !this._admin()) return;
+    const s = this.state; let ok = 0; const refus = [];
+    for (const f of fichiers) {
+      const base = f.name.replace(/\.[^.]+$/, '').toLowerCase(), d = s.docs.find(x => x.id === base);
+      if (!d) { refus.push(f.name + ' (identifiant inconnu)'); continue; }
+      s.occupe = d.id; this._majListe();
+      const err = await this._deposer(d, f);
+      if (err) refus.push(f.name + ' (' + err + ')'); else ok++;
+    }
+    if (input) input.value = '';
+    s.occupe = ''; this._majListe();
+    if (window.Toast) Toast.afficher(ok + ' fichier' + (ok > 1 ? 's' : '') + ' importé' + (ok > 1 ? 's' : '') + (refus.length ? ', ' + refus.length + ' refusé' + (refus.length > 1 ? 's' : '') + ' : ' + refus.slice(0, 3).join(' ; ') : ''), refus.length ? 'warning' : 'succes', 7000);
   },
   async majValidite(id, v) {
     const d = this.state.docs.find(x => x.id === id); if (!d || !this._admin()) return;

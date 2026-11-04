@@ -58,6 +58,12 @@ t('conseillé', K._listeHtml().includes('Conseillé pour ce palier'));
   t('upload ok', uploads.length === 1 && /^a\/\d+\.pdf$/.test(uploads[0][0]) && docs[0].fichier_nom === 'ok.pdf' && removed.includes('a/1.pdf'));
   await K.majValidite('a', 'pas-une-date'); t('validité invalide → null', docs[0].valide_au === null);
   await K.majValidite('a', '2027-01-31'); t('validité ok', docs[0].valide_au === '2027-01-31');
+  // import en lot
+  uploads.length = 0; sess('CDS'); await K.importerLot({ files: [{ name: 'a.pdf', size: 5 }], value: 'x' }); t('lot refusé CDS', uploads.length === 0);
+  sess('ADMIN'); toasts.length = 0;
+  await K.importerLot({ files: [{ name: 'A.PDF', size: 5 }, { name: 'inconnu.pdf', size: 5 }, { name: 'c.exe', size: 5 }, { name: 'd.pdf', size: 5 }], value: 'x' });
+  t('lot : 2 importés, 2 refusés', uploads.length === 2 && /2 fichiers importés, 2 refusés/.test(toasts[0][0]) && toasts[0][1] === 'warning');
+  t('lot : identifiant affiché admin', K._listeHtml().includes('<code>a</code>'));
   // mandats
   sess('EXTERNE'); let r = await M.archiver({ societe: 'X' }); t('EXTERNE refusé', !r.ok);
   sess('CDS'); r = await M.archiver({ societe: '  ' }); t('société requise', !r.ok);

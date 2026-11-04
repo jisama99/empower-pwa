@@ -77,7 +77,7 @@ body{font-family:Montserrat,system-ui,-apple-system,"Segoe UI",sans-serif;color:
 .body{display:grid;grid-template-columns:1.75fr 1fr;gap:10mm;padding:8mm 15mm 0;flex:1;min-height:0;align-content:start}
 .eyebrow,.eb{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6B7580}
 h1{font-size:25px;line-height:1.2;color:#1d2329;letter-spacing:-.01em;margin:5px 0 4px}
-h1 em{font-style:normal;background:linear-gradient(transparent 62%,#FFD100 62%)}
+h1 em{font-style:normal;color:#1d2329}
 .sub{color:#6B7580;font-size:12px}.sub b{color:#1d2329}
 .lines{background:#fff;border-radius:16px;padding:12px 18px 14px;box-shadow:0 1px 10px rgba(26,34,46,.07);margin-top:6mm}
 .hd,.ln{display:grid;grid-template-columns:13mm 1fr 15mm 21mm 21mm 23mm;gap:9px;align-items:center}
