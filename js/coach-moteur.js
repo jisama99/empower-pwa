@@ -78,6 +78,9 @@
     if (hors48.length) A.push({ id: 'hors48', niveau: 'haute', n: hors48.length, titre: hors48.length + ' rappel' + (hors48.length > 1 ? 's' : '') + ' échu' + (hors48.length > 1 ? 's' : '') + ' depuis plus de 48 h', action: 'Relancer', to: '#/empower-tracker' });
     const sansCmd = (d.comptes || []).filter(c => ctx.estEmpower(c) && !ctx.active(c) && ctx.depuisOnboarding && ctx.depuisOnboarding(c) != null && ctx.depuisOnboarding(c) >= 14);
     if (sansCmd.length) A.push({ id: 'sans_cmd', niveau: 'moyenne', n: sansCmd.length, titre: sansCmd.length + ' compte' + (sansCmd.length > 1 ? 's' : '') + ' Empower sans première commande après 14 jours', action: 'Voir', to: '#/comptes' });
+    // Démarrage : compte Empower non activé, onboardé depuis 2 à 13 jours (avant l'alerte des 14 jours) → remettre le starter pack du Kit.
+    const demar = (d.comptes || []).filter(c => { if (!ctx.estEmpower(c) || ctx.active(c) || !ctx.depuisOnboarding) return false; const j = ctx.depuisOnboarding(c); return j != null && j >= 2 && j < 14; });
+    if (demar.length) A.push({ id: 'demarrage', niveau: 'info', n: demar.length, titre: demar.length + ' compte' + (demar.length > 1 ? 's' : '') + ' en démarrage : starter pack à remettre', action: 'Kit', to: '#/kit' });
     const proches = (d.comptes || []).filter(c => ctx.estEmpower(c) && ctx.palier(c).cle === 'EVEIL' && (1000 - ctx.caEmpower(c)) <= 150);
     if (proches.length) A.push({ id: 'proches', niveau: 'info', n: proches.length, titre: proches.length + ' compte' + (proches.length > 1 ? 's' : '') + ' Éveil à moins de 150 € du palier Actif', action: 'Voir', to: '#/comptes' });
     // Devis émis depuis le Coach (journal, Type_Action 'Devis') restés sans suite après 7 jours : compte pas encore actif et aucune action plus récente.
@@ -108,6 +111,7 @@
     const P = [];
     cs.slice(0, 2).forEach((x, i) => P.push({ id: 'cible-' + x.id, texte: (i === 0 ? 'Appeler ' : 'Visiter ') + x.nom, detail: x.ville || '', cible: x.id, fait: !!(ctx.faitCompte && ctx.faitCompte(x.compte)) }));
     const a48 = al.find(a => a.id === 'hors48'); if (a48) P.push({ id: 'relance48', texte: 'Traiter ' + a48.n + ' rappel' + (a48.n > 1 ? 's' : '') + ' échu' + (a48.n > 1 ? 's' : '') + ' depuis plus de 48 h', detail: 'Séminaire : un lead se rappelle sous 48 h', to: '#/empower-tracker', fait: false });
+    const st = al.find(a => a.id === 'demarrage'); if (st) P.push({ id: 'starter', texte: 'Remettre le starter pack à ' + st.n + ' compte' + (st.n > 1 ? 's' : '') + ' en démarrage', detail: 'Documents du Kit conseillés pour le démarrage', to: '#/kit', fait: false });
     const pr = al.find(a => a.id === 'proches'); if (pr) P.push({ id: 'paliers', texte: 'Pousser ' + pr.n + ' compte' + (pr.n > 1 ? 's' : '') + ' Éveil vers le palier Actif', detail: 'Moins de 150 € du seuil de 1 000 €', to: '#/comptes', fait: false });
     const dv = al.find(a => a.id === 'devis'); if (dv) P.push({ id: 'devis', texte: 'Relancer ' + dv.n + ' devis sans suite', detail: (dv.noms || []).join(', ') || 'Devis émis il y a plus de 7 jours', to: '#/comptes', fait: false });
     const am = al.find(a => a.id === 'ambassadeurs'); if (am) P.push({ id: 'review', texte: 'Planifier la business review de ' + am.n + ' compte' + (am.n > 1 ? 's' : '') + ' Ambassadeur', detail: 'Rythme trimestriel (séminaire)', to: '#/comptes', fait: false });

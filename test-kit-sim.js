@@ -36,7 +36,7 @@ t('CDS sans admin', !h.includes('Ajouter le fichier') && !h.includes('Remplacer'
 sess('ADMIN'); h = K._listeHtml(); t('ADMIN ajoute', h.includes('Ajouter le fichier') && h.includes('Remplacer') && h.includes('Valide jusqu'));
 sess('EXTERNE'); h = K._listeHtml(); t('EXTERNE consulte', h.includes("VueKit.ouvrir('a')") && !h.includes('VueKit.envoyer') && !h.includes('Remplacer'));
 // filtres
-K.state.cat = 'flyer'; t('filtre cat', K._filtre().length === 1); K.state.cat = 'tous'; K.state.q = 'cotation'; t('filtre q', K._filtre().length === 1); K.state.q = '';
+K.state.cat = 'starter'; t('filtre starter = non internes DORMANT/EVEIL', K._filtre().length === 1 && K._filtre()[0].id === 'a'); K.state.cat = 'flyer'; t('filtre cat', K._filtre().length === 1); K.state.cat = 'tous'; K.state.q = 'cotation'; t('filtre q', K._filtre().length === 1); K.state.q = '';
 // palier conseillé
 sess('CDS'); K.state.comptes = [{ ID_Compte: 'C1', Nom_Compte: 'Dupont', Ville: 'Lyon' }]; K.state.compteCible = 'C1';
 global.Paliers = { palier: () => ({ cle: 'EVEIL' }), PALIERS: { EVEIL: { lib: 'Éveil' } } };

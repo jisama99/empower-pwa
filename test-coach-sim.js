@@ -119,6 +119,11 @@ ok('alertes : 48 h, sans commande 14 j, proches du palier, sans adresse', () => 
   assert.deepStrictEqual(m, { hors48: 1, sans_cmd: 1, proches: 1, sans_adresse: 1 });
   assert.strictEqual(a[0].id, 'hors48'); assert.strictEqual(a[0].niveau, 'haute');
 });
+ok('alertes : démarrage (2 à 13 j après onboarding, non activé) → starter pack', () => {
+  const a = M.alertes({ leads: [], comptes: [C0('a', { onb: 1 }), C0('b', { onb: 2 }), C0('c', { onb: 13 }), C0('d', { onb: 14 }), C0('e', { onb: 5, act: true })] }, ctxA);
+  const x = a.find(y => y.id === 'demarrage'); assert.ok(x); assert.strictEqual(x.n, 2); assert.strictEqual(x.to, '#/kit');
+  const p = M.planSemaine([], a, {}); assert.ok(p.some(i => i.id === 'starter' && i.to === '#/kit'));
+});
 ok('alertes : rien à signaler = liste vide', () => assert.deepStrictEqual(M.alertes({ leads: [], comptes: [] }, ctxA), []));
 ok('plan : 5 actions max, auto-coché quand la donnée le prouve', () => {
   const cs = M.cibles([C0('a', { CP: '31000' }), C0('b', { CP: '64000' }), C0('c', { CP: '75000' })], base);

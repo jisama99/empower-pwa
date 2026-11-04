@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════
 window.VueKit = {
   state: { chargement: true, erreur: null, docs: [], cat: 'tous', q: '', compteCible: '', comptes: null, envoi: null, occupe: '' },
-  CATS: [['tous', 'Tous'], ['flyer', 'Flyers'], ['deck', 'Decks'], ['book', 'Books'], ['offre', 'Offres'], ['cotation', 'Cotations'], ['interne', 'Internes'], ['source', 'Sources']],
+  CATS: [['tous', 'Tous'], ['starter', 'Starter pack'], ['flyer', 'Flyers'], ['deck', 'Decks'], ['book', 'Books'], ['offre', 'Offres'], ['cotation', 'Cotations'], ['interne', 'Internes'], ['source', 'Sources']],
   EXT_OK: ['pdf', 'pptx', 'docx', 'md', 'png', 'jpg', 'jpeg'],
   LIEN_JOURS: 7,
 
@@ -37,6 +37,8 @@ window.VueKit = {
     s.chargement = false; this.render();
   },
 
+  // Starter pack : documents non internes conseillés pour les paliers de démarrage (Dormant, Éveil). Composition pilotée par les paliers de chaque fiche.
+  _starter(d) { return !d.interne && (d.paliers || []).some(p => p === 'DORMANT' || p === 'EVEIL'); },
   setCat(c) { this.state.cat = c; this.render(); },
   setQ(v) { this.state.q = String(v || '').slice(0, 60); this._majListe(); },
   _majListe() { const el = document.getElementById('kit-liste'); if (el) el.innerHTML = this._listeHtml(); },
@@ -46,7 +48,7 @@ window.VueKit = {
 
   _filtre() {
     const s = this.state, q = s.q.trim().toLowerCase();
-    return s.docs.filter(d => (s.cat === 'tous' || d.categorie === s.cat) && (!q || (d.titre + ' ' + d.groupe).toLowerCase().includes(q)));
+    return s.docs.filter(d => (s.cat === 'tous' || (s.cat === 'starter' ? this._starter(d) : d.categorie === s.cat)) && (!q || (d.titre + ' ' + d.groupe).toLowerCase().includes(q)));
   },
 
   _ligne(d) {
