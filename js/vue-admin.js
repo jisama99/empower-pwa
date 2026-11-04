@@ -312,6 +312,43 @@ window.VueAdmin = {
     } catch(e) { Toast.afficher('' + e.message, 'erreur'); }
   },
 
+  // Nom et e-mail d'un accès existant (action serveur updateProfil).
+  ouvrirProfil(pin) {
+    const u = this.state.usersState.liste.find(x => x.pin === pin); if (!u) return;
+    this.state.usersState.profilEdit = { pin, nom: u.nom || '', email: u.email || '', envoi: false };
+    this.render();
+  },
+  fermerProfil() { this.state.usersState.profilEdit = null; this.render(); },
+  async enregistrerProfil() {
+    const d = this.state.usersState.profilEdit; if (!d || d.envoi) return;
+    const nom = (document.getElementById('profil-nom')?.value || '').trim();
+    const email = (document.getElementById('profil-email')?.value || '').trim();
+    if (!nom || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { Toast.afficher('Nom et e-mail valides requis', 'warning'); return; }
+    d.envoi = true;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ action: 'updateProfil', token: SheetsAPI.TOKEN, targetPin: d.pin, nom, email }),
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.erreur || `HTTP ${r.status}`);
+      Toast.afficher('Profil mis à jour', 'succes');
+      this.state.usersState.profilEdit = null;
+      await this._chargerUtilisateurs();
+    } catch (e) { d.envoi = false; Toast.afficher('' + e.message, 'erreur'); }
+  },
+  _renderModalProfil() {
+    const d = this.state.usersState.profilEdit;
+    const a = v => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    return `<div class="modal-overlay" onclick="if(event.target===this) VueAdmin.fermerProfil()"><div class="modal">
+      <h3>Modifier l'accès (PIN ${d.pin})</h3>
+      <label class="champ-label">Nom</label><input id="profil-nom" type="text" maxlength="120" value="${a(d.nom)}" autocomplete="off"/>
+      <label class="champ-label" style="margin-top:10px">E-mail</label><input id="profil-email" type="email" value="${a(d.email)}" autocomplete="off"/>
+      <div style="display:flex;gap:8px;margin-top:14px"><button type="button" class="btn-secondaire" onclick="VueAdmin.fermerProfil()">Annuler</button>
+      <button type="button" class="btn-primaire" onclick="VueAdmin.enregistrerProfil()">Enregistrer</button></div></div></div>`;
+  },
+
   // Droits d'accès d'un utilisateur existant (action serveur updateDroits ; null = droits par défaut du rôle).
   ouvrirDroits(pin) {
     const u = this.state.usersState.liste.find(x => x.pin === pin); if (!u) return;
@@ -404,6 +441,7 @@ window.VueAdmin = {
                     <span class="v7-statut" style="font-size:12px;color:${u.actif ? 'var(--c-success,#1a9e5c)' : 'var(--c-danger)'}">${u.actif ? 'Actif' : 'Désactivé'}</span>
                   </td>
                   <td style="white-space:nowrap">
+                    <button class="btn-lien" style="font-size:12px" onclick="VueAdmin.ouvrirProfil(${u.pin})">Modifier</button>
                     <button class="btn-lien" style="font-size:12px" ${u.role === 'ADMIN' ? 'disabled title="Un administrateur a tous les droits"' : ''} onclick="VueAdmin.ouvrirDroits(${u.pin})">Droits</button>
                     <button class="btn-lien" style="font-size:12px" onclick="VueAdmin.ouvrirModalReset(${u.pin}, '${jsq(u.nom)}')">Reset mdp</button>
                     <button class="btn-lien" style="font-size:12px;color:${u.actif ? 'var(--c-danger)' : 'var(--c-success,#1a9e5c)'}"
@@ -440,6 +478,7 @@ window.VueAdmin = {
       ${us.modalCreation ? this._renderModalCreation() : ''}
       ${us.modalReset ? this._renderModalReset() : ''}
       ${us.droitsEdit ? this._renderModalDroits() : ''}
+      ${us.profilEdit ? this._renderModalProfil() : ''}
     `;
   },
 

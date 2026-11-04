@@ -60,3 +60,9 @@
 .fiche-body .bloc-fiche, .modal-docked-panel .bloc-fiche { border: 0; background: var(--cs-fond, #F1F3F4); box-shadow: none; }
 .fiche-body .vc, .modal-docked-panel .vc { border: 0; background: var(--c-surface, #fff); }
 .fiche-body .carte-visite, .fiche-body .carte-appel { border: 0; background: var(--c-surface, #fff); }
+
+/* Vue Comptes : fiche à droite, liste toujours visible et utilisable à gauche (écran large) */
+@media (min-width: 1100px) {
+  .modal-overlay.modal-docked .modal.modal-docked-panel { width: 560px; max-width: 560px; border-left: 0; box-shadow: -10px 0 30px rgba(26,26,46,.10); background: var(--c-surface, #fff); }
+  .cs-decale { margin-right: 580px; }
+}

@@ -178,6 +178,23 @@ Deno.serve(async (req) => {
       return Response.json({ ok: true }, { headers: CORS })
     }
 
+    // Modification du nom et de l'e-mail d'un accès existant (ADMIN seul). Le PIN et le rôle ne changent pas ici.
+    if (action === 'updateProfil') {
+      const { targetPin } = body
+      const nom = String(body.nom ?? '').trim()
+      const email = String(body.email ?? '').trim().toLowerCase()
+      if (!targetPin || !nom || !email) return refus('Nom et e-mail requis')
+      if (nom.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return refus('Nom ou e-mail invalide')
+      const { data: cibleP } = await sb.from('utilisateurs').select('pin').eq('pin', targetPin).limit(1)
+      if (!cibleP || cibleP.length === 0) return refus('Utilisateur introuvable', 404)
+      const { data: pris } = await sb.from('utilisateurs').select('pin').eq('email', email).neq('pin', targetPin).limit(1)
+      if (pris && pris.length > 0) return refus('Cet e-mail est déjà utilisé', 409)
+      const { error } = await sb.from('utilisateurs').update({ nom, email }).eq('pin', targetPin)
+      if (error) return refus(error.message, 500)
+      await tracer('USER_MODIFIE', auth.pin, `PIN ${targetPin} : nom et e-mail mis à jour`)
+      return Response.json({ ok: true }, { headers: CORS })
+    }
+
     if (action === 'resetPassword') {
       const { targetPin, nouveauMotdepasse } = body
       if (!targetPin || !nouveauMotdepasse) return Response.json({ ok: false, erreur: 'Paramètres manquants' }, { headers: CORS, status: 400 })

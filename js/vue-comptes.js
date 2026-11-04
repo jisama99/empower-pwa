@@ -548,6 +548,7 @@ window.VueComptes = {
       ${FusionTabs.portefeuille()}
       ${this.state.ficheDockee ? this._renderFicheDockee() : ''}
     `;
+    if (this.state.ficheDockee) app.querySelectorAll('.barre-filtres, .liste-comptes, .cs-jauges, .kpi-grid-layout').forEach(e => e.classList.add('cs-decale'));
     const champ = document.getElementById('recherche-comptes');
     if (this.state.recherche && champ) {
       champ.focus();
