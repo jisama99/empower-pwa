@@ -1044,6 +1044,8 @@ window.VueQuestionnaire = {
   // ── RENDER ──
   render() {
     const app = document.getElementById('app');
+    // Retour système : l'étape précédente du questionnaire, sans perdre la saisie ni quitter la page.
+    if (typeof Router !== 'undefined' && this.state) Router.couche.sync('quest-etape', this.state.etape > 0, () => VueQuestionnaire.precedent(), 'VueQuestionnaire');
     if (!this.state || this.state.chargement) {
       app.innerHTML = skeletonListe(6);
       return;

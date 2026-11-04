@@ -1752,6 +1752,8 @@ window.VuePhoning = {
   // ── RENDER ──
   render() {
     const app = document.getElementById('app');
+    // Retour système : un mode traversé (Base, Planning, Journal) se referme d'abord, sans quitter Phoning.
+    if (typeof Router !== 'undefined' && this.state) Router.couche.sync('phoning-mode', (this.state._modeHistorique || []).length > 0, () => VuePhoning.retourMode(), 'VuePhoning');
     if (!this.state || this.state.chargement) {
       app.innerHTML = skeletonListe(6);
       return;

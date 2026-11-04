@@ -64,8 +64,25 @@ const Router = {
     { pattern: /^#\/reactiver$/, redirect: '#/comptes-historiques' },
   ],
 
+  // Entrées de navigation principale (barre basse, tiroir, « Plus ») : passer d'un onglet à l'autre REMPLACE l'entrée d'historique
+  // au lieu de l'empiler (sinon « retour » rejoue tous les onglets visités). Les liens dans les pages, eux, empilent.
+  NAV_SEL: '.nav-principale a, .drawer-item, #plus-feuille a',
+  // Pile des « couches » (panneau, fenêtre, sous-écran) : chacune a son entrée d'historique, le retour du téléphone la ferme sans quitter la page.
+  _couches: new Map(), _ignorer: 0,
+  OVERLAYS: '.modal-overlay:not(.modal-docked), #drawer-overlay.ouvert, .nc-overlay, #creer-feuille, #plus-feuille, #feuille-filtre, .kit-modale',
+
   init() {
-    window.addEventListener('popstate', () => this._resoudre());
+    window.addEventListener('popstate', () => {
+      if (this._ignorer > 0) { this._ignorer--; return; }
+      // Retour système : on ferme d'abord la couche la plus récente (fenêtre, panneau, sous-écran), la page ne bouge pas.
+      if (this._couches.size) { const cle = [...this._couches.keys()].pop(), f = this._couches.get(cle); this._couches.delete(cle); try { f && f(); } catch (e) { /* fermeture best effort */ } return; }
+      // Entrée de couche devenue orpheline (la page a changé entre-temps) : on l'enjambe.
+      const st = window.history.state;
+      if (st && st.couche) { this._ignorer++; window.history.back(); return; }
+      this._dir = 'retour';
+      this._resoudre();
+    });
+    this._surveillerCouches();
     // Les liens <a href="/comptes"> naviguent sans recharger la page (Cmd/Ctrl-clic et clic droit
     // gardent leur comportement natif : nouvel onglet).
     document.addEventListener('click', e => {
@@ -76,7 +93,7 @@ const Router = {
       const h = /^#\//.test(href) ? href : (/^\/(?!\/)/.test(href) ? '#' + href : null);
       if (!h) return;
       e.preventDefault();
-      this.aller(h);
+      this.aller(h, { remplacer: !!a.closest(this.NAV_SEL) });
     });
     this._resoudre();
   },
@@ -90,13 +107,41 @@ const Router = {
     return chemin ? '#' + chemin + search : '';
   },
 
-  aller(hash) {
+  aller(hash, opts) {
     if (window.NavWeb) NavWeb.marquerAller();
     const url = String(hash).replace(/^#/, '');
     if (url === window.location.pathname + window.location.search && !window.location.hash) return;
     // Profondeur de navigation interne mémorisée dans l'état d'historique : sert à savoir si « retour » reste dans l'app.
-    const profondeur = ((window.history.state && window.history.state.esi) || 0) + 1;
-    window.history.pushState({ esi: profondeur }, '', url);
+    // `de` = écran d'où l'on vient (absent quand on arrive par la barre de navigation : « retour » mène alors à l'accueil).
+    const st = window.history.state || {}, de = this.hashCourant();
+    // Navigation lancée depuis un panneau (tiroir, « Plus ») : on referme d'abord son entrée d'historique, puis on remplace l'écran.
+    if (opts && opts.remplacer && st.couche) {
+      this._couches.clear(); this._ignorer++;
+      window.addEventListener('popstate', () => this.aller(hash, opts), { once: true });
+      window.history.back(); return;
+    }
+    this._dir = opts && opts.remplacer ? 'onglet' : 'avant';
+    if (opts && opts.remplacer) window.history.replaceState({ esi: st.esi || 0 }, '', url);
+    else window.history.pushState({ esi: (st.esi || 0) + 1, de }, '', url);
+    this._resoudre();
+  },
+
+  // Écran parent d'une sous-page (null = écran principal d'un onglet). Sert au repli quand on arrive par lien direct ou notification.
+  PARENTS: [
+    [/^#\/compte\/[^/]+$/, '#/comptes'], [/^#\/visites\/(planning|cr\/[^/]+)$/, '#/visites'],
+    [/^#\/phoning\/[^/]+$/, '#/phoning'], [/^#\/questionnaire(\/[^/]+)?$/, '#/comptes'], [/^#\/parametres-primes$/, '#/admin'],
+  ],
+  parent(hash) { const p = this.PARENTS.find(([re]) => re.test(hash)); return p ? p[1] : null; },
+  // Accueil du profil : l'onglet « Pilotage » de la barre basse s'il est autorisé, sinon la route par défaut du rôle.
+  accueil() {
+    const P = window.Permissions; if (!P || typeof Session === 'undefined') return '#/pilotage';
+    return P.routeAutorisee(Session.role, '#/pilotage') ? '#/pilotage' : (P.routeParDefaut(Session.role) || '#/pilotage');
+  },
+
+  // Remplace l'écran courant sans laisser de trace d'historique (repli du bouton ←).
+  _remplacer(hash) {
+    const st = window.history.state || {};
+    window.history.replaceState({ esi: st.esi || 0 }, '', String(hash).replace(/^#/, ''));
     this._resoudre();
   },
 
@@ -107,16 +152,65 @@ const Router = {
     this._resoudre();
   },
 
-  // Bloc 3 §2 — retour à l'écran précédent (historique navigateur) ; repli
-  // vers l'accueil quand la vue est le point d'entrée (lien direct, rechargement).
+  // « ← » : une couche ouverte (fenêtre, sous-écran) se ferme d'abord ; sinon retour à l'écran d'où l'on vient ;
+  // sinon (lien direct, notification, onglet principal) repli sur l'écran parent, puis sur l'accueil du profil.
   retour() {
-    // history.length ne distingue pas une entrée par lien direct d'une navigation interne (il compte aussi les pages
-    // précédentes de l'onglet) : on se fie à la profondeur interne, sinon repli vers l'accueil.
-    if (window.history.state && window.history.state.esi > 0) window.history.back();
-    else this.aller('#/pilotage');
+    if (this._couches.size) { window.history.back(); return; }
+    const h = this.hashCourant(), st = window.history.state, parent = this.parent(h), accueil = this.accueil();
+    if (st && st.esi > 0 && st.de) { window.history.back(); return; }
+    if (parent) { this._remplacer(parent); return; }
+    if (h !== accueil && h !== '#/pilotage' && h !== '#/dashboard') this._remplacer(accueil);
+  },
+
+  // ── Couches : tout ce qui se superpose à la page doit se fermer avec le retour du téléphone ──
+  // sync(cle, actif, fermer) : à appeler à chaque rendu d'un sous-écran. `fermer` est appelée par le retour système.
+  couche: {
+    sync(cle, actif, fermer, vue) {
+      const R = Router;
+      if (actif && vue && document.body.dataset.vue !== vue) return;   // rendu tardif d'une page déjà quittée : aucune couche
+      if (actif && !R._couches.has(cle)) {
+        R._couches.set(cle, fermer);
+        const st = window.history.state || {};
+        window.history.pushState({ esi: st.esi || 0, de: st.de, couche: cle }, '', window.location.pathname + window.location.search);
+      } else if (actif) { R._couches.set(cle, fermer); }
+      else if (!actif && R._couches.has(cle)) {
+        R._couches.delete(cle);
+        const st = window.history.state;
+        if (st && st.couche === cle) { R._ignorer++; window.history.back(); }   // fermé par l'écran lui-même : on retire l'entrée d'historique
+      }
+    },
+  },
+
+  // Fenêtres et panneaux : détection centralisée (aucune des ~30 implémentations n'a à être modifiée).
+  _fermerOverlay() {
+    const els = [...document.querySelectorAll(this.OVERLAYS)], el = els[els.length - 1]; if (!el) return;
+    const id = el.id, w = window;
+    if (id === 'creer-feuille' && w.CreerMenu) return w.CreerMenu.fermer();
+    if (id === 'plus-feuille' && w.CreerMenu) return w.CreerMenu.fermerPlus();
+    if (id === 'feuille-filtre' && w.VueComptes) return w.VueComptes.fermerFeuilleFiltre();
+    if (el.classList.contains('kit-modale') && w.VueKit) return w.VueKit.annulerEnvoi();
+    if (id === 'drawer-overlay' && w.DrawerMenu) return w.DrawerMenu.fermer();
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));   // convention de l'app : clic sur le fond = fermer
+  },
+  _surveillerCouches() {
+    let t = null;
+    const verif = () => this.couche.sync('overlay', !!document.querySelector(this.OVERLAYS), () => this._fermerOverlay());
+    new MutationObserver(() => { clearTimeout(t); t = setTimeout(verif, 30); }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  },
+
+  // Résout quand #app n'affiche plus de squelette de chargement (ou après `ms`).
+  _contenuPret(ms) {
+    return new Promise(res => {
+      const app = document.getElementById('app');
+      if (!app || !app.querySelector('.skeleton-box')) { res(); return; }
+      const mo = new MutationObserver(() => { if (!app.querySelector('.skeleton-box')) { mo.disconnect(); res(); } });
+      mo.observe(app, { childList: true, subtree: true });
+      setTimeout(() => { mo.disconnect(); res(); }, ms);
+    });
   },
 
   _resoudre() {
+    this._couches.clear();
     // Ancien format '#/comptes' (push déjà envoyées, favoris) : converti en '/comptes' sans recharger.
     if (window.location.hash && window.location.hash.startsWith('#/')) {
       window.history.replaceState(window.history.state, '', window.location.hash.slice(1));
@@ -161,6 +255,9 @@ const Router = {
     if (!vue) { console.error('[Router] Vue introuvable :', vueNom); return; }
 
     document.body.dataset.vue = vueNom;
+    // Sens de la navigation : sert aux transitions façon iOS (entrée par la droite, retour vers la droite, onglet en fondu).
+    const dir = this._dir || 'onglet'; this._dir = null;
+    document.documentElement.dataset.nav = dir;
     if (window.NavWeb) NavWeb.avant(hash);
 
     const afficherVue = () => {
@@ -203,8 +300,13 @@ const Router = {
       }
       // Filet de sécurité : la transition attend une image du navigateur pour exécuter le rendu
       // (onglet en arrière-plan, volet masqué). Au-delà de 400 ms on rend directement, une seule fois.
+      // Le rendu attend (160 ms au plus) que la page ait son contenu : l'instantané d'arrivée montre l'écran rempli,
+      // pas un squelette qui se remplit après coup (effet « page qui se ferme »). Au retour, la position de défilement est reprise avant l'image finale.
       let rendu = false;
-      const unSeulRendu = () => { if (rendu) return; rendu = true; afficherVue(); };
+      const unSeulRendu = () => {
+        if (rendu) return; rendu = true; afficherVue();
+        return this._contenuPret(160).then(() => { if (dir === 'retour' && window.NavWeb && NavWeb.restaurerTot) NavWeb.restaurerTot(hash); });
+      };
       const t = document.startViewTransition(unSeulRendu);
       setTimeout(unSeulRendu, 400);
       this._transitionEnCours = t;
@@ -222,3 +324,5 @@ const Router = {
     if (window.NavWeb) NavWeb.apres(hash);
   },
 };
+
+window.Router = Router;   // la constante n est pas une propriété de window : plusieurs modules testent window.Router
