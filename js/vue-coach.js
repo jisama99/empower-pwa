@@ -22,12 +22,13 @@ window.VueCoach = {
     const s = this.state; s.chargement = true; s.erreur = null; this.render();
     try {
       const L = t => SheetsAPI.lire('EMPOWER_MDB', t, { nocache: true });
-      const [comptes, leads, visites, appels, objectifs, params, suivi] = await Promise.all([
+      const [comptes, leads, visites, appels, objectifs, params, suivi, actions] = await Promise.all([
         L('COMPTES'), L('LEADS'), L('VISITES'), L('PHONING'), L('OBJECTIFS_PRIMES'), SheetsAPI.lire('EMPOWER_MDB', 'PARAMS'),
         L('V_COMPTES_SUIVI').catch(() => []),
+        L('ACTIONS').catch(() => []),
         window.Catalogue.charger(SheetsAPI._sb),
       ]);
-      this._raw = { comptes: comptes || [], leads: leads || [], visites: visites || [], appels: appels || [], objectifs: objectifs || [], params: params || [] };
+      this._raw = { comptes: comptes || [], leads: leads || [], visites: visites || [], appels: appels || [], objectifs: objectifs || [], params: params || [], actions: actions || [] };
       this._suivi = new Map((suivi || []).map(r => [String(r._uuid), r]));
       if (!s.pin && !Session.voitTout()) s.pin = String(Session.pin);
       this._calculer();
@@ -66,7 +67,9 @@ window.VueCoach = {
     raw.appels.filter(a => dansSem(a.Date) && a.ID_Compte && (typeof estAppelRealise !== 'function' || estAppelRealise(a))).forEach(a => touches.add(String(a.ID_Compte)));
     const ctx = this._ctx({ pin });
     const toutes = M.cibles(comptes, ctx, 100000), cibles = toutes.slice(0, 5);
-    const al = M.alertes({ leads, comptes }, ctx);
+    // Devis émis depuis le Coach (journal) : ceux du périmètre, pour l'alerte « devis sans suite ».
+    const devis = (raw.actions || []).filter(a => a.Type_Action === 'Devis' && (Session.voitTout() ? mien(a.PIN_CDS) : Number(a.PIN_CDS) === Number(Session.pin))).map(a => ({ date: String(a.Date_Action || '').slice(0, 10), nom: a.Nom_Compte }));
+    const al = M.alertes({ leads, comptes, devis }, ctx);
     const plan = M.planSemaine(toutes, al, { faitCompte: c => touches.has(String(c.ID_Compte)), adressesCompletees: 0 }).map(a => Object.assign({}, a, { manuel: this._coche(tri, a.id) }));
     const trajs = tri ? M.trajectoire(raw.objectifs.filter(o => Session.voitTout() || Number(o.PIN_CDS) === Number(Session.pin)), tri) : [];
     const sel = tri ? (pin != null ? (trajs.find(t => t.pin === pin) || M.agreger([], tri)) : M.agreger(trajs, tri)) : null;
@@ -159,6 +162,31 @@ window.VueCoach = {
       <div class="co-src">Hypothèse : première commande type ${this._eur(ref.cout)} d'achat Empower. Les semaines suivantes gardent le même effort hebdomadaire.</div>`;
   },
 
+  // Objections courantes : chaque réponse s'appuie sur un chiffre calculé (catalogue des Réglages) ou une règle du séminaire.
+  _repObjections() {
+    const C = window.Catalogue, E = this._esc, cmp = C.comparer(this.PANIER_REF, { grossiste: 'pa_td' }), e = cmp.empower, g = cmp.grossiste, nom = C.libelle(C.par(this.PANIER_REF[0][0]));
+    const cote = cmp.cotations && cmp.cotations.length ? ` Une cotation est en cours chez le grossiste (${E(cmp.cotations.join(', '))}) : l'écart est déjà réduit dans ce calcul.` : '';
+    const o = (q, r) => `<div class="co-step"><span class="co-num">?</span><div><b>${q}</b><br><span class="co-mut">${r}</span></div></div>`;
+    return `<b>Quatre objections, quatre réponses chiffrées.</b>
+      ${o('« Je passe déjà par mon grossiste »', `Sur ${E(nom)} × ${this.PANIER_REF[0][1]}, la marge est de ${this._eur(e.marge)} (${String(e.pct).replace('.', ',')} %) via Empower contre ${this._eur(g.marge)} (${String(g.pct).replace('.', ',')} %) via Tech Data : ${cmp.gain >= 0 ? '+' : ''}${this._eur(cmp.gain)} pour le même panier.${cote}`)}
+      ${o('« Je n\'ai pas de place pour du stock »', 'Les licences se commandent à la demande, après encaissement du client : zéro stock, zéro trésorerie immobilisée.')}
+      ${o('« Mes clients n\'achètent pas Norton »', `Le revenue share Empower va jusqu'à ${Math.round(C.revenue_share.taux_max * 100)} % sur les renouvellements pendant ${C.revenue_share.annees} ans (assiette à confirmer, non chiffré ici). Proposer d'abord la licence à vos prochains clients équipés d'un nouveau PC.`)}
+      ${o('« Je ne sais pas à quel prix vendre »', `Les prix de vente conseillés figurent dans le catalogue (${E(nom)} : ${this._eur2(C.par(this.PANIER_REF[0][0]).pvp_ttc)} TTC) : le calculateur à droite chiffre la marge à ce prix, produit par produit.`)}
+      <div class="co-src">Sources : catalogue ${E(C.version)} (prix des Réglages), règles du séminaire. Chiffres calculés, jamais rédigés par un modèle.</div>`;
+  },
+
+  // Documents du Kit commercial à remettre selon le palier du compte (règles du séminaire) ; ouvre la bibliothèque pour le compte choisi.
+  _repDocument() {
+    const E = this._esc, P = window.Paliers, c = this.state.compteSel && this.state.d ? this.state.d.comptes.find(k => String(k.ID_Compte || k._uuid) === this.state.compteSel) : null;
+    const cle = c ? P.palier(c).cle : null;
+    const CONSEIL = { DORMANT: 'Kit de démarrage : Book Empower et flyer bonnes pratiques', EVEIL: 'Book Empower, flyer bonnes pratiques et la cotation en cours si elle est valide', ACTIF: 'Bundle rentrée et cross-sell, produits additionnels VPN et Utilities', AMBASSADEUR: 'Deck fonctionnalités avancées et produits additionnels, avec une business review trimestrielle' };
+    const ligne = k => `<div class="co-step"><span class="co-num">${E(P.PALIERS[k].lib.charAt(0))}</span><div><b>${E(P.PALIERS[k].lib)}</b><br><span class="co-mut">${E(CONSEIL[k])}</span></div></div>`;
+    const cibleBloc = c ? `<p>Compte choisi : <b>${E(c.Nom_Compte)}</b>, palier <b>${E(P.PALIERS[cle].lib)}</b>. À lui remettre : ${E(CONSEIL[cle] || 'aucun document spécifique')}.</p>` : '<p>Choisissez un compte (calculateur à droite) pour une recommandation ciblée ; voici les repères par palier.</p>';
+    return `<b>Quel document envoyer ?</b>${cibleBloc}${c ? ligne(cle) : ['DORMANT', 'EVEIL', 'ACTIF', 'AMBASSADEUR'].map(ligne).join('')}
+      <div class="co-actions"><button class="co-btn p" onclick="${c ? `VueKit.pourCompte('${E(String(c.ID_Compte))}');` : ''}Router.aller('#/kit')">Ouvrir le Kit commercial</button></div>
+      <div class="co-src">Les documents échus ne peuvent pas être envoyés ; les documents internes ne sortent jamais de l'équipe.</div>`;
+  },
+
   _repMarge() { setTimeout(() => this.ouvrirCalc(), 0); return '<b>Le calculateur est à droite.</b> Choisissez les produits et les quantités : la marge Empower et la marge grossiste se calculent avec les prix des Réglages, cotation en cours comprise.'; },
 
   _faits() {
@@ -176,7 +204,7 @@ window.VueCoach = {
   poser(q, rep) { const s = this.state; s.fil.push({ r: 'u', h: this._esc(q) }); s.fil.push({ r: 'a', h: rep }); this.render(); this._basFil(); },
   chip(k) {
     const Q = { objectif: ['Comment j\'atteins mon objectif ?', () => this._repObjectif()], relancer: ['Qui relancer aujourd\'hui ?', () => this._repRelancer()],
-                visite: ['Prépare ma prochaine visite', () => this._repVisite()], marge: ['Calcule ma marge', () => this._repMarge()], rattrapage: ['Plan de rattrapage', () => this._repRattrapage()] }[k];
+                visite: ['Prépare ma prochaine visite', () => this._repVisite()], marge: ['Calcule ma marge', () => this._repMarge()], rattrapage: ['Plan de rattrapage', () => this._repRattrapage()], objections: ['Répondre aux objections', () => this._repObjections()], document: ['Quel document envoyer ?', () => this._repDocument()] }[k];
     if (Q) this.poser(Q[0], Q[1]());
   },
   preparerVisite(id) { this.poser('Prépare la visite de ce compte', this._repVisite(id)); },
@@ -184,6 +212,8 @@ window.VueCoach = {
     const x = String(t || '').toLowerCase();
     if (/objectif|atteindre|trajectoire|[ée]cart|retard/.test(x)) return 'objectif';
     if (/rattrap|30 ?j|plan d/.test(x)) return 'rattrapage';
+    if (/objection|r[ée]ponds?|trop cher|pas de place|grossiste/.test(x)) return 'objections';
+    if (/document|flyer|brochure|kit|envoyer|book|deck/.test(x)) return 'document';
     if (/relanc|appeler|contacter|prioritaire|cibl|qui /.test(x)) return 'relancer';
     if (/visite|rendez|pr[ée]par/.test(x)) return 'visite';
     if (/marge|prix|devis|calcul|rentab/.test(x)) return 'marge';
@@ -228,10 +258,23 @@ window.VueCoach = {
     const p = window.EquipeContacts && pin ? EquipeContacts.parPin(pin) : null;
     const offre = !T.offre ? null : o.offre === 'remise' ? (o.taux > 0 ? { type: 'remise', taux: o.taux / 100 } : null) : (o.achetees > 0 && o.offertes > 0 ? { type: 'xy', achetees: o.achetees, offertes: o.offertes } : null);
     if (T.offre && !offre) { if (window.Toast) Toast.afficher("Renseignez les termes de l'offre", 'erreur'); return; }
+    if (compte) this._tracerDevis(compte, T, o);
     L.ouvrir({ type: o.type, lignes: s.panier.filter(([id, q]) => q > 0), grossiste: s.grossiste, volume: s.volume, offre,
       client: { nom: o.client || (compte && compte.Nom_Compte) || '', contact: o.contact, region: (compte && compte.Ville) || '' },
       emetteur: p ? { nom: p.nom, role: p.role, tel: p.tel ? EquipeContacts.fmtTel(p.tel) : '', mail: p.mail || '' } : {},
       validite: o.validite || '', dejaCA: compte ? window.Paliers.caEmpower(compte) : 0 });
+  },
+  // Chaque document créé pour un compte est inscrit au journal (Type_Action « Devis ») : base de l'alerte « devis sans suite ».
+  async _tracerDevis(compte, T, o) {
+    try {
+      const e = window.Catalogue.comparer(this.state.panier.filter(([id, q]) => q > 0), { grossiste: this.state.grossiste, volume: this.state.volume }).empower;
+      await SheetsAPI.ecrire('EMPOWER_MDB', 'ACTIONS', {
+        ID_Action: genId('DEV'), Date_Action: new Date().toISOString(), Type_Action: 'Devis', Source: 'ESI', PIN_CDS: Session.pin, Nom_Compte: compte.Nom_Compte,
+        Statut_Avant: '', Statut_Apres: '', Resum_IA: T.lib + ' : ' + Math.round(e.cout) + ' € d\'achat HT, marge ' + Math.round(e.marge) + ' €' + (o.validite ? ', valable jusqu\'au ' + o.validite : ''),
+        GPS_Lat: '', GPS_Lng: '', Timestamp: new Date().toISOString(),
+      });
+      if (this._raw) this._raw.actions.push({ Type_Action: 'Devis', PIN_CDS: Session.pin, Date_Action: new Date().toISOString(), Nom_Compte: compte.Nom_Compte });
+    } catch { /* trace non bloquante */ }
   },
   _pdfHtml() {
     const o = this.state.pdf, E = this._esc, L = window.LivrablesPDF; if (!L) return '';
@@ -313,7 +356,7 @@ window.VueCoach = {
         <div class="coach-cols" data-vue="${s.col}">
           <div class="coach-col c-plan">${this._planHtml()}</div>
           <div class="coach-col c-chat"><div class="co-carte"><div class="co-row"><b style="font-size:15px;color:var(--co-ink)">Conversation</b></div>
-            <div class="co-chips">${[['objectif', 'Comment j\'atteins mon objectif ?'], ['relancer', 'Qui relancer aujourd\'hui ?'], ['visite', 'Prépare ma visite'], ['marge', 'Calcule ma marge'], ['rattrapage', 'Plan de rattrapage']].map(([k, l]) => `<button class="co-chip" onclick="VueCoach.chip('${k}')">${l}</button>`).join('')}</div>
+            <div class="co-chips">${[['objectif', 'Comment j\'atteins mon objectif ?'], ['relancer', 'Qui relancer aujourd\'hui ?'], ['visite', 'Prépare ma visite'], ['marge', 'Calcule ma marge'], ['rattrapage', 'Plan de rattrapage'], ['objections', 'Répondre aux objections'], ['document', 'Quel document envoyer ?']].map(([k, l]) => `<button class="co-chip" onclick="VueCoach.chip('${k}')">${l}</button>`).join('')}</div>
             <div class="co-fil" id="co-fil" aria-live="polite">${s.fil.map(m => `<div class="co-bulle ${m.r}">${m.h}</div>`).join('')}</div>
             <div class="co-saisie"><input id="co-q" type="text" maxlength="300" placeholder="Posez votre question…" aria-label="Votre question" onkeydown="VueCoach.touche(event)"/><button class="co-btn p" onclick="VueCoach.envoyer()">Envoyer</button></div></div></div>
           <div class="coach-col c-calc">${this._calcHtml()}${this._qualiteHtml()}</div>

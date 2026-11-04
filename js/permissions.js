@@ -15,7 +15,7 @@
     ADMIN: [
       'home', 'tracker', 'historiques', 'phoning', 'visites',
       'objectifs', 'primes', 'comptes', 'manager', 'admin',
-      'questionnaire', 'reporting', 'photos', 'mailing', 'a_contacter', 'territoires', 'coach',
+      'questionnaire', 'reporting', 'photos', 'mailing', 'a_contacter', 'territoires', 'coach', 'kit',
       // Lot 4 — sous-sections d'Administration (droits distincts)
       'admin_primes', 'admin_baremes', 'admin_reporting',
     ],
@@ -23,7 +23,7 @@
     // l'Accueil (#/dashboard), cf. VueDashboardCDS._contexteReporting().
     CDS: [
       'home', 'tracker', 'historiques', 'phoning', 'visites',
-      'objectifs', 'primes', 'questionnaire', 'comptes', 'photos', 'reporting_cds', 'mailing', 'a_contacter', 'territoires', 'coach',
+      'objectifs', 'primes', 'questionnaire', 'comptes', 'photos', 'reporting_cds', 'mailing', 'a_contacter', 'territoires', 'coach', 'kit',
     ],
     // V5 BUG5 — Alexandra : conserve OBJECTIFS ; jamais Primes (raw CDS).
     // 'reporting' réactivé : #/manager affiche désormais pour elle la Vue équipe
@@ -35,12 +35,12 @@
     // quasi-admin sur le Tracker également (cf. vue-pipeline.js _peutAssigner).
     CHANNEL_MANAGER: [
       'home', 'tracker', 'comptes', 'objectifs', 'photos', 'admin',
-      'visites_fdv', 'phoning', 'reporting', 'mailing', 'a_contacter', 'territoires', 'coach',
+      'visites_fdv', 'phoning', 'reporting', 'mailing', 'a_contacter', 'territoires', 'coach', 'kit',
       'admin_reporting',   // Reporting seul : jamais Primes ni Barèmes (voir INTERDITS)
     ],
     // Fournisseur de leads (ex-« Invité » : Flavie…) : alimente le Tracker et consulte les comptes (lecture seule).
     EXTERNE: [
-      'tracker', 'comptes', 'territoires',
+      'tracker', 'comptes', 'territoires', 'kit',
     ],
   };
 
@@ -77,6 +77,7 @@
     if (/^#\/a-contacter$/.test(h))            return 'a_contacter';
     if (/^#\/territoires$/.test(h))            return 'territoires';
     if (/^#\/coach$/.test(h))                  return 'coach';
+    if (/^#\/kit$/.test(h))                    return 'kit';
     if (/^#\/analyse$/.test(h))                return ['reporting', 'reporting_cds', 'admin_reporting'];
     if (/^#\/parametres-primes$/.test(h))      return 'admin_baremes';
 
@@ -104,6 +105,7 @@
     a_contacter:   '#/a-contacter',
     territoires:   '#/territoires',
     coach:         '#/coach',
+    kit:           '#/kit',
   };
 
   // Libellés des sections cochables à la création d'un accès (vue-admin.js).
@@ -114,7 +116,7 @@
     manager: 'Vue manager', reporting: 'Reporting équipe',
     reporting_cds: 'Reporting personnel', admin: 'Administration',
     questionnaire: 'Questionnaire', photos: 'Photos', mailing: 'Mailing',
-    a_contacter: 'À contacter', territoires: 'Territoires (carte)', coach: 'Coach commercial',
+    a_contacter: 'À contacter', territoires: 'Territoires (carte)', coach: 'Coach commercial', kit: 'Kit commercial',
     admin_primes: 'Administration › Primes', admin_baremes: 'Administration › Barèmes',
     admin_reporting: 'Administration › Reporting',
   };

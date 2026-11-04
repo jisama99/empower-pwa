@@ -621,6 +621,7 @@ window.VueFicheCompte = {
 
     const resume = `${this._renderChecklist(c)}
       ${window.EquipeContacts ? EquipeContacts.carteDuCommercial(c.PIN_CDS_Assigne) : ''}
+      ${window.Mandats ? Mandats.blocFiche(c) : ''}
       ${SellInFlag.blocFiche(c, this.state.sellinSemaines)}
       ${NonSuivis.blocFiche(c, this.state.historiqueAttrib)}
       <div class="bloc-fiche"><div class="bloc-titre">Prochaine action planifiée</div>

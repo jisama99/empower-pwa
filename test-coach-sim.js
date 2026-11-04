@@ -132,4 +132,16 @@ ok('diagnostic : règles lisibles', () => {
   assert.match(M.diagnostic({ statut: 'decrochage' }, { sansAdresse: 11 }), /adresses/);
   assert.match(M.diagnostic({ statut: 'sans_objectif' }, {}), /non renseigné/);
 });
+ok('alertes : devis sans suite (≥ 7 j, compte non actif, aucune action plus récente) et business review Ambassadeur', () => {
+  const cs = [C0('a', { Nom_Compte: 'Alpha', Adresse: 'x', Date_Derniere_Action: '2026-10-01' }), C0('b', { Nom_Compte: 'Beta', Adresse: 'x', Date_Derniere_Action: '2026-10-30' }),
+              C0('c', { Nom_Compte: 'Gamma', Adresse: 'x', act: true }), C0('d', { Nom_Compte: 'Delta', Adresse: 'x', pal: 'AMBASSADEUR', ca: 3500, act: true })];
+  const devis = [{ date: '2026-10-20', nom: 'Alpha' }, { date: '2026-10-20', nom: 'Beta' }, { date: '2026-10-20', nom: 'Gamma' }, { date: '2026-11-02', nom: 'Alpha' }, { date: '2026-05-01', nom: 'Alpha' }];
+  const a = M.alertes({ leads: [], comptes: cs, devis }, ctxA); const m = Object.fromEntries(a.map(x => [x.id, x.n]));
+  assert.strictEqual(m.devis, 1); assert.deepStrictEqual(a.find(x => x.id === 'devis').noms, ['Alpha']);
+  assert.strictEqual(m.ambassadeurs, 1);
+});
+ok('plan : devis et business review entrent dans le plan', () => {
+  const p = M.planSemaine([], [{ id: 'devis', n: 2, noms: ['Alpha', 'Beta'] }, { id: 'ambassadeurs', n: 1 }], {});
+  assert.strictEqual(p[0].texte, 'Relancer 2 devis sans suite'); assert.strictEqual(p[0].detail, 'Alpha, Beta'); assert.match(p[1].texte, /business review/);
+});
 console.log(n + ' tests OK');

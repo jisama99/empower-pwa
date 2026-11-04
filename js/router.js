@@ -49,6 +49,7 @@ const Router = {
     { pattern: /^#\/aide$/,                         vue: 'VueAide',              auth: true  },
     { pattern: /^#\/territoires$/,                  vue: 'VueTerritoires',        auth: true  },
     { pattern: /^#\/coach$/,                        vue: 'VueCoach',              auth: true  },
+    { pattern: /^#\/kit$/,                          vue: 'VueKit',                auth: true  },
     { pattern: /^#\/mailing$/,                      vue: 'VueMailing',            auth: true  },
     { pattern: /^#\/a-contacter$/,                  vue: 'VueAContacter',         auth: true  },
     { pattern: /^#\/comptes$/,                      vue: 'VueComptes',            auth: true  },
