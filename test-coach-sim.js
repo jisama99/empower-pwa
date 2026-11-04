@@ -2,6 +2,7 @@
 const assert = require('assert');
 const C = require('./js/catalogue.js');
 const M = require('./js/coach-moteur.js');
+const ORIG = JSON.parse(JSON.stringify(C.produits));
 let n = 0; const ok = (nom, f) => { f(); n++; console.log('  ok  ' + nom); };
 
 ok('marge : panier 6 Deluxe5 + 4 Standard + 3 NSB10 (PDF exemple)', () => {
@@ -55,6 +56,21 @@ ok('prix de la base : un prix modifié dans les Réglages change le calcul', () 
   const copie = C.produits.map(p => Object.assign({}, p, p.id === 'n360-std' ? { pa_empower: 10 } : {}));
   C.definir(copie); assert.strictEqual(C.calculer([['n360-std', 1]], 'pa_empower').detail[0].pa, 10);
   assert.strictEqual(C.source(), 'base');
+});
+
+ok('offre 2+1 : licences offertes revendables, coût sur les seules achetées ; comparaison à nombre de licences égal', () => {
+  C.definir(JSON.parse(JSON.stringify(ORIG)), []);
+  const o = { offre: { type: 'xy', achetees: 2, offertes: 1 } };
+  const r = C.calculer([['n360-std', 4]], 'pa_empower', o);
+  assert.strictEqual(r.detail[0].offertes, 2); assert.strictEqual(r.licences, 6); assert.strictEqual(r.ca, 199.95); assert.strictEqual(r.cout, 46.44); assert.strictEqual(r.marge, 153.51);
+  const c = C.comparer([['n360-std', 4]], o); assert.strictEqual(c.grossiste.licences, 6); assert.strictEqual(c.grossiste.cout, 150); assert.strictEqual(c.gain, 103.56);
+  assert.strictEqual(C.calculer([['n360-std', 1]], 'pa_empower', o).detail[0].offertes, 0);
+});
+ok('offre remise : baisse le PA Empower, plafonnée à 90 %, remplace l\'offre volume', () => {
+  C.definir(JSON.parse(JSON.stringify(ORIG)), []);
+  const a = C.calculer([['n360-std', 10]], 'pa_empower'), b = C.calculer([['n360-std', 10]], 'pa_empower', { offre: { type: 'remise', taux: 0.1 }, volume: true });
+  assert.strictEqual(b.detail[0].pa, 10.45); assert.ok(b.marge > a.marge);
+  assert.strictEqual(C.calculer([['n360-std', 1]], 'pa_empower', { offre: { type: 'remise', taux: 5 } }).detail[0].pa, 1.16);
 });
 
 ok('trimestre : 4 nov. 2026 = Q3 semaine 4, 26 jours écoulés sur 91', () => {

@@ -9,7 +9,7 @@
 //  Moteur : js/coach-moteur.js ; prix : js/catalogue.js (Réglages › Prix et cotations).
 // ═══════════════════════════════════════
 window.VueCoach = {
-  state: { chargement: true, erreur: null, d: null, pin: '', col: 'chat', fil: [], panier: [['n360-del5', 6]], grossiste: 'pa_td', volume: false, compteSel: '', ia: false, maj: null },
+  state: { chargement: true, erreur: null, d: null, pin: '', col: 'chat', fil: [], panier: [['n360-del5', 6]], grossiste: 'pa_td', volume: false, compteSel: '', ia: false, maj: null, pdf: { type: 'proposition', client: '', contact: '', offre: 'xy', achetees: 10, offertes: 1, taux: 10, validite: '' } },
   _raw: null, _suivi: new Map(),
   PANIER_REF: [['n360-del5', 6]],   // hypothèse de « première commande type » (modifiable dans le calculateur)
 
@@ -213,6 +213,40 @@ window.VueCoach = {
   retirerLigne(i) { this.state.panier.splice(i, 1); this._majCalc(); },
   setGrossiste(v) { this.state.grossiste = v === 'pa_ingram' ? 'pa_ingram' : 'pa_td'; this._majCalc(); },
   setVolume(v) { this.state.volume = !!v; this._majCalc(); },
+  majPdf(champ, v) {
+    const o = this.state.pdf; if (!(champ in o)) return;
+    if (['achetees', 'offertes', 'taux'].includes(champ)) o[champ] = Math.max(0, Math.min(champ === 'taux' ? 90 : 999, Number(v) || 0));
+    else o[champ] = String(v).slice(0, 120);
+    if (champ === 'type' || champ === 'offre') this._majCalc();
+  },
+  creerPdf() {
+    const s = this.state, o = s.pdf, L = window.LivrablesPDF;
+    if (!L) return;
+    const T = L.TYPES[o.type] || L.TYPES.proposition;
+    const compte = s.compteSel && s.d ? s.d.comptes.find(c => String(c.ID_Compte || c._uuid) === s.compteSel) : null;
+    const pin = Number(s.pin) || (window.Session && Session.pin) || null;
+    const p = window.EquipeContacts && pin ? EquipeContacts.parPin(pin) : null;
+    const offre = !T.offre ? null : o.offre === 'remise' ? (o.taux > 0 ? { type: 'remise', taux: o.taux / 100 } : null) : (o.achetees > 0 && o.offertes > 0 ? { type: 'xy', achetees: o.achetees, offertes: o.offertes } : null);
+    if (T.offre && !offre) { if (window.Toast) Toast.afficher("Renseignez les termes de l'offre", 'erreur'); return; }
+    L.ouvrir({ type: o.type, lignes: s.panier.filter(([id, q]) => q > 0), grossiste: s.grossiste, volume: s.volume, offre,
+      client: { nom: o.client || (compte && compte.Nom_Compte) || '', contact: o.contact, region: (compte && compte.Ville) || '' },
+      emetteur: p ? { nom: p.nom, role: p.role, tel: p.tel ? EquipeContacts.fmtTel(p.tel) : '', mail: p.mail || '' } : {},
+      validite: o.validite || '', dejaCA: compte ? window.Paliers.caEmpower(compte) : 0 });
+  },
+  _pdfHtml() {
+    const o = this.state.pdf, E = this._esc, L = window.LivrablesPDF; if (!L) return '';
+    const T = L.TYPES[o.type] || L.TYPES.proposition;
+    const opt = (k) => `<option value="${k}" ${o.type === k ? 'selected' : ''}>${E(L.TYPES[k].lib)}</option>`;
+    return `<div class="co-soft" style="margin-top:12px"><div class="co-eyebrow">Document PDF paysage</div>
+      <div class="co-ligne" style="grid-template-columns:1fr"><select aria-label="Type de document" onchange="VueCoach.majPdf('type',this.value)">${Object.keys(L.TYPES).map(opt).join('')}</select></div>
+      <div class="co-ligne" style="grid-template-columns:1fr 1fr"><input type="text" placeholder="Client (société)" value="${E(o.client)}" aria-label="Client" onchange="VueCoach.majPdf('client',this.value)"/><input type="text" placeholder="Contact" value="${E(o.contact)}" aria-label="Contact client" onchange="VueCoach.majPdf('contact',this.value)"/></div>
+      ${T.offre ? `<div class="co-ligne" style="grid-template-columns:1fr"><select aria-label="Type d'offre" onchange="VueCoach.majPdf('offre',this.value)"><option value="xy" ${o.offre === 'xy' ? 'selected' : ''}>X licences achetées, Y offertes</option><option value="remise" ${o.offre === 'remise' ? 'selected' : ''}>Remise en % sur le prix d'achat</option></select></div>
+        ${o.offre === 'remise' ? `<div class="co-ligne" style="grid-template-columns:1fr"><input type="number" min="0" max="90" value="${o.taux}" aria-label="Remise en pourcent" onchange="VueCoach.majPdf('taux',this.value)"/></div>`
+          : `<div class="co-ligne" style="grid-template-columns:1fr 1fr"><input type="number" min="1" value="${o.achetees}" aria-label="Licences achetées" onchange="VueCoach.majPdf('achetees',this.value)"/><input type="number" min="1" value="${o.offertes}" aria-label="Licences offertes" onchange="VueCoach.majPdf('offertes',this.value)"/></div>`}
+        <p class="co-mut" style="margin:2px 0 6px">Les termes sont ceux que vous saisissez : l'app n'en invente aucun.</p>` : ''}
+      <div class="co-ligne" style="grid-template-columns:1fr"><input type="date" value="${E(o.validite)}" aria-label="Valable jusqu'au" onchange="VueCoach.majPdf('validite',this.value)"/></div>
+      <button class="co-btn p" style="width:100%;margin-top:6px" onclick="VueCoach.creerPdf()">Créer le PDF</button></div>`;
+  },
   _majCalc() { const el = document.getElementById('co-calc'); if (el) el.outerHTML = this._calcHtml(); else this.render(); },
 
   _calcHtml() {
@@ -238,7 +272,7 @@ window.VueCoach = {
         : '<p class="co-mut" style="margin-top:10px">Ajoutez une quantité pour voir la marge.</p>'}
       ${cotes.length ? `<div class="co-cot"><b>Cotation grossiste en cours : ${E(cotes.join(', '))}.</b> Le prix d'achat ${nomG} en tient compte.</div>` : ''}
       ${cmp.exclus.length ? `<p class="co-mut" style="margin-top:8px">Exclu de la comparaison (prix non renseigné sur un canal) : ${E(cmp.exclus.join(', '))}.</p>` : ''}
-      <p class="co-mut" style="margin-top:8px">PVP HT = PVP TTC / 1,20. Marge = PVP HT moins prix d'achat. Revenue share Empower : jusqu'à ${Math.round(C.revenue_share.taux_max * 100)} % sur les renouvellements pendant ${C.revenue_share.annees} ans (assiette à confirmer, non chiffré ici).</p></div>`;
+      <p class="co-mut" style="margin-top:8px">PVP HT = PVP TTC / 1,20. Marge = PVP HT moins prix d'achat. Revenue share Empower : jusqu'à ${Math.round(C.revenue_share.taux_max * 100)} % sur les renouvellements pendant ${C.revenue_share.annees} ans (assiette à confirmer, non chiffré ici).</p>${this._pdfHtml()}</div>`;
   },
 
   _planHtml() {

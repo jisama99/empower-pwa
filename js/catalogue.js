@@ -229,7 +229,8 @@
 
   // lignes : [[idProduit, quantité], …] ; canal : 'pa_empower' | 'pa_td' | 'pa_ingram'
   // opts : { volume } offre -20 % dès 10 licences (désactivée par défaut, soumise à validation budget) ;
-  //        { date } jour de référence des cotations ; { sansCotation } ignore les cotations.
+  //        { date } jour de référence des cotations ; { sansCotation } ignore les cotations ;
+  //        { offre } offre commerciale Empower : { type: 'xy', achetees: 2, offertes: 1 } (2 achetées = 1 offerte, revendable) ou { type: 'remise', taux: 0.1 } (sur le PA).
   function calculer(lignes, canal, opts) {
     const o = opts || {};
     let ca = 0, cout = 0, licences = 0; const manquants = [], detail = [], cotes = new Set();
@@ -239,11 +240,14 @@
       const e = o.sansCotation ? { pa: p[canal] == null ? null : Number(p[canal]), cotation: null } : paEffectif(p, canal, o.date);
       let pa = e.pa;
       if (pa == null || p.pvp_ttc == null) { manquants.push(p.nom + ' ' + p.appareils); return; }
-      if (o.volume && qt >= DATA.remise_volume.seuil) pa = pa * (1 - DATA.remise_volume.taux);
+      const off = o.offre && o.offre.type ? o.offre : null;
+      if (off && off.type === 'remise' && Number(off.taux) > 0) pa = pa * (1 - Math.min(0.9, Number(off.taux)));
+      else if (!off && o.volume && qt >= DATA.remise_volume.seuil) pa = pa * (1 - DATA.remise_volume.taux);
+      const offertes = off && off.type === 'xy' && Number(off.achetees) > 0 && Number(off.offertes) > 0 ? Math.floor(qt / Math.floor(off.achetees)) * Math.floor(off.offertes) : 0;
       const ht = pvpHT(p);
       if (e.cotation) cotes.add(e.cotation.libelle);
-      ca += qt * ht; cout += qt * pa; licences += qt;
-      detail.push({ id, nom: p.nom, appareils: p.appareils, qte: qt, pvp_ttc: Number(p.pvp_ttc), pvp_ht: arr2(ht), pa: arr2(pa), marge_unit: arr2(ht - pa), marge: arr2(qt * (ht - pa)), cotation: e.cotation ? e.cotation.libelle : null });
+      ca += (qt + offertes) * ht; cout += qt * pa; licences += qt + offertes;
+      detail.push({ id, nom: p.nom, appareils: p.appareils, qte: qt, offertes, qte_vendue: qt + offertes, pvp_ttc: Number(p.pvp_ttc), pvp_ht: arr2(ht), pa: arr2(pa), marge_unit: arr2(ht - pa), marge: arr2((qt + offertes) * ht - qt * pa), cotation: e.cotation ? e.cotation.libelle : null });
     });
     return { ca: arr2(ca), cout: arr2(cout), marge: arr2(ca - cout), pct: ca > 0 ? Math.round((ca - cout) / ca * 1000) / 10 : 0, licences, manquants, detail, cotations: [...cotes] };
   }
@@ -253,7 +257,9 @@
   function comparer(lignes, opts) {
     const o = opts || {}, cg = o.grossiste || 'pa_td';
     const communs = (lignes || []).filter(([id]) => { const p = par(id); return p && p.pa_empower != null && paEffectif(p, cg, o.date).pa != null; });
-    const emp = calculer(communs, 'pa_empower', o), gro = calculer(communs, cg, o);
+    const emp = calculer(communs, 'pa_empower', o);
+    // Même nombre de licences revendues des deux côtés : les licences offertes Empower sont payées plein tarif chez le grossiste ; l'offre n'existe pas chez lui.
+    const gro = calculer(emp.detail.map(d => [d.id, d.qte_vendue]), cg, Object.assign({}, o, { offre: null, volume: false }));
     const exclus = (lignes || []).filter(([id, q]) => q > 0 && !communs.some(([i]) => i === id)).map(([id]) => { const p = par(id); return p ? p.nom + ' ' + p.appareils : id; });
     return { empower: emp, grossiste: gro, gain: arr2(emp.marge - gro.marge), exclus, cotations: gro.cotations };
   }
