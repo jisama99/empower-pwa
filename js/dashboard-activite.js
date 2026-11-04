@@ -219,13 +219,13 @@ function renderBlocCAHebdo(f, ns, fmtEUR) {
 
 
 // ── Jauge « activés » Empower : comptes onboardés Empower ayant passé une première commande ──
-//    Règle validée le 3 nov. 2026 (identique à VueAnalyse.estActive) : CA Empower > 0 sur une période
-//    ou signal sell-in « dernière semaine de commande ». Les données viennent des COMPTES, mis à jour à chaque import Sell-In.
+//    Règle unique (décision 4 nov. 2026) : FlagsCanal.active, soit CA Empower > 0 sur au moins une période.
+//    Le signal « dernière semaine de commande » ne compte pas (il peut venir d'une commande Grossiste).
+//    Les données viennent des COMPTES, mis à jour à chaque import Sell-In.
 function calculerActivationEmpower(comptes) {
-  const PER = ['FY25', 'FY26', 'Q1FY27', 'Q2FY27', 'Q3FY27', 'Q4FY27'];
   const vivants = (comptes || []).filter(c => !String(c.deleted || '').toUpperCase().includes('TRUE'));
   const onboardes = vivants.filter(c => window.estEmpower && window.estEmpower(c));
-  const actif = c => PER.some(p => Number(c['CA_EMP_' + p]) > 0) || !!String(c.SellIn_Derniere_Semaine || '').trim();
+  const actif = c => window.FlagsCanal.active(c);
   const parCds = {};
   let act = 0;
   onboardes.forEach(c => {
@@ -239,7 +239,8 @@ function calculerActivationEmpower(comptes) {
     parCds: Object.entries(parCds).map(([pin, v]) => ({ pin, ...v, pct: v.tot ? Math.round(v.act / v.tot * 100) : 0 })).sort((a, b) => b.tot - a.tot) };
 }
 
-function renderJaugeActivation(comptes) {
+function renderJaugeActivation(comptes, opts) {
+  const nu = !!(opts && opts.sansCarte);
   const a = calculerActivationEmpower(comptes);
   const R = 70, C = Math.PI * R, rempli = C * a.pct / 100;
   const arc = `M 20 90 A ${R} ${R} 0 0 1 160 90`;
@@ -249,9 +250,7 @@ function renderJaugeActivation(comptes) {
         <span style="flex:1;height:8px;border-radius:4px;background:var(--c-border);overflow:hidden"><span style="display:block;height:100%;width:${x.pct}%;background:#FF6D68"></span></span>
         <span style="flex:0 0 96px;text-align:right;white-space:nowrap;color:var(--c-text-2)">${x.act} / ${x.tot} · ${x.pct} %</span>
       </div>`).join('');
-  return `
-  <div class="bloc-fiche">
-    <div class="bloc-titre">Activation Empower</div>
+  const corps = `
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px">
       <svg viewBox="0 0 180 104" width="200" role="img" aria-label="${a.pct} % de comptes activés : ${a.act} sur ${a.tot}" style="max-width:100%;flex:0 0 auto">
         <path d="${arc}" fill="none" stroke="var(--c-border)" stroke-width="16" stroke-linecap="round"/>
@@ -266,8 +265,8 @@ function renderJaugeActivation(comptes) {
       </div>
     </div>
     ${lignes ? `<div style="margin-top:10px">${lignes}</div>` : ''}
-    <div style="font-size:11px;color:var(--c-text-2);margin-top:8px">Mis à jour à chaque import du fichier Sell-In.</div>
-  </div>`;
+    <div style="font-size:11px;color:var(--c-text-2);margin-top:8px">Mis à jour à chaque import du fichier Sell-In.</div>`;
+  return nu ? corps : `<div class="bloc-fiche"><div class="bloc-titre">Activation Empower</div>${corps}</div>`;
 }
 
 window.calculerActivationEmpower = calculerActivationEmpower;

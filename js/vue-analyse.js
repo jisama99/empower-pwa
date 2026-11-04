@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════
 //  vue-analyse.js — Analyse et objectifs : graphiques interactifs + rapport PDF paysage
 //  Sources : COMPTES, OBJECTIFS_PRIMES, PARAMS (SheetsAPI). Périmètre : ADMIN/CHANNEL = tout, CDS = ses comptes.
-//  Règle « activé » (validée 3 nov. 2026) : compte Empower onboardé ayant passé une première commande
-//  (CA Empower > 0 sur une période, ou signal sell-in « dernière semaine de commande »).
+//  Règle « activé » (unifiée le 4 nov. 2026, FlagsCanal.active) : compte Empower onboardé ayant passé une première commande
+//  (CA Empower > 0 sur au moins une période ; le signal sell-in « dernière semaine » ne compte plus).
 //  Graphiques : survol = infobulle, clic = détail dessous. Rapport : sections cochées → impression PDF A4 paysage.
 // ═══════════════════════════════════════
 
@@ -17,7 +17,7 @@ window.VueAnalyse = {
   // Compte Empower onboardé ? / activé (première commande Empower passée) ?
   estOnboarde(c) { return window.estEmpower ? estEmpower(c) : false; },
   estActive(c) {
-    return this.estOnboarde(c) && (this.PERIODES.some(p => Number(c['CA_EMP_' + p]) > 0) || !!String(c.SellIn_Derniere_Semaine || '').trim());
+    return this.estOnboarde(c) && window.FlagsCanal.active(c);
   },
 
   async init() {

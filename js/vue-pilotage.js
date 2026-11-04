@@ -203,7 +203,7 @@ window.VuePilotage = {
           <b>${x.a}/${x.a + x.n}</b></button>`).join('');
       const nA = emp.filter(c => FlagsCanal.active(c)).length;
       blocs.push(`<section class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Tracker Empower · nourri par le sell-in</span><h3>Comptes activés vs non activés</h3></div></div>
-        <div class="pilo-big">${nA}<small> activés sur ${emp.length} comptes Empower${emp.length ? ' · ' + Math.round(nA / emp.length * 100) + ' %' : ''}</small></div>
+        ${window.renderJaugeActivation(comptes, { sansCarte: true })}
         <div data-tipzone>${lignesT || '<p class="pilo-vide">Aucun compte Empower.</p>'}</div>
         <p class="pilo-leg2"><span class="flag flag-act">${FlagsCanal.ICO.ok}Activé</span><span class="flag flag-noact">${FlagsCanal.ICO.no}Non activé</span></p></section>`);
 

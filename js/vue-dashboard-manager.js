@@ -40,6 +40,7 @@ window.VueDashboardManager = {
         SheetsAPI.lire('EMPOWER_MDB', 'PARAMS'),
       ]);
       this.state.d = this._calculer({ objectifs, visites, appels, prospects, comptes, params });
+      this._comptesEquipe = comptes;
       this.state.chargement = false;
       this.render();
     } catch(e) {
@@ -815,6 +816,7 @@ window.VueDashboardManager = {
         <div class="dash-col-main">
         <p class="dash-date" style="color:var(--c-text-2);font-family:Montserrat,sans-serif;font-size:13px">${dateFr} · Suivi FY27</p>
 
+        ${this._raw ? section('Activation Empower', '#FF6D68', window.renderJaugeActivation(this._raw.comptes, { sansCarte: true })) : ''}
         ${section('Pipeline', '#6B7580', pipelineCorps)}
         <!-- Bloc E (07/2026) — grille 2 colonnes desktop (≥1200px) au lieu
              d'un empilement plein-largeur, pour désencombrer le Reporting. -->
@@ -855,7 +857,7 @@ window.VueDashboardManager = {
         <button onclick="Router.retour()" class="btn-retour">←</button>
         <h1>Vue équipe</h1>
       </header>
-      <div class="copil-print avec-nav">${this._htmlEquipe(d)}</div>
+      <div class="copil-print avec-nav">${this._htmlEquipe(d)}<div style="padding:0 16px">${window.renderJaugeActivation(this._comptesEquipe || [])}</div></div>
       ${NavBar('reporting')}
       ${FusionTabs.accueil()}
     `;
