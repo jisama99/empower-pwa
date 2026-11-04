@@ -241,6 +241,14 @@ window.VuePilotage = {
     };
   },
 
+  // Filtres partagés par tous les onglets : trimestre, semaine en cours, commercial (FilterState)
+  _barreFiltres(f) {
+    return `<div class="pilo-filtres-glob dash-filtres-camembert" role="group" aria-label="Période et commercial">
+      ${['Q1', 'Q2', 'Q3', 'Q4'].map(q => `<button class="btn-filtre ${f.quarter === q ? 'actif' : ''}" onclick="VuePilotage.setQuarterCamembert('${q}')">${q}</button>`).join('')}
+      <button class="btn-filtre ${f.semaineSeule ? 'actif' : ''}" onclick="VuePilotage.toggleSemaineCamembert()">Semaine en cours</button>
+      ${Session.voitTout() ? `<select aria-label="Commercial" onchange="VuePilotage.setCommercialCamembert(this.value)"><option value="">Vue consolidée</option>${((this._raw && this._raw.objectifs) || []).map(o => `<option value="${o.PIN_CDS}" ${Number(f.filtres.pinCommercial) === Number(o.PIN_CDS) ? 'selected' : ''}>${this._esc(window.resolveCDS(o.PIN_CDS))}</option>`).join('')}</select>` : ''}
+    </div>`;
+  },
   setVue(v) { this.state.vue = v; this.render(); },
   setOnglet(o) { this.state.onglet = o; this.render(); },
   _ONGLETS: [['activite', 'Activité'], ['ventes', 'Ventes'], ['portefeuille', 'Portefeuille'], ['objectifs', 'Objectifs']],
@@ -292,7 +300,8 @@ window.VuePilotage = {
       const channel = Session.estChannel && Session.estChannel();
       const onglets = this._ONGLETS.filter(([k]) => !(channel && k === 'ventes'));
       const onglet = onglets.some(([k]) => k === s.onglet) ? s.onglet : 'activite';
-      const g = this._raw ? this._graphiques(window.calculerCamembertsActivite(this._raw)) : { activite: '', ventes: '', portefeuille: '', objectifs: '' };
+      const fGlob = this._raw ? window.calculerCamembertsActivite(this._raw) : null;
+      const g = fGlob ? this._graphiques(fGlob) : { activite: '', ventes: '', portefeuille: '', objectifs: '' };
       const kr = kpisReste.length ? `<div class="pilo-kpis">${kpisReste.map(k => this._kpiHtml(k)).join('')}</div>` : '';
       const equipeBloc = manager ? `<div class="pilo-grille"><section class="pilo-panneau" aria-label="Synthèse d'équipe"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Synthèse d’équipe</span><h3>Charge et points d’attention</h3></div></div>${this._equipe(d)}</section></div>` : '';
       const contenu = { activite: kr + equipeBloc + g.activite, ventes: g.ventes, portefeuille: this._jaugesObjectifs(manager, 'entonnoir') + g.portefeuille, objectifs: this._jaugesObjectifs(manager, 'contacts') + g.objectifs }[onglet];
@@ -316,9 +325,10 @@ window.VuePilotage = {
           ${this._actions(d) || '<p class="pilo-vide">Rien d’urgent : aucun rappel échu ni compte à contacter.</p>'}
         </section>
       </div>
-      <style>.pilo-onglets{display:flex;gap:6px;overflow-x:auto;margin:18px 0 12px;padding-bottom:2px;scrollbar-width:none}.pilo-onglets::-webkit-scrollbar{display:none}
+      <style>.pilo-filtres-glob{margin:0 0 12px}.pilo [role=tabpanel] .dash-filtres-camembert,.pilo [role=tabpanel] .dash-camembert-actif-pin{display:none}.pilo-onglets{display:flex;gap:6px;overflow-x:auto;margin:18px 0 12px;padding-bottom:2px;scrollbar-width:none}.pilo-onglets::-webkit-scrollbar{display:none}
         .pilo-onglets button{flex:0 0 auto;padding:9px 16px;border:0;border-radius:999px;background:var(--c-surface-2,rgba(52,63,72,.07));color:inherit;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
         .pilo-onglets button[aria-selected=true]{background:#343F48;color:#fff}.pilo-onglets .pilo-onglet-n{margin-left:6px;opacity:.7;font-weight:500}</style>
+      ${fGlob ? this._barreFiltres(fGlob) : ''}
       <div class="pilo-onglets" role="tablist" aria-label="Thèmes du pilotage">${onglets.map(([k, l]) => `<button role="tab" aria-selected="${k === onglet}" onclick="VuePilotage.setOnglet('${k}')">${l}</button>`).join('')}</div>
       <div role="tabpanel">${contenu}</div>`;
     }

@@ -120,6 +120,17 @@ window.VueTerritoires = {
 
   // Points revendeurs : uniquement quand la lecture le permet (département choisi, région ou zoom suffisant), jamais sur la vue nationale
   _pointsVisibles() { const s = this.state; return s.points && (!!s.dep || (!!s.reg && s.z >= 1.6) || s.z >= 3); },
+  // Position exacte : coordonnées GPS de la fiche projetées sur la carte (calage vérifié sur les fiches géolocalisées),
+  // acceptées seulement si le point tombe bien dans le département de la fiche ; sinon placement au département.
+  _gps(c, dep) {
+    const r = c.raw || {}, la = parseFloat(r.GPS_Lat ?? r.latitude), lo = parseFloat(r.GPS_Lng ?? r.longitude);
+    if (!isFinite(la) || !isFinite(lo) || !dep) return null;
+    const pt = [6.7 * (lo + 5.15), 10.2 * (51.1 - la)];
+    const rings = dep._rings || (dep._rings = dep.d.split('M').filter(Boolean).map(r => r.split('L').map(q => q.split(',').map(Number))));
+    let dans = false;
+    rings.forEach(rg => { for (let i = 0, j = rg.length - 1; i < rg.length; j = i++) { const [xi, yi] = rg[i], [xj, yj] = rg[j]; if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) dans = !dans; } });
+    return dans ? pt : null;
+  },
   _couleurPoint(c) { return c.lead ? '#3E8E9B' : c.active ? '#343F48' : c.empower ? '#7B8A97' : '#C2CAD1'; },
   _points(par, vb, sc) {
     const s = this.state; if (!this._pointsVisibles()) return { svg: '', deps: new Set(), n: 0, plus: 0 };
@@ -133,15 +144,19 @@ window.VueTerritoires = {
       deps.add(d.c);
       // Ordre stable : activés d'abord, puis Empower, grossistes, leads ; spirale régulière autour du centre du département
       const tri = l.slice().sort((a, b) => (b.active - a.active) || (b.empower - a.empower) || (a.lead ? 1 : 0) - (b.lead ? 1 : 0) || String(a.nom).localeCompare(String(b.nom)));
-      tri.slice(0, MAX).forEach((c, i) => {
-        const r = rd * 2.3 * Math.sqrt(i + .6), a = i * 2.39996, x = d.cx + r * Math.cos(a), y = d.cy + r * Math.sin(a), sel = String(s.sel) === String(c.id);
-        const tip = `${c.nom}${c.lead ? ' (lead)' : ''}\n${c.ville || 'Ville n.c.'} · ${d.c}\n${c.lead ? 'Lead' : c.active ? 'Revendeur activé' : c.empower ? 'Empower, pas encore activé' : 'Grossiste'}\nPosition au département`;
+      const exacts = [], approx = [];
+      tri.forEach(c => { const g = this._gps(c, d); (g ? exacts : approx).push([c, g]); });
+      const pos = exacts.map(([c, g]) => [c, g[0], g[1], true]);
+      approx.slice(0, Math.max(0, MAX - pos.length)).forEach(([c], i) => { const r = rd * 2.3 * Math.sqrt(i + .6), a = i * 2.39996; pos.push([c, d.cx + r * Math.cos(a), d.cy + r * Math.sin(a), false]); });
+      pos.forEach(([c, x, y, exact]) => {
+        const sel = String(s.sel) === String(c.id);
+        const tip = `${c.nom}${c.lead ? ' (lead)' : ''}\n${c.ville || 'Ville n.c.'} · ${d.c}\n${c.lead ? 'Lead' : c.active ? 'Revendeur activé' : c.empower ? 'Empower, pas encore activé' : 'Grossiste'}\n${exact ? 'Position exacte' : 'Position au département'}`;
         svg += `<circle class="terr-pt-m" data-pt="${c.lead ? '' : this._esc(c.id)}" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(sel ? rd * 1.7 : rd).toFixed(3)}" fill="${sel ? 'var(--terr-sel)' : this._couleurPoint(c)}" stroke="#fff" stroke-width="${(rd * .35).toFixed(3)}" data-tip="${this._esc(tip)}"></circle>`;
         n++;
       });
-      if (tri.length > MAX) {
-        plus += tri.length - MAX;
-        svg += `<text x="${(d.cx).toFixed(2)}" y="${(d.cy + rd * 2.3 * Math.sqrt(MAX + .6) + rd * 3).toFixed(2)}" font-size="${(rd * 3).toFixed(3)}" text-anchor="middle" class="dcode" pointer-events="none">+${tri.length - MAX}</text>`;
+      if (tri.length > pos.length) {
+        plus += tri.length - pos.length;
+        svg += `<text x="${(d.cx).toFixed(2)}" y="${(d.cy + rd * 2.3 * Math.sqrt(Math.max(approx.length, 1) + .6) + rd * 3).toFixed(2)}" font-size="${(rd * 3).toFixed(3)}" text-anchor="middle" class="dcode" pointer-events="none">+${tri.length - pos.length}</text>`;
       }
     });
     return { svg, deps, n, plus };
@@ -375,7 +390,7 @@ window.VueTerritoires = {
         <div>
           <div class="terr-map">${this._carte(par)}
             <div class="terr-tools"><button id="terr-zi" aria-label="Zoom avant" title="Zoom avant">+</button><button id="terr-zo" aria-label="Zoom arrière" title="Zoom arrière">−</button><button id="terr-zr" aria-label="Recentrer" title="Recentrer" style="font-size:13px">⌖</button><button id="terr-up" aria-label="Niveau supérieur" title="Niveau supérieur">↑</button><button id="terr-fs" aria-label="${s.plein ? 'Quitter le plein écran' : 'Carte en plein écran'}" title="${s.plein ? 'Quitter le plein écran (Échap)' : 'Plein écran'}">${s.plein ? '⤡' : '⤢'}</button></div>
-            <div class="terr-legende" aria-hidden="true"><span><i style="background:#343F48;opacity:.35"></i>Teinte plus soutenue = plus de ${s.calque === 'vis' ? 'visites' : s.calque === 'act' ? 'activés' : 'revendeurs'} (max ${maxLeg})</span><span><i style="background:repeating-linear-gradient(45deg,#8A949E 0 3px,#E1E5E8 3px 6px)"></i>Département partagé</span><span><i style="background:#FF6D68"></i>Sélectionné</span>${this._pointsVisibles() ? `<span><i style="background:#343F48;border-radius:50%"></i>Activé</span><span><i style="background:#7B8A97;border-radius:50%"></i>Empower</span><span><i style="background:#C2CAD1;border-radius:50%"></i>Grossiste</span>${s.avecLeads ? '<span><i style="background:#3E8E9B;border-radius:50%"></i>Lead</span>' : ''}<span style="opacity:.7">Points placés au département</span>` : ''}${s.calque === 'act' ? '<span><i style="background:repeating-linear-gradient(90deg,#FF6D68 0 3px,transparent 3px 5px)"></i>Zone blanche</span>' : ''}</div>
+            <div class="terr-legende" aria-hidden="true"><span><i style="background:#343F48;opacity:.35"></i>Teinte plus soutenue = plus de ${s.calque === 'vis' ? 'visites' : s.calque === 'act' ? 'activés' : 'revendeurs'} (max ${maxLeg})</span><span><i style="background:repeating-linear-gradient(45deg,#8A949E 0 3px,#E1E5E8 3px 6px)"></i>Département partagé</span><span><i style="background:#FF6D68"></i>Sélectionné</span>${this._pointsVisibles() ? `<span><i style="background:#343F48;border-radius:50%"></i>Activé</span><span><i style="background:#7B8A97;border-radius:50%"></i>Empower</span><span><i style="background:#C2CAD1;border-radius:50%"></i>Grossiste</span>${s.avecLeads ? '<span><i style="background:#3E8E9B;border-radius:50%"></i>Lead</span>' : ''}<span style="opacity:.7">Position exacte si GPS connu, sinon au département</span>` : ''}${s.calque === 'act' ? '<span><i style="background:repeating-linear-gradient(90deg,#FF6D68 0 3px,transparent 3px 5px)"></i>Zone blanche</span>' : ''}</div>
           </div>
           ${this._zonesBlanches()}
         </div>
