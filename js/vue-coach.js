@@ -31,6 +31,7 @@ window.VueCoach = {
       this._raw = { comptes: comptes || [], leads: leads || [], visites: visites || [], appels: appels || [], objectifs: objectifs || [], params: params || [], actions: actions || [] };
       this._suivi = new Map((suivi || []).map(r => [String(r._uuid), r]));
       if (!s.pin && !Session.voitTout()) s.pin = String(Session.pin);
+      await this._cochesCharger();
       this._calculer();
       if (!s.fil.length) s.fil.push({ r: 'a', h: `<b>Bonjour ${this._esc(this._prenom())}.</b> Je m'appuie sur vos chiffres, le catalogue et les règles du séminaire. Choisissez une question ci-dessus ou écrivez la vôtre.` });
       s.maj = new Date();
@@ -83,8 +84,37 @@ window.VueCoach = {
   _coche(tri, id) { try { return !!(JSON.parse(localStorage.getItem(this._cle(tri)) || '{}')[id]); } catch (e) { return false; } },
   basculer(id) {
     const d = this.state.d; if (!d) return;
-    try { const k = this._cle(d.tri), o = JSON.parse(localStorage.getItem(k) || '{}'); o[id] ? delete o[id] : (o[id] = 1); localStorage.setItem(k, JSON.stringify(o)); } catch (e) {}
+    let o = null;
+    try { const k = this._cle(d.tri), cur = JSON.parse(localStorage.getItem(k) || '{}'); cur[id] ? delete cur[id] : (cur[id] = 1); localStorage.setItem(k, JSON.stringify(cur)); o = cur; } catch (e) {}
+    if (o && d.tri) this._cochesSauver(d.tri.quarter + '-' + d.tri.semaine, o);
     this._calculer(); this.render();
+  },
+
+  // Coches du plan : copie serveur dans la table `vues_filtres` (module « coach-plan », une ligne par commercial et par semaine, droits par PIN existants)
+  // pour les retrouver d'un appareil à l'autre (décocher se propage aussi) ; localStorage reste le miroir immédiat et le repli si le serveur est injoignable.
+  _cochesCharger() {
+    const c = window.SheetsAPI && SheetsAPI._sb; if (!c) return Promise.resolve();
+    this._cocheIds = this._cocheIds || {};
+    return c.from('vues_filtres').select('id,nom,filtres_json').eq('module', 'coach-plan').eq('pin_cds', Number(Session.pin)).limit(60).then(({ data, error }) => {
+      if (error || !Array.isArray(data)) return;
+      data.forEach(r => {
+        this._cocheIds[r.nom] = r.id;
+        try {
+          const srv = r.filtres_json && typeof r.filtres_json === 'object' && !Array.isArray(r.filtres_json) ? r.filtres_json : {};
+          localStorage.setItem(`esi.coach.plan.${Session.pin}.${r.nom}`, JSON.stringify(srv)); // le serveur fait foi : chaque coche y écrit l'état complet de la semaine
+        } catch (e) { /* stockage local indisponible : le miroir local reste tel quel */ }
+      });
+    }).catch(() => {});
+  },
+  async _cochesSauver(nom, o) {
+    const c = window.SheetsAPI && SheetsAPI._sb; if (!c) return;
+    this._cocheIds = this._cocheIds || {};
+    try {
+      const id = this._cocheIds[nom];
+      if (id) { await c.from('vues_filtres').update({ filtres_json: o, updated_at: new Date().toISOString() }).eq('id', id); return; }
+      const { data } = await c.from('vues_filtres').insert({ pin_cds: Number(Session.pin), module: 'coach-plan', nom, filtres_json: o }).select('id').single();
+      if (data && data.id) this._cocheIds[nom] = data.id;
+    } catch (e) { /* le miroir local garde la coche */ }
   },
 
   setPin(v) { this.state.pin = v; this._calculer(); this.render(); },
