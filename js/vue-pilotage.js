@@ -234,6 +234,36 @@ window.VuePilotage = {
 
   setVue(v) { this.state.vue = v; this.render(); },
 
+  // Objectifs de fin d'année : contacts renseignés (31/12/2026), entonnoir Empower et paliers (séminaire).
+  _jaugesObjectifs(manager) {
+    const cs = ((this._raw && this._raw.comptes) || []).filter(c => String(c.deleted || '').toUpperCase() !== 'TRUE');
+    if (!cs.length || !window.ContactsObjectif) return '';
+    const E = this._esc, st = ContactsObjectif.stats(cs);
+    const emp = cs.filter(c => window.estEmpower(c)), act = emp.filter(c => window.FlagsCanal.active(c));
+    const contactesEmp = emp.filter(c => ContactsObjectif.etat(c).contact).length;
+    const pal = ['DORMANT', 'EVEIL', 'ACTIF', 'AMBASSADEUR'].map(k => [Paliers.PALIERS[k], emp.filter(c => Paliers.palier(c).cle === k).length]);
+    const barre = (n, tot, col) => `<div style="height:10px;border-radius:5px;background:var(--c-border);overflow:hidden"><div style="height:100%;width:${tot ? Math.round(n / tot * 100) : 0}%;background:${col}"></div></div>`;
+    const aFaire = cs.filter(c => !ContactsObjectif.etat(c).contact).length;
+    const entonnoir = [['Comptes Empower', emp.length, '#343F48'], ['Contact renseigné', contactesEmp, '#8A949E'], ['Première commande', act.length, '#FF6D68']];
+    return `<div class="cs-jauges">
+      <section class="cs-jauge" aria-label="Contacts renseignés">
+        <div class="bloc-titre" style="margin-bottom:8px">Contacts renseignés · objectif 31/12/2026</div>
+        ${ContactsObjectif.renderJauge(cs, { sansCarte: true })}
+        <button class="cs-puce" style="margin-top:10px" onclick="VueComptes.state.filtreFiche='A_COMPLETER';Router.aller('#/comptes')">${aFaire} fiche${aFaire > 1 ? 's' : ''} à compléter ›</button>
+      </section>
+      ${manager ? `<section class="cs-jauge" aria-label="Entonnoir Empower">
+        <div class="bloc-titre" style="margin-bottom:8px">Entonnoir Empower et paliers</div>
+        ${entonnoir.map(([l, n, col]) => `<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${E(l)}</span><strong>${n}</strong></div>${barre(n, emp.length, col)}</div>`).join('')}
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">${pal.map(([p, n]) => `<span class="palier-badge" style="--pc:${p.couleur}">${E(p.lib)} ${n}</span>`).join('')}</div>
+        <p class="pilo-vide" style="margin-top:8px;font-size:12px">${emp.length - act.length} comptes Empower sans commande : à relancer. Seuils : Éveil sous 1 000 €, Actif dès 1 000 €, Ambassadeur dès 3 000 € de CA Empower FY27.</p>
+      </section>` : `<section class="cs-jauge" aria-label="À faire aujourd'hui">
+        <div class="bloc-titre" style="margin-bottom:8px">À faire aujourd’hui</div>
+        <p style="font-size:13px;margin:0 0 8px">${aFaire} fiche${aFaire > 1 ? 's' : ''} sans contact joignable. Visez ${Math.min(aFaire, 3)} fiche${Math.min(aFaire, 3) > 1 ? 's' : ''} par visite.</p>
+        <p style="font-size:13px;margin:0">${emp.length - act.length} compte${emp.length - act.length > 1 ? 's' : ''} Empower sans première commande à relancer.</p>
+      </section>`}
+    </div>`;
+  },
+
   render() {
     const s = this.state, app = document.getElementById('app');
     if (!s || !app) return;
@@ -262,6 +292,7 @@ window.VuePilotage = {
         <button class="pilo-kpi${k.alerte ? ' alerte' : ''}" onclick="Router.aller('${k.to}')">
           <span class="pilo-kpi-l">${E(k.l)}</span><strong>${E(k.v)}</strong><small>${E(k.s)}</small><i aria-hidden="true">›</i>
         </button>`).join('')}</div>
+      ${this._jaugesObjectifs(manager)}
       <div class="pilo-grille">
         <section class="pilo-panneau" aria-label="Actions prioritaires">
           <div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Actions prioritaires</span><h3>${manager ? 'À faire par l’équipe' : 'Mes actions du jour'}</h3></div>

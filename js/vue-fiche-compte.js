@@ -16,7 +16,7 @@ window.VueFicheCompte = {
 
   state: {
     compte: null, v17: null, visites: [], appels: [], chargement: true,
-    editCoord: false,
+    editCoord: false, onglet: 'resume', ongletId: null,
     formCoord: { adresse: '', ville: '', code_postal: '', departement: '', tel: '', email: '', contact_nom: '', contact_fonction: '' },
     sauvegardeEnCours: false,
     modalRapportPhoning: false,
@@ -134,12 +134,13 @@ window.VueFicheCompte = {
       adresse:     c.Adresse     || '',
       ville:       c.Ville       || '',
       code_postal: c.Code_Postal || '',
-      departement: c.Departement || (c.Code_Postal ? String(c.Code_Postal).slice(0, 2) : ''),
+      departement: c.Departement || window.ESI_GEO.depDeCP(c.Code_Postal) || '',
       tel:         c.Tel         || '',
       email:       c.Email       || '',
       contact_nom:      c.Contact_Nom      || '',
       contact_fonction: c.Contact_Fonction || '',
     };
+    this.state.formCoord._depAuto = !c.Departement || String(c.Departement).trim() === window.ESI_GEO.depDeCP(c.Code_Postal);
     this.state.editCoord = true;
     this._rerender();
   },
@@ -149,12 +150,14 @@ window.VueFicheCompte = {
     this._rerender();
   },
 
+  // Département déduit du code postal à 5 chiffres (Corse 2A/2B, outre-mer 3 chiffres), sans reconstruire le formulaire
+  // (le re-rendu à chaque frappe faisait perdre le focus au champ).
   _syncDept() {
-    const cp = this.state.formCoord.code_postal.trim();
-    if (cp.length >= 2 && !this.state.formCoord.departement) {
-      this.state.formCoord.departement = cp.slice(0, cp.startsWith('97') ? 3 : 2);
+    const f = this.state.formCoord, dep = window.ESI_GEO.depDeCP(f.code_postal);
+    if (dep && (!f.departement || f._depAuto)) {
+      f.departement = dep; f._depAuto = true;
+      const champ = document.getElementById('fiche-dep'); if (champ) champ.value = dep;
     }
-    this._rerender();
   },
 
   async sauvegarderCoordonnees() {
@@ -440,7 +443,7 @@ window.VueFicheCompte = {
               </label>
               <label style="flex:1;font-size:13px;font-weight:600">Département
                 <input value="${f.departement}" placeholder="ex : 75" maxlength="3"
-                       oninput="VueFicheCompte.state.formCoord.departement=this.value"
+                       id="fiche-dep" oninput="VueFicheCompte.state.formCoord.departement=this.value;VueFicheCompte.state.formCoord._depAuto=false"
                        style="width:100%;margin-top:4px"/>
               </label>
             </div>
@@ -562,63 +565,81 @@ window.VueFicheCompte = {
   // Contenu de la fiche (identité + CA + prochaine action + visites + appels),
   // sans header ni barre d'actions — réutilisé par render() (page pleine mobile)
   // et par le panneau docké desktop (VueComptes.ouvrirFiche, Bloc 9 refonte).
+  _h(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+  setOnglet(o) { this.state.onglet = o; this._rerender(); },
+
+  _renderHero(c, fy26, dernier) {
+    const e = ContactsObjectif.etat(c), p = Paliers.palier(c), act = Paliers.prochaineAction(c);
+    const ini = String(c.Nom_Compte || '?').replace(/[^A-Za-zÀ-ÿ0-9 ]/g, '').trim().split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase() || '?';
+    const dep = window.ESI_GEO.depDe(c), tel = c.Tel ? String(c.Tel).replace(/\s/g, '') : '', mail = c.Email || '';
+    const caEmp = Paliers.caEmpower(c);
+    const cible = act.cible === 'fiche' ? "VueFicheCompte.setOnglet('contact');VueFicheCompte.ouvrirEditionCoordonnees()" : "VueFicheCompte.setOnglet('resume')";
+    return `
+      <section class="cs-hero" aria-label="Compte">
+        <div class="cs-hero-top">
+          <div class="cs-avatar" aria-hidden="true">${this._h(ini)}</div>
+          <div style="min-width:0;flex:1">
+            <h2 class="cs-nom">${this._h(c.Nom_Compte)}</h2>
+            <div class="cs-meta">${this._h(c.Ville || 'Ville à renseigner')}${dep ? ' · ' + dep : ''} · ${this._h(window.resolveCDS(c.PIN_CDS_Assigne))}</div>
+            <div class="cs-flags">${window.FlagsCanal.html(c)} ${Paliers.badgePalier(c)} ${ContactsObjectif.pastille(c)} <span class="cs-meta">Fiche ${e.pct} %</span></div>
+          </div>
+        </div>
+        <div class="cs-quick">
+          ${tel ? `<a class="primaire" href="tel:${this._h(tel)}">Appeler</a>` : '<span class="vide">Appeler (téléphone à renseigner)</span>'}
+          ${mail ? `<a href="mailto:${this._h(mail)}">E-mail</a>` : ''}
+          <button onclick="VueQuestionnaire._visitePlanifiee=null;Router.aller('#/questionnaire/${c.ID_Compte}')">Visite</button>
+        </div>
+      </section>
+      <div class="cs-kpis">
+        <div class="cs-kpi"><div class="cs-kpi-l">CA Empower FY27</div><div class="cs-kpi-v">${caEmp ? window.fmtCA(caEmp) + ' €' : 'n.c.'}</div><div class="cs-kpi-s">${p.cle === 'NA' ? 'Hors Empower' : 'Palier ' + p.lib}</div></div>
+        <div class="cs-kpi"><div class="cs-kpi-l">CA FY26</div><div class="cs-kpi-v">${fy26 ? window.fmtCA(fy26) + ' €' : 'n.c.'}</div><div class="cs-kpi-s">Sell-in</div></div>
+        <div class="cs-kpi"><div class="cs-kpi-l">Dernier contact</div><div class="cs-kpi-v" style="font-size:17px">${dernier ? this._dateLigne(dernier) : 'Jamais'}</div><div class="cs-kpi-s">visite ou appel</div></div>
+        <div class="cs-kpi"><div class="cs-kpi-l">Fiche</div><div class="cs-kpi-v">${e.pct} %</div><div class="cs-kpi-s">${e.complet ? 'Complète' : e.contact ? 'Contact renseigné' : 'À compléter'}</div></div>
+      </div>
+      <div class="cs-next" role="status"><div><strong>Prochaine meilleure action : ${this._h(act.lib)}</strong><span>${this._h(act.detail)}</span></div>
+        ${act.cible === 'fiche' ? `<button class="btn-secondaire" style="width:auto" onclick="${cible}">Compléter la fiche</button>` : ''}</div>`;
+  },
+
+  _renderChecklist(c) {
+    const e = ContactsObjectif.etat(c);
+    return `<div class="bloc-fiche"><div class="bloc-titre">Complétude de la fiche · objectif 31/12/2026</div>
+      <div class="cs-checklist">${ContactsObjectif.CHAMPS.map(x => `<div class="cs-check ${e.f[x.cle] ? 'ok' : 'ko'}">${e.f[x.cle] ? '✓' : '○'} ${x.lib}</div>`).join('')}</div>
+      ${e.complet ? '' : `<div style="margin-top:10px"><button class="btn-secondaire" style="width:auto" onclick="VueFicheCompte.setOnglet('contact');VueFicheCompte.ouvrirEditionCoordonnees()">Renseigner maintenant</button></div>`}</div>`;
+  },
+
   renderContenuFiche() {
     const c   = this.state.compte;
     const v17 = this.state.v17;
+    if (this.state.ongletId !== c.ID_Compte) { this.state.ongletId = c.ID_Compte; this.state.onglet = 'resume'; }
     const fy25 = window.parseCA(v17?.['CA FY25 €'] ?? c.CA_FY25) ?? 0;
     const fy26 = window.parseCA(v17?.['CA FY26 €'] ?? c.CA_FY26) ?? 0;
     const fy27 = (window.caQuarterActif(v17, this.state.quarter, 'sellin') ?? window.caQuarterActif(c, this.state.quarter)) ?? 0;
     const maxCA = Math.max(fy25, fy26, fy27, 1);
+    const dernier = [this._dernierVisiteRealisee && this._dernierVisiteRealisee(), (this.state.appels[0] || {}).Date].filter(Boolean).map(d => String(d.Date || d).slice(0, 10)).sort().pop() || c.Date_Derniere_Action || null;
+    const o = this.state.onglet, nbAct = this.state.visites.length + this.state.appels.length;
+    const onglets = [['resume', 'Résumé'], ['contact', 'Contact et localisation'], ['activite', `Activité (${nbAct})`], ['chiffres', 'Chiffres']];
 
-    return `
-      ${this._renderBlocIdentite(c)}
-
+    const resume = `${this._renderChecklist(c)}
       ${window.EquipeContacts ? EquipeContacts.carteDuCommercial(c.PIN_CDS_Assigne) : ''}
-
       ${SellInFlag.blocFiche(c, this.state.sellinSemaines)}
-
       ${NonSuivis.blocFiche(c, this.state.historiqueAttrib)}
-
-      <!-- CA HISTORIQUE -->
-      <div class="bloc-fiche">
-        <div class="bloc-titre">CA Historique</div>
+      <div class="bloc-fiche"><div class="bloc-titre">Prochaine action planifiée</div>
+        ${c.Prochaine_Action ? `<div class="prochaine-action-detail"><div class="pa-type">${c.Prochaine_Action}</div>
+          <div class="pa-date ${estDepassee(c.Date_Prochaine_Action) ? 'date-depassee' : ''}">${dateRelative(c.Date_Prochaine_Action)}</div>
+          ${c.Note_initiale ? `<div class="pa-note">${c.Note_initiale}</div>` : ''}</div>` : '<div class="pas-de-donnees">Aucune action planifiée</div>'}</div>`;
+    const chiffres = `<div class="bloc-fiche"><div class="bloc-titre">CA Historique</div>
         ${!v17 ? '<div class="pas-de-v17">Pas de correspondance V17, données MDB</div>' : ''}
-        <div class="graphique-ca">
-          ${this._barreCA('FY25', fy25, maxCA)}
-          ${this._barreCA('FY26', fy26, maxCA)}
-          ${this._barreCA(this.state.quarter + '·27', fy27, maxCA)}
-        </div>
-        ${v17 ? `
-        <div class="grille-identite" style="margin-top:12px">
+        <div class="graphique-ca">${this._barreCA('FY25', fy25, maxCA)}${this._barreCA('FY26', fy26, maxCA)}${this._barreCA(this.state.quarter + '·27', fy27, maxCA)}</div>
+        ${v17 ? `<div class="grille-identite" style="margin-top:12px">
           <div class="id-ligne"><span>Évolution FY26 vs FY25</span><strong>${(() => { const ev = window.parseCA(v17['EVOL_FY26_VS_FY25_%']); return ev !== null ? ev + ' %' : (v17['EVOL_FY26_VS_FY25_%'] ? String(v17['EVOL_FY26_VS_FY25_%']) : 'n.c.'); })()}</strong></div>
           <div class="id-ligne"><span>Potentiel upsell</span><strong>${v17.POTENTIEL_UPSELL || 'n.c.'}</strong></div>
-          <div class="id-ligne"><span>Score potentiel</span><strong>${v17.SCORE_POTENTIEL != null && v17.SCORE_POTENTIEL !== '' ? String(v17.SCORE_POTENTIEL) + '/100' : 'n.c.'}</strong></div>
-        </div>` : ''}
-      </div>
+          <div class="id-ligne"><span>Score potentiel</span><strong>${v17.SCORE_POTENTIEL != null && v17.SCORE_POTENTIEL !== '' ? String(v17.SCORE_POTENTIEL) + '/100' : 'n.c.'}</strong></div></div>` : ''}</div>`;
+    const activite = `<div class="bloc-fiche"><div class="bloc-titre">Activité (${nbAct})</div>${this._renderActiviteUnifiee()}</div>`;
+    const corps = { resume, contact: this._renderBlocIdentite(c), activite, chiffres }[o] || resume;
 
-      <!-- PROCHAINE ACTION -->
-      <div class="bloc-fiche">
-        <div class="bloc-titre">Prochaine action</div>
-        ${c.Prochaine_Action ? `
-          <div class="prochaine-action-detail">
-            <div class="pa-type">${c.Prochaine_Action}</div>
-            <div class="pa-date ${estDepassee(c.Date_Prochaine_Action) ? 'date-depassee' : ''}">
-              ${dateRelative(c.Date_Prochaine_Action)}
-            </div>
-            ${c.Note_initiale ? `<div class="pa-note">${c.Note_initiale}</div>` : ''}
-          </div>` : '<div class="pas-de-donnees">Aucune action planifiée</div>'}
-      </div>
-
-      <!-- ACTIVITÉ — Feuille de route Phase 2 : chronologie unifiée visites +
-           appels (inspirée de la "All-in-One Lead/Deal Page" de frappe/crm,
-           cf. Repères CRM), remplace les deux blocs Visites/Appels séparés,
-           qu'il fallait recroiser mentalement pour reconstituer l'historique
-           réel du compte. Mêmes données déjà chargées (state.visites/appels),
-           aucun nouveau fetch. -->
-      <div class="bloc-fiche">
-        <div class="bloc-titre">Activité (${this.state.visites.length + this.state.appels.length})</div>
-        ${this._renderActiviteUnifiee()}
-      </div>`;
+    return `${this._renderHero(c, fy26, dernier)}
+      <div class="cs-onglets" role="tablist">${onglets.map(([k, l]) => `<button role="tab" aria-selected="${o === k}" onclick="VueFicheCompte.setOnglet('${k}')">${l}</button>`).join('')}</div>
+      ${corps}`;
   },
 
   _renderActiviteUnifiee() {

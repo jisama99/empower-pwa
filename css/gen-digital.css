@@ -506,6 +506,13 @@ input::placeholder, textarea::placeholder { color: var(--c-text-2); opacity: 1; 
 
 /* Connexion : le champ porte déjà son fond (.login-champ) ; l'input reste transparent pour ne pas former un second bloc */
 .login-champ input, .login-champ input:focus { background: transparent; border: 0; }
+/* Connexion : un seul contour (celui du champ). L'input n'a ni anneau, ni ombre, ni fond propre, y compris en remplissage automatique. */
+.login-champ input, .login-champ input:focus, .login-champ input:focus-visible { outline: none; box-shadow: none; border-radius: 0; }
+.login-champ:focus-within { border-color: #FF6D68; box-shadow: 0 0 0 3px rgba(255,109,104,.18); }
+.login-champ input:-webkit-autofill, .login-champ input:-webkit-autofill:hover, .login-champ input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-base, #F1F3F4) inset; -webkit-text-fill-color: var(--c-title, #1c2228); caret-color: var(--c-title, #1c2228);
+  border-radius: 0; transition: background-color 9999s ease-out 0s; }
+.login-champ:focus-within input:-webkit-autofill { -webkit-box-shadow: 0 0 0 1000px var(--bg-warm-white, #fff) inset; }
 
 /* ═══ Changement de vue : plus de reste de l'ancien design ═══
    - squelettes de chargement : teintes du design actuel (ils étaient beiges, héritage de l'ancienne palette)

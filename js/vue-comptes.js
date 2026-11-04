@@ -9,6 +9,8 @@ window.VueComptes = {
     // BLOC 07 §8 (09/2026) — quarter FY27 réellement actif (params.QuarterActif),
     // au lieu du Q1 hardcodé historique. Défaut Q1 tant que le fetch n'a pas répondu.
     quarter: 'Q1',
+    filtreFiche: 'TOUS',   // TOUS | A_COMPLETER (objectif contacts au 31/12/2026)
+    filtrePalier: 'TOUS',  // TOUS | DORMANT | EVEIL | ACTIF | AMBASSADEUR
     filtreEmpower: 'TOUS', // TOUS | EMPOWER | GROSSISTE — dérivé de has_empower (cf. décisions Bloc 1 §6.4)
     filtreCDSPin: 'TOUS',  // BUG-06 : filtre Manager par CDS
     triPar: 'PRIORITE', chargement: true,
@@ -229,6 +231,9 @@ window.VueComptes = {
       l = l.filter(c => !window.estEmpower(c));
     }
 
+    if (this.state.filtreFiche === 'A_COMPLETER') l = l.filter(c => !window.ContactsObjectif.etat(c).contact);
+    if (this.state.filtrePalier !== 'TOUS') l = l.filter(c => window.Paliers.palier(c).cle === this.state.filtrePalier);
+
     // Filtre statut calculé dynamiquement (parseCA — résistant aux dates corrompues)
     if (this.state.filtreStatut === 'actif') {
       l = l.filter(c => this._statutCompte(c) === 'actif');
@@ -295,7 +300,30 @@ window.VueComptes = {
   // Flag EMPOWER / GROSSISTE — visible au premier coup d'œil (Bloc 1 §6.3/6.4).
   // Le flag "éclair" sur un compte GROSSISTE signale un potentiel onboarding.
   _badgeEmpower(c) {
-    return window.FlagsCanal.html(c);
+    return window.FlagsCanal.html(c) + ' ' + window.Paliers.badgePalier(c) + ' ' + window.ContactsObjectif.pastille(c);
+  },
+
+  setFiltreFiche(v) { this.state.filtreFiche = this.state.filtreFiche === v ? 'TOUS' : v; this.render(); },
+  setFiltrePalier(v) { this.state.filtrePalier = this.state.filtrePalier === v ? 'TOUS' : v; this.render(); },
+
+  // Jauges d'objectif en tête de liste (contacts au 31/12/2026, activation Empower)
+  _renderJauges() {
+    const cs = this.state.comptes, emp = cs.filter(c => window.estEmpower(c));
+    const act = emp.filter(c => window.FlagsCanal.active(c)).length, pctAct = emp.length ? Math.round(act / emp.length * 100) : 0;
+    return `<div class="cs-jauges">
+      <div class="cs-jauge"><div class="bloc-titre" style="margin-bottom:8px">Contacts renseignés · objectif 31/12/2026</div>${ContactsObjectif.renderJauge(cs, { sansCarte: true })}</div>
+      <div class="cs-jauge"><div class="bloc-titre" style="margin-bottom:8px">Activation Empower</div>
+        <div style="font-size:28px;font-weight:800;color:var(--c-title);line-height:1">${act}<span style="font-size:15px;font-weight:600;color:var(--c-text-2)"> / ${emp.length}</span></div>
+        <div style="height:10px;border-radius:5px;background:var(--c-border);overflow:hidden;margin-top:10px"><div style="height:100%;width:${pctAct}%;background:#FF6D68"></div></div>
+        <div style="font-size:12px;color:var(--c-text-2);margin-top:8px">${pctAct} % des comptes Empower ont passé une première commande. ${emp.length - act} à relancer.</div></div>
+    </div>`;
+  },
+  _renderPuces() {
+    const s = this.state, pal = [['DORMANT', 'Dormant'], ['EVEIL', 'Éveil'], ['ACTIF', 'Actif'], ['AMBASSADEUR', 'Ambassadeur']];
+    const nbFiche = s.comptes.filter(c => !ContactsObjectif.etat(c).contact).length;
+    return `<div class="cs-puces" role="group" aria-label="Filtres objectifs">
+      <button class="cs-puce" aria-pressed="${s.filtreFiche === 'A_COMPLETER'}" onclick="VueComptes.setFiltreFiche('A_COMPLETER')">Fiche à compléter (${nbFiche})</button>
+      ${pal.map(([k, l]) => `<button class="cs-puce" aria-pressed="${s.filtrePalier === k}" onclick="VueComptes.setFiltrePalier('${k}')">${l}</button>`).join('')}</div>`;
   },
 
 
@@ -401,7 +429,7 @@ window.VueComptes = {
     else if (cle === 'tri') this.setTri(v);
   },
   reinitialiserFiltres() {
-    Object.assign(this.state, { filtreStatut: 'TOUS', filtreEmpower: 'TOUS', filtreCDSPin: 'TOUS', vueFiltreActive: null });
+    Object.assign(this.state, { filtreFiche: 'TOUS', filtrePalier: 'TOUS', filtreStatut: 'TOUS', filtreEmpower: 'TOUS', filtreCDSPin: 'TOUS', vueFiltreActive: null });
     this.render();
   },
 
@@ -445,13 +473,7 @@ window.VueComptes = {
         <button class="tab-btn-premium" onclick="Router.aller('#/comptes-historiques')">Historique CA</button>
       </div>
 
-      <!-- KPI synthèse façon DASHBOARD_W09 -->
-      <div class="kpi-grid-layout">
-        ${kpiCard({ label: 'Comptes',      value: total,    accent: 'primary' })}
-        ${kpiCard({ label: 'Actifs',       value: nbActif,  accent: 'teal' })}
-        ${kpiCard({ label: 'À réactiver',  value: nbReact,  accent: 'amber' })}
-        ${kpiCard({ label: 'CA FY27',      value: window.fmtCA(caTotalP) !== 'n.c.' ? window.fmtCA(caTotalP) : '0', unit: '€', accent: 'indigo' })}
-      </div>
+      ${this._renderJauges()}
 
       ${this._renderATraiter()}
 
@@ -461,6 +483,7 @@ window.VueComptes = {
                style="border:1.5px solid var(--c-border);border-radius:var(--radius-sm);padding:8px 12px;font-size:14px;width:100%"
                oninput="VueComptes.setRecherche(this.value)"/>
 
+        ${this._renderPuces()}
         <div class="filtres-mobile">
           ${this._renderPastilles(cdsList)}
         </div>

@@ -148,7 +148,7 @@ window.VueAdmin = {
       } catch (_) { /* repli ci-dessous */ }
       if (!liste) {
         const { data, error } = await SheetsAPI._sb.from('utilisateurs')
-          .select('pin,nom,email,role,actif').order('pin');
+          .select('pin,nom,email,role,actif,droits').order('pin');
         if (error) throw new Error(error.message);
         liste = data;
       }
@@ -312,6 +312,44 @@ window.VueAdmin = {
     } catch(e) { Toast.afficher('' + e.message, 'erreur'); }
   },
 
+  // Droits d'accès d'un utilisateur existant (action serveur updateDroits ; null = droits par défaut du rôle).
+  ouvrirDroits(pin) {
+    const u = this.state.usersState.liste.find(x => x.pin === pin); if (!u) return;
+    const defaut = Permissions.MATRICE[u.role] || [];
+    this.state.usersState.droitsEdit = { pin, nom: u.nom, role: u.role, droits: new Set(Array.isArray(u.droits) ? u.droits : defaut), envoi: false };
+    this.render();
+  },
+  basculerDroitEdition(tab, coche) { const d = this.state.usersState.droitsEdit; if (coche) d.droits.add(tab); else d.droits.delete(tab); },
+  fermerDroits() { this.state.usersState.droitsEdit = null; this.render(); },
+  async enregistrerDroits() {
+    const d = this.state.usersState.droitsEdit; if (!d || d.envoi) return;
+    if (d.droits.size === 0) { Toast.afficher('Cochez au moins une section', 'warning'); return; }
+    const defaut = Permissions.MATRICE[d.role] || [];
+    const identique = defaut.length === d.droits.size && defaut.every(t => d.droits.has(t));
+    d.envoi = true;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ action: 'updateDroits', token: SheetsAPI.TOKEN, targetPin: d.pin, droits: identique ? null : [...d.droits] }),
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.erreur || `HTTP ${r.status}`);
+      Toast.afficher(`Droits mis à jour pour ${d.nom}`, 'succes');
+      this.state.usersState.droitsEdit = null;
+      await this._chargerUtilisateurs();
+    } catch (e) { d.envoi = false; Toast.afficher('' + e.message, 'erreur'); }
+  },
+  _renderModalDroits() {
+    const d = this.state.usersState.droitsEdit, sections = Object.keys(Permissions.LIBELLES);
+    return `<div class="modal-overlay" onclick="if(event.target===this) VueAdmin.fermerDroits()"><div class="modal">
+      <h3>Droits d'accès, ${d.nom}</h3>
+      <p style="font-size:12px;color:var(--c-text-2)">Rôle : ${({ ADMIN: 'Administrateur', CDS: 'Commercial', CHANNEL_MANAGER: 'Manager', EXTERNE: 'Fournisseur de leads' })[d.role] || d.role}. Les droits cochés remplacent ceux du rôle ; revenir aux droits du rôle les réinitialise.</p>
+      <fieldset class="admin-droits">${sections.map(t => `<label class="admin-droit"><input type="checkbox" ${d.droits.has(t) ? 'checked' : ''} onchange="VueAdmin.basculerDroitEdition('${t}', this.checked)"/><span>${Permissions.LIBELLES[t]}</span></label>`).join('')}</fieldset>
+      <div style="display:flex;gap:8px;margin-top:14px"><button type="button" class="btn-secondaire" onclick="VueAdmin.fermerDroits()">Annuler</button>
+      <button type="button" class="btn-primaire" onclick="VueAdmin.enregistrerDroits()">Enregistrer</button></div></div></div>`;
+  },
+
   ouvrirModalReset(pin, nom) {
     this.state.usersState.resetTarget = { pin, nom };
     this.state.usersState.resetMdp = '';
@@ -366,6 +404,7 @@ window.VueAdmin = {
                     <span class="v7-statut" style="font-size:12px;color:${u.actif ? 'var(--c-success,#1a9e5c)' : 'var(--c-danger)'}">${u.actif ? 'Actif' : 'Désactivé'}</span>
                   </td>
                   <td style="white-space:nowrap">
+                    <button class="btn-lien" style="font-size:12px" ${u.role === 'ADMIN' ? 'disabled title="Un administrateur a tous les droits"' : ''} onclick="VueAdmin.ouvrirDroits(${u.pin})">Droits</button>
                     <button class="btn-lien" style="font-size:12px" onclick="VueAdmin.ouvrirModalReset(${u.pin}, '${jsq(u.nom)}')">Reset mdp</button>
                     <button class="btn-lien" style="font-size:12px;color:${u.actif ? 'var(--c-danger)' : 'var(--c-success,#1a9e5c)'}"
                             ${u.pin === Session.pin ? 'disabled title="Impossible de modifier son propre compte"' : ''}
@@ -400,6 +439,7 @@ window.VueAdmin = {
 
       ${us.modalCreation ? this._renderModalCreation() : ''}
       ${us.modalReset ? this._renderModalReset() : ''}
+      ${us.droitsEdit ? this._renderModalDroits() : ''}
     `;
   },
 

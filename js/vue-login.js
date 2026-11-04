@@ -167,7 +167,15 @@ window.VueLogin = {
     const marquer = e => { if (e.isTrusted) this._geste = Date.now(); };
     document.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('.btn-login')) marquer(e); }, true);
     document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.btn-login')) marquer(e); }, true);
-    document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest && e.target.closest('.login-form')) marquer(e); }, true);
+    // Remplissage automatique (gestionnaire de mots de passe, mobile) : des événements « input » arrivent sans frappe au clavier.
+    // Une validation par la touche Entrée juste après un tel remplissage n'est pas un geste de l'utilisateur : seul un appui
+    // sur « Se connecter » (ou Entrée après une pause) lance la connexion.
+    const form = e => e.target.closest && e.target.closest('.login-form');
+    document.addEventListener('keydown', e => { if (form(e) && e.key !== 'Enter') this._frappe = Date.now(); }, true);
+    document.addEventListener('input', e => { if (form(e) && !(this._frappe && Date.now() - this._frappe < 400)) this._rempli = Date.now(); }, true);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && form(e) && !(this._rempli && Date.now() - this._rempli < 1500)) marquer(e);
+    }, true);
   },
 
   _gesteRecent() { return !!this._geste && Date.now() - this._geste < 3000; },
