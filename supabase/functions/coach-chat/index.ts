@@ -20,6 +20,7 @@ Deno.serve(async (req) => {
 
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
+  let roleVu = ''
   try {
     // Session : jeton émis par auth-login, lu via esi_session_info (même contrôle que ai-proxy).
     if (!body.token) return rep({ ok: false, erreur: 'Session requise' }, 401)
@@ -29,6 +30,7 @@ Deno.serve(async (req) => {
     if (!u.actif) return rep({ ok: false, erreur: 'Compte désactivé' }, 401)
     if (!u.token_expiry || Number(u.token_expiry) < Date.now()) return rep({ ok: false, erreur: 'Session expirée' }, 401)
     const role: string = u.role, pin = u.pin
+    roleVu = role
     if (!['ADMIN', 'CHANNEL_MANAGER', 'CDS', 'EXTERNE'].includes(role)) return rep({ ok: false, erreur: 'Profil non autorisé' }, 403)
 
     // Taille et fréquence (comme ai-proxy) : 30 questions / 10 min, 300 / jour par utilisateur.
@@ -78,18 +80,23 @@ Deno.serve(async (req) => {
 
     async function appelerModele(payload: any) {
       const corps = JSON.stringify({ ...payload, generationConfig: { temperature: 0.3, maxOutputTokens: 900 } })
-      let dernier = 0
+      let dernier = 0, dernierDetail = ''
       for (const m of MODELES) {
         for (let essai = 0; essai < 2; essai++) {
           const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
             method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cle!.valeur }, body: corps })
           if (r.status === 429) { dernier = 429; await new Promise(ok => setTimeout(ok, 1500)); continue }   // quota par minute : une courte pause puis un second essai
-          if (!r.ok) { console.error('coach-chat modèle', m, r.status, (await r.text()).slice(0, 300)); throw new Error('Modèle ' + r.status) }
+          if (!r.ok) {
+            const txt = (await r.text()).slice(0, 300)
+            console.error('coach-chat modèle', m, r.status, txt)
+            if (r.status === 404 && m !== MODELES[MODELES.length - 1]) { dernierDetail = m + ' ' + r.status + ' ' + txt; break }   // modèle absent : on passe au suivant
+            const err: any = new Error('Modèle ' + r.status); err.detail = m + ' ' + r.status + ' ' + txt; throw err
+          }
           const d = await r.json()
           return d.candidates?.[0]?.content ?? { parts: [] }
         }
       }
-      throw new Error(dernier === 429 ? 'Quota du modèle épuisé' : 'Modèle indisponible')
+      const fin: any = new Error(dernier === 429 ? 'Quota du modèle épuisé' : 'Modèle indisponible'); fin.detail = dernierDetail; throw fin
     }
 
     const prenom = nettoyerRecherche(body.prenom).slice(0, 30)
@@ -100,6 +107,6 @@ Deno.serve(async (req) => {
     console.error('coach-chat', m.slice(0, 300))
     if (m.startsWith('Quota du modèle')) return rep({ ok: false, erreur: 'L\'assistant est très sollicité en ce moment, réessayez dans une minute.', code: 'quota' }, 503)
     const code = m.startsWith('Modèle ') ? m.slice(0, 12) : m === 'lecture comptes' ? 'comptes' : 'interne'
-    return rep({ ok: false, erreur: 'Assistant momentanément indisponible', code }, 500)
+    return rep({ ok: false, erreur: 'Assistant momentanément indisponible', code, ...(roleVu === 'ADMIN' ? { detail: String(e?.detail || '').slice(0, 300) } : {}) }, 500)
   }
 })
