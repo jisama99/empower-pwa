@@ -434,10 +434,26 @@ window.VueTerritoires = {
       const pos = (cx, cy) => { const vb = svg.viewBox.baseVal, r = svg.getBoundingClientRect(), k = Math.max(vb.width / r.width, vb.height / r.height);
         return { k, x: vb.x + vb.width / 2 + (cx - r.left - r.width / 2) * k, y: vb.y + vb.height / 2 + (cy - r.top - r.height / 2) * k }; };
       let tw = null;
-      svg.addEventListener('wheel', e => { e.preventDefault(); const q = pos(e.clientX, e.clientY); const f = e.deltaY < 0 ? 1.25 : 1 / 1.25;
-        const vb = this._viewBox(), nz = Math.max(1, Math.min(10, s.z * f)); if (nz === s.z) return;
-        const k = s.z / nz; s.z = nz; s.cx = q.x - (q.x - (vb[0] + vb[2] / 2)) * k; s.cy = q.y - (q.y - (vb[1] + vb[3] / 2)) * k;
-        clearTimeout(tw); tw = setTimeout(rerender, 120); }, { passive: false });
+      // Zoom proportionnel au geste (molette, trackpad à deux doigts, pincement) : le viewBox est mis à jour
+      // immédiatement, le rendu complet n'est refait qu'une fois le geste terminé.
+      const zoomerVers = (f, cx, cy) => {
+        const q = pos(cx, cy), vb = this._viewBox(), nz = Math.max(1, Math.min(10, s.z * f)); if (nz === s.z) return;
+        const k = s.z / nz; s.z = nz;
+        if (nz <= 1.001) { s.z = 1; s.cx = null; s.cy = null; }
+        else { s.cx = q.x - (q.x - (vb[0] + vb[2] / 2)) * k; s.cy = q.y - (q.y - (vb[1] + vb[3] / 2)) * k; }
+        svg.setAttribute('viewBox', this._viewBox().map(v => v.toFixed(1)).join(' '));
+        clearTimeout(tw); tw = setTimeout(rerender, 160);
+      };
+      svg.addEventListener('wheel', e => {
+        e.preventDefault();
+        const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 100 : e.deltaY;
+        const d = Math.max(-80, Math.min(80, px));                       // borne les pics d'inertie
+        zoomerVers(Math.exp(-d * (e.ctrlKey ? 0.012 : 0.004)), e.clientX, e.clientY);
+      }, { passive: false });
+      // Safari : pincement trackpad (événements gesture*)
+      let g0 = 1;
+      svg.addEventListener('gesturestart', e => { e.preventDefault(); g0 = 1; });
+      svg.addEventListener('gesturechange', e => { e.preventDefault(); const f = e.scale / g0; g0 = e.scale; zoomerVers(f, e.clientX, e.clientY); });
       const ptrs = new Map(); let d0 = 0, z0 = 1, mv = 0, dernier = null;
       svg.addEventListener('pointerdown', e => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); mv = 0; dernier = { x: e.clientX, y: e.clientY }; z0 = s.z;
         if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; d0 = Math.hypot(a.x - b.x, a.y - b.y); } });
