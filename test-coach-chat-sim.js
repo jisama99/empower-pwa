@@ -4,7 +4,7 @@ const C = require('./js/catalogue.js');
 let n = 0; const ok = async (nom, f) => { await f(); n++; console.log('  ok  ' + nom); };
 
 (async () => {
-  const { creerCatalogue } = await import('./supabase/functions/_shared/calcul.mjs');
+  const { creerCatalogue } = await import('./supabase/functions/coach-chat/calcul.mjs');
   const K = await import('./supabase/functions/coach-chat/coach.mjs');
   const cot = [{ id: 1, libelle: 'Back2School test', canaux: ['td'], debut: '2026-01-01', fin: '2026-12-31', remise_pct: 10, prix: {}, actif: true }];
   C.definir(null, cot);
@@ -27,7 +27,7 @@ let n = 0; const ok = async (nom, f) => { await f(); n++; console.log('  ok  ' +
   const AVEC = (role, pin, reglage) => K.perimetreComptes(role, pin, reglage);
   await ok('périmètre : ADMIN et CHANNEL tout, CDS limité à son PIN, rôle inconnu refusé', () => {
     assert.strictEqual(AVEC('ADMIN', 1).pin, null); assert.strictEqual(AVEC('CHANNEL_MANAGER', 2).pin, null);
-    assert.strictEqual(AVEC('CDS', 7).pin, '7'); assert.strictEqual(AVEC('CDS', null).pin, '__aucun__');
+    assert.strictEqual(AVEC('CDS', 7).pin, '7'); assert.strictEqual(AVEC('CDS', null).autorise, false);
     assert.strictEqual(AVEC('AUTRE', 1).autorise, false);
   });
   await ok('périmètre Externe : tous les comptes, champs réglables, jamais de CA ni de note', () => {

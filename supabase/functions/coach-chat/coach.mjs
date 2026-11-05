@@ -24,7 +24,7 @@ export function lireReglageExterne(valeur) {
 // Périmètre de lecture des comptes : { autorise, champs, pin } ; pin non nul = limité aux comptes assignés à ce PIN.
 export function perimetreComptes(role, pin, reglageExterne) {
   if (role === 'ADMIN' || role === 'CHANNEL_MANAGER') return { autorise: true, champs: [...BASE, ...CONTACT, ...SUIVI], pin: null };
-  if (role === 'CDS') return { autorise: true, champs: [...BASE, ...CONTACT, ...SUIVI], pin: pin == null ? '__aucun__' : String(pin) };
+  if (role === 'CDS') return pin == null || pin === '' ? { autorise: false, champs: [], pin: null } : { autorise: true, champs: [...BASE, ...CONTACT, ...SUIVI], pin: String(pin) };
   if (role === 'EXTERNE') { const r = lireReglageExterne(reglageExterne); return { autorise: r.actif, champs: r.champs, pin: null }; }
   return { autorise: false, champs: [], pin: null };
 }

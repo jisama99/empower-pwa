@@ -2,7 +2,7 @@
 // Le navigateur envoie l'historique ; la fonction vérifie la session, charge catalogue et comptes selon le rôle,
 // laisse le modèle appeler des outils (prix, marge, comptes) et renvoie une réponse avec ses sources.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { creerCatalogue } from '../_shared/calcul.mjs'
+import { creerCatalogue } from './calcul.mjs'
 import { dialogue, perimetreComptes, nettoyerRecherche } from './coach.mjs'
 
 const CORS = {
