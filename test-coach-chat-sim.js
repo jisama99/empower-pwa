@@ -115,5 +115,17 @@ let n = 0; const ok = async (nom, f) => { await f(); n++; console.log('  ok  ' +
     const r = await K.executerOutil('catalogue', { recherche: 'vpn' }, ctxDe('EXTERNE', 3, undefined, []));
     assert.ok(r.produits.length === 2 && r.produits.every(p => p.pvp_ttc === null)); assert.strictEqual(r.cotations_en_cours.length, 1);
   });
+  await ok('catalogue : « Deluxe 5 appareils » retrouve le produit, recherche vide ou inconnue = tout le catalogue', async () => {
+    const c = ctxDe('EXTERNE', 3, undefined, []);
+    const a = await K.executerOutil('catalogue', { recherche: 'Deluxe 5 appareils' }, c); assert.deepStrictEqual(a.produits.map(p => p.id), ['n360-del5']);
+    const b = await K.executerOutil('catalogue', { recherche: 'norton xyz' }, c); assert.strictEqual(b.produits.length, C.produits.length);
+    const d = await K.executerOutil('catalogue', {}, c); assert.strictEqual(d.produits.length, C.produits.length);
+  });
+  await ok('prompt : liste des identifiants produits sans aucun prix', async () => {
+    const m = scenario([texte('x')]);
+    await K.dialogue({ messages: msg('q'), role: 'EXTERNE', ctx: ctxDe('EXTERNE', 3, undefined, []), appelerModele: m.appelerModele });
+    const t = m.vus[0].systemInstruction.parts[0].text; assert.ok(t.includes('n360-del5 = Norton 360 Deluxe 5 appareils'));
+    assert.ok(!/22,82|16,34|59,99/.test(t));
+  });
   console.log(`\n${n} tests coach-chat OK`);
 })().catch(e => { console.error('ECHEC', e); process.exit(1); });

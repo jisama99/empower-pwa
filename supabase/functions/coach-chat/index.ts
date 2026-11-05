@@ -78,21 +78,28 @@ Deno.serve(async (req) => {
 
     async function appelerModele(payload: any) {
       const corps = JSON.stringify({ ...payload, generationConfig: { temperature: 0.3, maxOutputTokens: 900 } })
+      let dernier = 0
       for (const m of MODELES) {
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cle!.valeur }, body: corps })
-        if (r.status === 429) continue
-        if (!r.ok) throw new Error('Modèle ' + r.status)
-        const d = await r.json()
-        return d.candidates?.[0]?.content ?? { parts: [] }
+        for (let essai = 0; essai < 2; essai++) {
+          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cle!.valeur }, body: corps })
+          if (r.status === 429) { dernier = 429; await new Promise(ok => setTimeout(ok, 1500)); continue }   // quota par minute : une courte pause puis un second essai
+          if (!r.ok) { console.error('coach-chat modèle', m, r.status, (await r.text()).slice(0, 300)); throw new Error('Modèle ' + r.status) }
+          const d = await r.json()
+          return d.candidates?.[0]?.content ?? { parts: [] }
+        }
       }
-      throw new Error('Quota du modèle épuisé')
+      throw new Error(dernier === 429 ? 'Quota du modèle épuisé' : 'Modèle indisponible')
     }
 
     const prenom = nettoyerRecherche(body.prenom).slice(0, 30)
     const out = await dialogue({ messages: body.messages, role, prenom, faits: body.faits, ctx: { catalogue, perimetre, chercherComptes }, appelerModele })
     return rep(out)
   } catch (e: any) {
-    return rep({ ok: false, erreur: 'Assistant momentanément indisponible' }, 500)
+    const m = String(e?.message || '')
+    console.error('coach-chat', m.slice(0, 300))
+    if (m.startsWith('Quota du modèle')) return rep({ ok: false, erreur: 'L\'assistant est très sollicité en ce moment, réessayez dans une minute.', code: 'quota' }, 503)
+    const code = m.startsWith('Modèle ') ? m.slice(0, 12) : m === 'lecture comptes' ? 'comptes' : 'interne'
+    return rep({ ok: false, erreur: 'Assistant momentanément indisponible', code }, 500)
   }
 })

@@ -300,7 +300,7 @@ window.VueCoach = {
     } catch (e) {
       s.fil = s.fil.filter(m => !m.tmp); s.ia = false;
       if (k) { s.fil.pop(); return this.chip(k); }   // assistant injoignable : on retombe sur la réponse guidée
-      h = 'Je n\'ai pas pu joindre l\'assistant. Les réponses guidées restent disponibles ci-dessus.';
+      h = e && e.message && !/^HTTP|Failed to fetch|Load failed|NetworkError/i.test(e.message) ? this._esc(e.message) : 'Je n\'ai pas pu joindre l\'assistant. Les réponses guidées restent disponibles ci-dessus.';
     }
     s.fil = s.fil.filter(m => !m.tmp); s.fil.push({ r: 'a', h }); s.ia = false; this._maj(); this._basFil();
   },
