@@ -20,9 +20,8 @@ window.Mandats = (function () {
     try {
       localStorage.setItem('esi_mandat_prefill', JSON.stringify({ t: Date.now(), compte_id: c.ID_Compte || '', soc: c.Nom_Compte || '', rep: c.Contact_Nom || '', adr, rcsv: c.Ville || '' }));
     } catch (e) { /* stockage indisponible : le générateur s'ouvre vide */ }
-    const w = window.open('/mandat/generateur.html', '_blank');
-    if (!w && window.Toast) Toast.afficher('Autorisez les fenêtres pop-up pour ouvrir le générateur', 'erreur');
-    return !!w;
+    // Dans la visionneuse de l'application (même origine) : « Fermer » toujours visible, archivage via window.parent.Mandats.
+    return window.Visionneuse ? Visionneuse.page('/mandat/generateur.html', { titre: 'Mandat' }) : false;
   }
 
   // Appelée par le générateur (window.opener.Mandats.archiver). Les valeurs sont validées avant l'écriture.

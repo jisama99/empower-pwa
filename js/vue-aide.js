@@ -103,7 +103,7 @@ window.VueAide = {
     ];
     const liste = admin && s.filtre ? s.liste.filter(x => x.statut === s.filtre) : s.liste;
     const nbNouv = s.liste.filter(x => x.statut === 'NOUVEAU').length;
-    app.innerHTML = `      <div class="header-vue"><h1>Aide &amp; Suggestions</h1></div>
+    app.innerHTML = `      <div class="header-vue"><button onclick="Router.retour()" class="btn-retour" aria-label="Retour">←</button><h1>Aide &amp; Suggestions</h1></div>
       <div style="padding:12px 16px 80px;max-width:820px">
         <div class="bloc-fiche">
           <div class="bloc-titre">Envoyer un message</div>

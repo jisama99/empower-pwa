@@ -392,7 +392,7 @@ window.VueCoach = {
           <div class="coach-col c-calc">${this._calcHtml()}${this._qualiteHtml()}</div>
         </div></div>`;
     }
-    app.innerHTML = `<header class="header-vue"><h1>Coach</h1></header>${NavBar('coach')}<div class="pilo">${corps}</div>`;
+    app.innerHTML = `<header class="header-vue"><button onclick="Router.retour()" class="btn-retour" aria-label="Retour">←</button><h1>Coach</h1></header>${NavBar('coach')}<div class="pilo">${corps}</div>`;
     this._basFil();
   },
 };

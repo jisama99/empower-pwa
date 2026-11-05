@@ -1004,3 +1004,6 @@ const SheetsAPI = {
     Toast.afficher(`${ok}/${all.length} sync`, ok === all.length ? 'succes' : 'warning', 3000)
   },
 }
+
+// Exposé sur window (voir session.js) : sans cela, `window.SheetsAPI && SheetsAPI._sb` restait faux et le Kit, les mandats et les coches du Coach ne fonctionnaient pas.
+window.SheetsAPI = SheetsAPI;

@@ -84,10 +84,11 @@ window.VueKit = {
   render() {
     const app = document.getElementById('app'); if (!app) return;
     const s = this.state, E = this._esc;
-    if (s.chargement) { app.innerHTML = '<div class="coach"><p class="pilo-vide" style="padding:16px">Chargement…</p></div>'; return; }
+    const entete = `<header class="header-vue"><button onclick="Router.retour()" class="btn-retour" aria-label="Retour">←</button><h1>Kit commercial</h1></header>${typeof NavBar === 'function' ? NavBar('kit') : ''}`;
+    if (s.chargement) { app.innerHTML = entete + '<div class="coach"><p class="pilo-vide" style="padding:16px">Chargement…</p></div>'; return; }
     const cible = this._compteCible(), pal = this._paliers();
     const bandeau = cible ? `<div class="co-soft kit-cible">Envoi pour <b>${E(cible.Nom_Compte)}</b>${pal && Paliers.PALIERS[pal] ? ` · palier ${E(Paliers.PALIERS[pal].lib)}, les documents conseillés sont signalés` : ''} <button class="co-lien" style="border:0;background:none;text-decoration:underline;cursor:pointer;font:inherit;color:inherit" onclick="VueKit.pourCompte('');VueKit.render()">Changer</button></div>` : '';
-    app.innerHTML = `<div class="coach kit"><div class="co-carte"><div class="co-eyebrow">Bibliothèque</div><h2>Kit commercial</h2>
+    app.innerHTML = entete + `<div class="coach kit"><div class="co-carte"><div class="co-eyebrow">Bibliothèque</div><h2>Kit commercial</h2>
       <p class="co-mut">Les documents à remettre aux revendeurs. Les documents internes ne sont visibles que par l'équipe Impact.${this._peutEnvoyer() ? ' « Envoyer » copie un lien valable ' + this.LIEN_JOURS + ' jours et inscrit l’envoi au journal du compte.' : ''}</p>
       ${s.erreur ? `<div class="co-cot">${E(s.erreur)}</div>` : ''}${bandeau}
       <div class="co-chips">${this.CATS.map(([k, l]) => `<button class="co-chip" ${s.cat === k ? 'style="background:#343F48;color:#fff"' : ''} onclick="VueKit.setCat('${k}')">${l}</button>`).join('')}</div>
@@ -106,16 +107,18 @@ window.VueKit = {
   },
 
   // ── Ouvrir : lien signé de 2 minutes ──
-  async _lien(d, secondes) {
-    const { data, error } = await this._sb().storage.from('kit-commercial').createSignedUrl(d.fichier_path, secondes);
+  async _lien(d, secondes, telecharger) {
+    const { data, error } = await this._sb().storage.from('kit-commercial').createSignedUrl(d.fichier_path, secondes, telecharger ? { download: true } : undefined);
     if (error || !data || !data.signedUrl) throw new Error((error && error.message) || 'lien indisponible');
     return data.signedUrl;
   },
   async ouvrir(id) {
     const d = this.state.docs.find(x => x.id === id); if (!d || !d.fichier_path) return;
-    const w = window.open('', '_blank');
-    try { const u = await this._lien(d, 120); if (w) w.location.href = u; else window.location.href = u; }
-    catch (e) { if (w) w.close(); if (window.Toast) Toast.afficher('Ouverture impossible : ' + (e.message || e), 'erreur'); }
+    // Aperçu dans l'application (bouton Fermer toujours visible), jamais dans une nouvelle fenêtre ni à la place de l'application.
+    try {
+      const [u, tel] = await Promise.all([this._lien(d, 600), this._lien(d, 600, true)]);
+      Visionneuse.fichier(u, { titre: d.titre, format: d.format, telechargement: tel });
+    } catch (e) { if (window.Toast) Toast.afficher('Ouverture impossible : ' + (e.message || e), 'erreur'); }
   },
 
   // ── Envoi tracé ──

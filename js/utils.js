@@ -1381,3 +1381,7 @@ function kpiCard(opts = {}) {
     ${pillsHtml ? `<div class="kpi-pills">${pillsHtml}</div>` : ''}
   </div>`;
 }
+
+// Exposés sur window (voir session.js) : app.js et vue-a-contacter.js testent `window.SidebarToggle` / `window.DrawerMenu`.
+window.SidebarToggle = SidebarToggle;
+window.DrawerMenu = DrawerMenu;

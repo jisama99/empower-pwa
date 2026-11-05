@@ -69,7 +69,7 @@ const Router = {
   NAV_SEL: '.nav-principale a, .drawer-item, #plus-feuille a',
   // Pile des « couches » (panneau, fenêtre, sous-écran) : chacune a son entrée d'historique, le retour du téléphone la ferme sans quitter la page.
   _couches: new Map(), _ignorer: 0,
-  OVERLAYS: '.modal-overlay:not(.modal-docked), #drawer-overlay.ouvert, .nc-overlay, #creer-feuille, #plus-feuille, #feuille-filtre, .kit-modale',
+  OVERLAYS: '.modal-overlay:not(.modal-docked), #drawer-overlay.ouvert, .nc-overlay, #creer-feuille, #plus-feuille, #feuille-filtre, .kit-modale, #visionneuse',
 
   init() {
     window.addEventListener('popstate', () => {
@@ -187,6 +187,7 @@ const Router = {
     const id = el.id, w = window;
     if (id === 'creer-feuille' && w.CreerMenu) return w.CreerMenu.fermer();
     if (id === 'plus-feuille' && w.CreerMenu) return w.CreerMenu.fermerPlus();
+    if (id === 'visionneuse' && w.Visionneuse) return w.Visionneuse.fermer();
     if (id === 'feuille-filtre' && w.VueComptes) return w.VueComptes.fermerFeuilleFiltre();
     if (el.classList.contains('kit-modale') && w.VueKit) return w.VueKit.annulerEnvoi();
     if (id === 'drawer-overlay' && w.DrawerMenu) return w.DrawerMenu.fermer();

@@ -266,16 +266,13 @@ window.VueAnalyse = {
     const D = this._donneesRapport(), slides = this._slides(D), html = this._htmlRapport(D, slides);
     const err = [...this._qaChiffres(D), ...this._qaHtml(html)];
     if (err.length) { if (window.Toast) Toast.afficher('Contrôle qualité : ' + err[0], 'erreur'); console.error('QA rapport', err); return; }
-    const w = window.open('', '_blank'); if (!w) { if (window.Toast) Toast.afficher('Fenêtre bloquée : autorise les pop-ups', 'erreur'); return; }
-    w.document.write(html); w.document.close(); w.focus();
-    const lancer = () => { const go = () => { try { w.print(); } catch (e) { /* impression manuelle possible */ } }; try { w.document.fonts.ready.then(go, go); setTimeout(go, 3500); } catch (e) { go(); } };
-    const imgs = [...w.document.images]; let restants = imgs.length;
-    if (!restants) setTimeout(lancer, 300); else { const fin = () => { if (--restants <= 0) setTimeout(lancer, 200); }; imgs.forEach(i => (i.complete ? fin() : (i.onload = i.onerror = fin))); setTimeout(lancer, 4000); }
+    if (!window.Visionneuse) { if (window.Toast) Toast.afficher('Visionneuse indisponible, rechargez la page', 'erreur'); return; }
+    Visionneuse.html(html, { titre: 'Rapport' });   // aperçu dans l'application ; « Imprimer / PDF » au bouton, « Fermer » toujours visible
   },
 
   render() {
     const app = document.getElementById('app'), s = this.state; if (!app) return;
-    const entete = `<header class="header-vue"><h1>Analyse et objectifs</h1></header>${NavBar(window.hebergeParAdmin && hebergeParAdmin() ? 'admin' : 'analyse')}${typeof FusionTabs === 'function' ? (window.hebergeParAdmin && hebergeParAdmin() ? FusionTabs.administration() : FusionTabs.pilotage()) : ''}`;
+    const entete = `<header class="header-vue"><button onclick="Router.retour()" class="btn-retour" aria-label="Retour">←</button><h1>Analyse et objectifs</h1></header>${NavBar(window.hebergeParAdmin && hebergeParAdmin() ? 'admin' : 'analyse')}${typeof FusionTabs === 'function' ? (window.hebergeParAdmin && hebergeParAdmin() ? FusionTabs.administration() : FusionTabs.pilotage()) : ''}`;
     if (s.chargement) { app.innerHTML = entete + '<p style="padding:16px">Chargement…</p>'; return; }
     if (s.erreur) { app.innerHTML = entete + `<p style="padding:16px">Erreur : ${this._esc(s.erreur)}</p>`; return; }
     const b = this._blocs();

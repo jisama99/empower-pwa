@@ -114,6 +114,7 @@ table.data tfoot td{ padding:3mm 2.6mm; font-weight:900; font-size:10px; backgro
 .fe{ display:inline-block; min-width:60px; background:var(--surface); color:var(--muted); font-style:italic; border-radius:5px; padding:0 6px; }
 .empty-hint{ font-size:9.8px; color:var(--muted); font-style:italic; }
 /* ---------- Impression ---------- */
+html.integre .hdr{display:none}   /* dans la visionneuse de l'application : sa barre porte déjà « Fermer » */
 @media print {
   * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
   .hdr, .fp { display:none !important; }
@@ -127,13 +128,14 @@ table.data tfoot td{ padding:3mm 2.6mm; font-weight:900; font-size:10px; backgro
 </style>
 </head>
 <body>
+<script>try{if(window.parent&&window.parent!==window)document.documentElement.classList.add("integre")}catch(e){}</script>
 <div class="hdr">
   <div class="hdr-logos">
     <span class="logo-bulle"><img src="logo-norton.webp" alt="Norton"></span>
     <div class="sep"></div>
     <img src="logo-marvesting.webp" alt="Marvesting">
   </div>
-  <div class="hdr-tag"><span>Contrat de mandat</span><a href="/">Retour à l'application</a></div>
+  <div class="hdr-tag"><span>Contrat de mandat</span><a href="/" onclick="if(window.opener&&!window.opener.closed){window.close();return false}">Retour à l'application</a></div>
 </div>
 
 <div class="app">
@@ -583,7 +585,7 @@ async function dlPDF(){
   const rec=Object.assign({compte_id:(window.__compte||null)}, window.__dernier||{});
   if(!rec.societe){ _statut("Renseignez la société avant d'archiver le mandat.",false); return; }
   try{
-    const M=window.opener && !window.opener.closed && window.opener.Mandats;
+    const M=(window.opener && !window.opener.closed && window.opener.Mandats) || (window.parent && window.parent!==window && window.parent.Mandats);
     if(M){ const res=await M.archiver(rec); _statut(res&&res.ok?"Mandat archivé dans l'application.":("Archivage impossible : "+((res&&res.message)||"erreur")+". Le PDF reste téléchargeable."),!!(res&&res.ok)); }
     else _statut("Archivage indisponible : ouvrez le générateur depuis l'application pour archiver. Le PDF reste téléchargeable.",false);
   }catch(e){ _statut("Archivage impossible. Le PDF reste téléchargeable.",false); }

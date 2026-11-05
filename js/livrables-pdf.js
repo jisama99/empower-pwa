@@ -120,13 +120,12 @@ ${comparaison}${rs}${palier}</div></div>
 </div></body></html>`;
   }
 
-  // Ouvre le livrable dans un nouvel onglet et lance l'impression (choisir « Enregistrer au format PDF », orientation paysage déjà réglée).
+  // Affiche le livrable dans la visionneuse de l'application (bouton Fermer toujours visible) ; « Imprimer / PDF » ouvre l'impression
+  // (choisir « Enregistrer au format PDF », orientation paysage déjà réglée). Aucune nouvelle fenêtre : rien dont on ne puisse sortir.
   function ouvrir(cfg) {
-    const w = window.open('', '_blank');
-    if (!w) { if (window.Toast) Toast.afficher('Autorisez les fenêtres pop-up pour générer le PDF', 'erreur'); return false; }
-    w.document.open(); w.document.write(html(cfg)); w.document.close();
-    w.addEventListener('load', () => setTimeout(() => { try { w.focus(); w.print(); } catch (x) {} }, 600));
-    return true;
+    if (!window.Visionneuse) { if (window.Toast) Toast.afficher('Visionneuse indisponible, rechargez la page', 'erreur'); return false; }
+    const t = TYPES[cfg.type] || TYPES.proposition;
+    return Visionneuse.html(html(cfg), { titre: t.lib + (cfg.client && cfg.client.nom ? ' · ' + cfg.client.nom : '') });
   }
 
   return { TYPES, offreLibelle, calculer, html, ouvrir };

@@ -320,8 +320,8 @@ window.VueTerritoires = {
   render() {
     const app = document.getElementById('app'), s = this.state;
     if (!app) return;
-    if (s.chargement) { app.innerHTML = '<div class="header-vue"><h1>Territoires</h1></div><p style="padding:16px">Chargement…</p>'; return; }
-    if (s.erreur) { app.innerHTML = `<div class="header-vue"><h1>Territoires</h1></div><p style="padding:16px">Erreur : ${this._esc(s.erreur)}</p>`; return; }
+    if (s.chargement) { app.innerHTML = '<div class="header-vue"><button onclick="Router.retour()" class="btn-retour" aria-label="Retour">←</button><h1>Territoires</h1></div><p style="padding:16px">Chargement…</p>'; return; }
+    if (s.erreur) { app.innerHTML = `<div class="header-vue"><button onclick="Router.retour()" class="btn-retour" aria-label="Retour">←</button><h1>Territoires</h1></div><p style="padding:16px">Erreur : ${this._esc(s.erreur)}</p>`; return; }
     const zk = s.reg + '|' + s.dep; if (s._zk !== zk) { s._zk = zk; s.z = 1; s.cx = null; s.cy = null; }
     const par = this._dataDeps();
     const regs = Object.keys(this.REG).filter(r => window.FR.deps.some(d => d.r === r));
@@ -368,7 +368,7 @@ window.VueTerritoires = {
       .palier-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--pc) 14%,transparent);color:var(--pc)}
       .terr h2{font-size:15px}
     </style>
-    <div class="header-vue"><h1>Territoires</h1></div>
+    <div class="header-vue"><button onclick="Router.retour()" class="btn-retour" aria-label="Retour">←</button><h1>Territoires</h1></div>
     ${NavBar('territoires')}
     <div class="terr${s.plein ? ' plein' : ''}">
       ${navigator.onLine === false ? '<div class="terr-net" role="status">Hors connexion : consultation seule. Les modifications ne sont pas confirmées tant que le réseau n’est pas rétabli.</div>' : ''}
