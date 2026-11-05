@@ -290,16 +290,25 @@ window.VueCoach = {
     const inp = document.getElementById('co-q'); const q = String(texte != null ? texte : (inp && inp.value) || '').trim(); if (!q || this.state.ia) return;
     if (inp && texte == null) inp.value = '';
     const k = this._route(q);
-    if (k) return this.chip(k);
-    if (!this.state.d) return this.poser(q, 'Je réponds ici sur les <b>tarifs, les marges et les offres</b>. Essayez « Calcule ma marge » ou « Quelles offres possibles ? ».');
+    if (k && q.split(/\s+/).length <= 4) return this.chip(k);   // formules courtes = réponses guidées ; phrases libres = assistant
     const s = this.state; s.fil.push({ r: 'u', h: this._esc(q) }); s.ia = true; s.fil.push({ r: 'a', h: '<span class="co-mut">Réflexion en cours…</span>', tmp: true }); this._maj(); this._basFil();
     let h;
     try {
-      const prompt = `Tu es un coach commercial B2B expert de la vente indirecte (revendeurs informatique, Norton). Réponds en français, en 6 lignes maximum, de façon concrète et actionnable.\nRègle absolue : n'utilise AUCUN chiffre qui ne figure pas dans le bloc FAITS ; si une donnée manque, dis-le.\n\nFAITS :\n${this._faits()}\n\nQUESTION DU COMMERCIAL :\n${q.slice(0, 500)}`;
-      const txt = await window.GeminiAPI._appeler(prompt, 'Coach commercial ESI');
-      h = `<span class="co-ia">Rédigé par l'IA à partir des chiffres de l'app</span><br>${this._esc(txt).replace(/\n/g, '<br>')}`;
-    } catch (e) { h = 'Je n\'ai pas pu joindre l\'assistant. Les réponses guidées restent disponibles ci-dessus.'; }
+      const rep = await window.GeminiAPI.coach(this._historique(q), s.d ? this._faits() : '', this._prenom());
+      const src = rep.sources && rep.sources.length ? `<div class="co-mut" style="margin-top:6px">Sources : ${rep.sources.map(x => this._esc(x)).join(', ')}</div>` : '';
+      h = `<span class="co-ia">Calculs faits par l'app, texte rédigé par l'IA</span><br>${this._esc(rep.texte).replace(/\n/g, '<br>')}${src}`;
+    } catch (e) {
+      s.fil = s.fil.filter(m => !m.tmp); s.ia = false;
+      if (k) { s.fil.pop(); return this.chip(k); }   // assistant injoignable : on retombe sur la réponse guidée
+      h = 'Je n\'ai pas pu joindre l\'assistant. Les réponses guidées restent disponibles ci-dessus.';
+    }
     s.fil = s.fil.filter(m => !m.tmp); s.fil.push({ r: 'a', h }); s.ia = false; this._maj(); this._basFil();
+  },
+  // Historique envoyé au serveur : texte brut des échanges du fil (12 derniers), question en cours en dernier.
+  _historique(q) {
+    const txt = h => String(h).replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+/g, ' ').trim();
+    const l = this.state.fil.filter(m => !m.tmp).map(m => ({ role: m.r === 'u' ? 'user' : 'assistant', content: txt(m.h) })).filter(m => m.content);
+    return l.slice(-12);
   },
   touche(ev) { if (ev.key === 'Enter') { ev.preventDefault(); this.envoyer(); } },
   _basFil() { ['co-fil', 'cc-fil'].forEach(id => { const f = document.getElementById(id); if (f) f.scrollTop = f.scrollHeight; }); },

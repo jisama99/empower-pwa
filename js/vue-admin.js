@@ -1711,7 +1711,7 @@ window.VueAdmin = {
           <div class="dash-col-main">
           ${tab === 'suivi' ? this._renderSuivi()
           : tab === 'secteurs' ? AdminSecteurs.html()
-          : tab === 'prix' ? AdminPrix.html()
+          : tab === 'prix' ? AdminPrix.html() + (window.AdminCoach ? AdminCoach.html() : '')
           : tab === 'equipe' ? EquipeContacts.html()
           : tab === 'exports' ? `
             <div class="bloc-fiche">
@@ -1992,7 +1992,7 @@ window.VueAdmin = {
 
         ${adminTab === 'equipe' ? EquipeContacts.html() : ''}
         ${adminTab === 'secteurs' ? AdminSecteurs.html() : ''}
-        ${adminTab === 'prix' ? AdminPrix.html() : ''}
+        ${adminTab === 'prix' ? AdminPrix.html() + (window.AdminCoach ? AdminCoach.html() : '') : ''}
 
         ${adminTab === 'maintenance' ? `
         <!-- MAINTENANCE -->

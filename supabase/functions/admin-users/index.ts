@@ -209,10 +209,23 @@ Deno.serve(async (req) => {
 
     // Réglages partagés modifiables par l'admin (liste blanche : jamais les clés d'API ni les PIN).
     if (action === 'setParam') {
-      const REGLAGES = { AFFICHER_LECLERC: 'Afficher les magasins Leclerc dans les comptes (true/false)' }
-      const { cle, valeur } = body
-      if (!REGLAGES[cle] || !['true', 'false'].includes(String(valeur)))
+      const REGLAGES: Record<string, string> = {
+        AFFICHER_LECLERC: 'Afficher les magasins Leclerc dans les comptes (true/false)',
+        COACH_EXTERNE_COMPTES: 'Coach : recherche de comptes pour le profil Externe (JSON : actif, champs)',
+      }
+      const CHAMPS_EXTERNE = ['id', 'nom_compte', 'ville', 'code_postal', 'departement', 'canal', 'secteur', 'has_empower', 'statut_compte', 'nom_cds', 'tel', 'email', 'contact_nom', 'contact_fonction', 'adresse']
+      const { cle } = body
+      let { valeur } = body
+      if (!REGLAGES[cle]) return Response.json({ ok: false, erreur: 'Réglage inconnu ou valeur invalide' }, { headers: CORS, status: 400 })
+      if (cle === 'COACH_EXTERNE_COMPTES') {
+        let v: any = null
+        try { v = typeof valeur === 'string' ? JSON.parse(valeur) : valeur } catch { /* refus ci-dessous */ }
+        if (!v || typeof v.actif !== 'boolean' || !Array.isArray(v.champs) || v.champs.some((c: unknown) => !CHAMPS_EXTERNE.includes(c as string)))
+          return Response.json({ ok: false, erreur: 'Réglage inconnu ou valeur invalide' }, { headers: CORS, status: 400 })
+        valeur = JSON.stringify({ actif: v.actif, champs: [...new Set(v.champs)] })
+      } else if (!['true', 'false'].includes(String(valeur))) {
         return Response.json({ ok: false, erreur: 'Réglage inconnu ou valeur invalide' }, { headers: CORS, status: 400 })
+      }
       const { error } = await sb.from('params').upsert({ parametre: cle, valeur: String(valeur), description: REGLAGES[cle] }, { onConflict: 'parametre' })
       if (error) return Response.json({ ok: false, erreur: error.message }, { headers: CORS, status: 500 })
       return Response.json({ ok: true }, { headers: CORS })
