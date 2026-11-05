@@ -28,7 +28,7 @@ window.VueTerritoires = {
     else { s.plein = false; rerender(); }
   },
   state: { chargement: true, erreur: null, comptes: [], leads: [], visites: [], secteurs: [], reg: '', dep: '', calque: 'rev',
-           plein: false, com: '', canal: '', avecLeads: false, sel: '', nonLoc: false, points: true, z: 1, cx: null, cy: null, _zk: '' },
+           plein: false, com: '', canal: '', avecLeads: false, sel: '', ville: '', nonLoc: false, points: true, z: 1, cx: null, cy: null, _zk: '' },
 
   _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
 
@@ -73,6 +73,7 @@ window.VueTerritoires = {
     const s = this.state;
     const l = s.comptes.concat(s.avecLeads ? s.leads : []);
     return l.filter(c => (!s.com || String(c.pin) === s.com)
+      && (!s.ville || this._cleVille(c.ville) === s.ville)
       && (!s.canal || (s.canal === 'EMPOWER' ? this._estCanal(c) : !this._estCanal(c))));
   },
   _visitesF() { const s = this.state; return s.visites.filter(v => !s.com || String(v.pin) === s.com); },
@@ -131,6 +132,19 @@ window.VueTerritoires = {
     rings.forEach(rg => { for (let i = 0, j = rg.length - 1; i < rg.length; j = i++) { const [xi, yi] = rg[i], [xj, yj] = rg[j]; if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) dans = !dans; } });
     return dans ? pt : null;
   },
+  // Commune normalisée (sans accents ni casse) : sert de clé de filtre.
+  _cleVille(v) { return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase(); },
+  // Précision de localisation d'un compte et provenance de l'information (aucune position n'est inventée) :
+  //   gps = coordonnées de la fiche ; commune = ville et code postal connus, point placé au département ;
+  //   dep = département connu par le code postal seul ; aucune = à localiser.
+  _precision(c) {
+    const r = c.raw || {}, d = c.dep ? window.FR.deps.find(x => x.c === c.dep) : null;
+    const src = r.Source_Import || r.source_import || (c.lead ? 'Lead du Tracker' : '');
+    if (!c.dep) return { n: 'aucune', lib: 'À localiser', det: 'Code postal à renseigner', src };
+    if (d && this._gps(c, d)) return { n: 'gps', lib: 'Position exacte', det: 'Coordonnées GPS de la fiche', src };
+    if (c.ville) return { n: 'commune', lib: 'Commune connue', det: `${c.ville}${c.adresse ? ', adresse saisie' : ''} : point placé au département`, src };
+    return { n: 'dep', lib: 'Département', det: 'Département déduit du code postal', src };
+  },
   _couleurPoint(c) { return c.lead ? '#3E8E9B' : c.active ? '#343F48' : c.empower ? '#7B8A97' : '#C2CAD1'; },
   _points(par, vb, sc) {
     const s = this.state; if (!this._pointsVisibles()) return { svg: '', deps: new Set(), n: 0, plus: 0 };
@@ -150,7 +164,7 @@ window.VueTerritoires = {
       approx.slice(0, Math.max(0, MAX - pos.length)).forEach(([c], i) => { const r = rd * 2.3 * Math.sqrt(i + .6), a = i * 2.39996; pos.push([c, d.cx + r * Math.cos(a), d.cy + r * Math.sin(a), false]); });
       pos.forEach(([c, x, y, exact]) => {
         const sel = String(s.sel) === String(c.id);
-        const tip = `${c.nom}${c.lead ? ' (lead)' : ''}\n${c.ville || 'Ville n.c.'} · ${d.c}\n${c.lead ? 'Lead' : c.active ? 'Revendeur activé' : c.empower ? 'Empower, pas encore activé' : 'Grossiste'}\n${exact ? 'Position exacte' : 'Position au département'}`;
+        const tip = `${c.nom}${c.lead ? ' (lead)' : ''}\n${c.ville || 'Ville n.c.'} · ${d.c}\n${c.lead ? 'Lead' : c.active ? 'Revendeur activé' : c.empower ? 'Empower, pas encore activé' : 'Grossiste'}\n${this._precision(c).lib}${exact ? '' : ' (point au département)'}`;
         svg += `<circle class="terr-pt-m" data-pt="${c.lead ? '' : this._esc(c.id)}" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(sel ? rd * 1.7 : rd).toFixed(3)}" fill="${sel ? 'var(--terr-sel)' : this._couleurPoint(c)}" stroke="#fff" stroke-width="${(rd * .35).toFixed(3)}" data-tip="${this._esc(tip)}"></circle>`;
         n++;
       });
@@ -236,6 +250,7 @@ window.VueTerritoires = {
       <h2>${base.length} compte${base.length > 1 ? 's' : ''}, ${base.length - nl} placé${base.length - nl > 1 ? 's' : ''}</h2>
       <div class="terr-stk">${seg(adr, '#343F48', 'Adresse complète')}${seg(cp, '#8A949E', 'Code postal seul')}${seg(nl, '#C93A34', 'À localiser')}</div>
       <div class="terr-cl"><span><i style="background:#343F48"></i>Adresse complète ${adr}</span><span><i style="background:#8A949E"></i>Département par code postal ${cp}</span><span><i style="background:#C93A34"></i>À localiser ${nl}</span></div>
+      <p class="terr-sub" style="margin-top:8px">Précision : ${(() => { const k = { gps: 0, commune: 0, dep: 0, aucune: 0 }; base.forEach(c => { k[this._precision(c).n]++; }); return `${k.gps} position${k.gps > 1 ? 's' : ''} exacte${k.gps > 1 ? 's' : ''} (GPS), ${k.commune} commune${k.commune > 1 ? 's' : ''} connue${k.commune > 1 ? 's' : ''}, ${k.dep} au département seul, ${k.aucune} à localiser`; })()}.</p>
       <p class="terr-sub" style="margin-top:8px">Chaque code postal saisi dans une fiche compte, lead ou contact place automatiquement le revendeur dans son département. Aucun point n’est inventé.</p>
       ${nl ? `<button class="terr-lien" data-nonloc="1">${s.nonLoc ? 'Masquer' : `Voir les ${nl} comptes à localiser`}</button>` : ''}${liste}</section>`;
   },
@@ -255,6 +270,8 @@ window.VueTerritoires = {
       <h2>${this._esc(c.nom)}</h2>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">${window.FlagsCanal.html(c.raw)} ${window.Paliers.badgePalier(c.raw)}</div>
       <dl class="terr-dl"><dt>Localisation</dt><dd>${this._esc(c.ville || 'n.c.')}${c.dep ? ' · ' + c.dep + (d ? ' ' + this._esc(d.n) : '') : ' · à localiser'}</dd>
+        <dt>Précision</dt><dd>${this._esc(this._precision(c).lib)} · ${this._esc(this._precision(c).det)}</dd>
+        ${this._precision(c).src ? `<dt>Provenance</dt><dd>${this._esc(this._precision(c).src)}</dd>` : ''}
         <dt>Commercial</dt><dd>${this._esc(window.resolveCDS(c.pin))}</dd>
         <dt>Fiche</dt><dd>${window.ContactsObjectif.pastille(c.raw)} ${c.fiche} %</dd></dl>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><a class="terr-btn" href="#/compte/${encodeURIComponent(c.id)}">Ouvrir la fiche</a>
@@ -311,10 +328,11 @@ window.VueTerritoires = {
     const blocs = Object.keys(parDep).sort().slice(0, 40).map(dp => {
       const parVille = {}; parDep[dp].forEach(c => { (parVille[c.ville || 'Ville inconnue'] = parVille[c.ville || 'Ville inconnue'] || []).push(c); });
       return `<div class="terr-grp"><button class="terr-grp-t" data-dep-go="${dp}"><span>${dp} · ${this._esc(nomDep(dp))}</span><span>${parDep[dp].length} ›</span></button>
-        ${s.dep ? Object.keys(parVille).sort().map(v => `<div class="terr-ville"><span>${this._esc(v)}</span><span>${parVille[v].length}</span></div><ul class="terr-liste">${parVille[v].slice(0, 80).map(ligne).join('')}</ul>`).join('') : ''}</div>`;
+        ${s.dep ? Object.keys(parVille).sort().map(v => `<button type="button" class="terr-ville" data-ville="${this._esc(this._cleVille(v === 'Ville inconnue' ? '' : v))}" aria-pressed="${s.ville && s.ville === this._cleVille(v)}" title="Filtrer la carte sur cette commune" style="width:100%;border:0;background:none;font:inherit;cursor:pointer;text-align:left"><span>${this._esc(v)}</span><span>${parVille[v].length}</span></button><ul class="terr-liste">${parVille[v].slice(0, 80).map(ligne).join('')}</ul>`).join('') : ''}</div>`;
     }).join('');
     return `<section aria-label="Comptes du périmètre" id="terr-liste" tabindex="-1"><h2>${s.dep ? 'Communes et comptes' : 'Départements et comptes'} (${l.length})</h2>
-      <p class="terr-sub">Liste liée à la carte : un clic sur un département zoome.</p>${blocs || '<p class="terr-vide-msg">Aucun compte dans ce périmètre.</p>'}</section>`;
+      <p class="terr-sub">${s.dep ? 'Un clic sur une commune filtre la carte et la liste sur cette commune.' : 'Liste liée à la carte : un clic sur un département zoome.'}</p>
+      ${s.ville ? `<button class="terr-chip" data-ville-off="1" aria-label="Retirer le filtre commune">Commune : ${this._esc(s.ville)} ✕</button>` : ''}${blocs || '<p class="terr-vide-msg">Aucun compte dans ce périmètre.</p>'}</section>`;
   },
 
   render() {
@@ -322,7 +340,7 @@ window.VueTerritoires = {
     if (!app) return;
     if (s.chargement) { app.innerHTML = '<div class="header-vue"><button onclick="Router.retour()" class="btn-retour" aria-label="Retour">←</button><h1>Territoires</h1></div><p style="padding:16px">Chargement…</p>'; return; }
     if (s.erreur) { app.innerHTML = `<div class="header-vue"><button onclick="Router.retour()" class="btn-retour" aria-label="Retour">←</button><h1>Territoires</h1></div><p style="padding:16px">Erreur : ${this._esc(s.erreur)}</p>`; return; }
-    const zk = s.reg + '|' + s.dep; if (s._zk !== zk) { s._zk = zk; s.z = 1; s.cx = null; s.cy = null; }
+    const zk = s.reg + '|' + s.dep; if (s._zk !== zk) { s._zk = zk; s.z = 1; s.cx = null; s.cy = null; s.ville = ''; }
     const par = this._dataDeps();
     const regs = Object.keys(this.REG).filter(r => window.FR.deps.some(d => d.r === r));
     const deps = window.FR.deps.filter(d => !s.reg || d.r === s.reg).slice().sort((a, b) => a.c.localeCompare(b.c));
@@ -390,7 +408,7 @@ window.VueTerritoires = {
         <div>
           <div class="terr-map">${this._carte(par)}
             <div class="terr-tools"><button id="terr-zi" aria-label="Zoom avant" title="Zoom avant">+</button><button id="terr-zo" aria-label="Zoom arrière" title="Zoom arrière">−</button><button id="terr-zr" aria-label="Recentrer" title="Recentrer" style="font-size:13px">⌖</button><button id="terr-up" aria-label="Niveau supérieur" title="Niveau supérieur">↑</button><button id="terr-fs" aria-label="${s.plein ? 'Quitter le plein écran' : 'Carte en plein écran'}" title="${s.plein ? 'Quitter le plein écran (Échap)' : 'Plein écran'}">${s.plein ? '⤡' : '⤢'}</button></div>
-            <div class="terr-legende" aria-hidden="true"><span><i style="background:#343F48;opacity:.35"></i>Teinte plus soutenue = plus de ${s.calque === 'vis' ? 'visites' : s.calque === 'act' ? 'activés' : 'revendeurs'} (max ${maxLeg})</span><span><i style="background:repeating-linear-gradient(45deg,#8A949E 0 3px,#E1E5E8 3px 6px)"></i>Département partagé</span><span><i style="background:#FF6D68"></i>Sélectionné</span>${this._pointsVisibles() ? `<span><i style="background:#343F48;border-radius:50%"></i>Activé</span><span><i style="background:#7B8A97;border-radius:50%"></i>Empower</span><span><i style="background:#C2CAD1;border-radius:50%"></i>Grossiste</span>${s.avecLeads ? '<span><i style="background:#3E8E9B;border-radius:50%"></i>Lead</span>' : ''}<span style="opacity:.7">Position exacte si GPS connu, sinon au département</span>` : ''}${s.calque === 'act' ? '<span><i style="background:repeating-linear-gradient(90deg,#FF6D68 0 3px,transparent 3px 5px)"></i>Zone blanche</span>' : ''}</div>
+            <div class="terr-legende" aria-hidden="true"><span><i style="background:#343F48;opacity:.35"></i>Teinte plus soutenue = plus de ${s.calque === 'vis' ? 'visites' : s.calque === 'act' ? 'activés' : 'revendeurs'} (max ${maxLeg})</span><span><i style="background:repeating-linear-gradient(45deg,#8A949E 0 3px,#E1E5E8 3px 6px)"></i>Département partagé</span><span><i style="background:#FF6D68"></i>Sélectionné</span>${this._pointsVisibles() ? `<span><i style="background:#343F48;border-radius:50%"></i>Activé</span><span><i style="background:#7B8A97;border-radius:50%"></i>Empower</span><span><i style="background:#C2CAD1;border-radius:50%"></i>Grossiste</span>${s.avecLeads ? '<span><i style="background:#3E8E9B;border-radius:50%"></i>Lead</span>' : ''}<span style="opacity:.7">Point exact si GPS connu ; sinon placé au département (la fiche indique la précision)</span>` : ''}${s.calque === 'act' ? '<span><i style="background:repeating-linear-gradient(90deg,#FF6D68 0 3px,transparent 3px 5px)"></i>Zone blanche</span>' : ''}</div>
           </div>
           ${this._zonesBlanches()}
         </div>
@@ -407,7 +425,7 @@ window.VueTerritoires = {
 
   _monter() {
     const s = this.state;
-    if (s.sel) s.sel = ''; else if (s.dep) s.dep = ''; else s.reg = '';
+    if (s.sel) s.sel = ''; else if (s.ville) s.ville = ''; else if (s.dep) s.dep = ''; else s.reg = '';
   },
 
   _bind(app) {
@@ -490,6 +508,8 @@ window.VueTerritoires = {
       const go = () => aller(p.dataset.dep);
       p.onclick = go; p.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
     });
+    app.querySelectorAll('[data-ville]').forEach(b => b.onclick = () => { const v = b.dataset.ville; s.ville = s.ville === v ? '' : v; s.sel = ''; rerender(); });
+    app.querySelectorAll('[data-ville-off]').forEach(b => b.onclick = () => { s.ville = ''; rerender(); });
     app.querySelectorAll('[data-dep-go]').forEach(b => b.onclick = () => { const d = window.FR.deps.find(x => x.c === b.dataset.depGo); if (d) { s.reg = d.r; s.dep = d.c; s.sel = ''; rerender(); } });
     app.querySelectorAll('[data-sel]').forEach(a => a.addEventListener('click', e => {
       if (e.ctrlKey || e.metaKey) return;

@@ -230,6 +230,7 @@ window.VuePipeline = {
         .filter(p => this._voitTous() || Number(p.PIN_CDS_Assigne) === Session.pin);
       this.state.chargement = false;
       this.render();
+      this._escalader48h().catch(() => {});
       // BLOC — ouverture différée d'un lead depuis le Journal Phoning (aperçu
       // coordonnées → "Voir dans le Tracker →"), même convention que
       // window._suiviActionOrigine (visite → phoning) déjà utilisée ailleurs :
@@ -1885,6 +1886,26 @@ window.VuePipeline = {
     if (h >= 48) return { niveau: 'rouge', h };
     if (h >= 24) return { niveau: 'orange', h };
     return null;
+  },
+  // Escalade : un lead resté sans contact au-delà de 48 h prévient l'ADMIN (et le CDS assigné), une seule fois par lead.
+  // Exécutée à l'ouverture du Tracker par un ADMIN ; l'anti-doublon lit les notifications déjà émises.
+  async _escalader48h() {
+    if (!Session.estManager()) return;
+    const rouges = this.state.leads.filter(l => { const a = this._alerte48h(l); return a && a.niveau === 'rouge'; });
+    if (!rouges.length) return;
+    const deja = new Set((await SheetsAPI.lire('EMPOWER_MDB', 'NOTIFS', { nocache: true }).catch(() => []))
+      .filter(n => String(n.Type_Notif) === 'ALERTE_48H').map(n => String(n.ID_Cible)));
+    for (const l of rouges.filter(x => !deja.has(String(x.ID_Prospect))).slice(0, 20)) {
+      const dests = new Set([1000, 5000]);
+      if (Number(l.PIN_CDS_Assigne)) dests.add(Number(l.PIN_CDS_Assigne));
+      const msg = `Premier contact en retard (plus de 48 h) : ${l.Nom_Compte}${l.Ville ? ', ' + l.Ville : ''}`;
+      for (const pin of dests) {
+        SheetsAPI.ecrire('EMPOWER_MDB', 'NOTIFS', {
+          ID_Notif: genId('NOTIF'), PIN_Destinataire: pin, Type_Notif: 'ALERTE_48H', Message: msg,
+          ID_Cible: l.ID_Prospect, Statut_Lu: false, Date_Envoi: new Date().toISOString(),
+        }).catch(() => {});
+      }
+    }
   },
   _badge48h(l) {
     const a = this._alerte48h(l);

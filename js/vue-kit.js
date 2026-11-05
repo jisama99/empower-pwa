@@ -59,12 +59,12 @@ window.VueKit = {
       conseille ? '<span class="kit-chip kit-cons">Conseillé pour ce palier</span>' : ''].join('');
     const ok = !!d.fichier_path, id = E(d.id);
     const actions = [];
-    if (ok) actions.push(`<button class="co-btn" onclick="VueKit.ouvrir('${id}')">Ouvrir</button>`);
-    if (ok && !d.interne && !echu && this._peutEnvoyer()) actions.push(`<button class="co-btn p" onclick="VueKit.envoyer('${id}')">Envoyer</button>`);
+    if (ok) actions.push(`<button class="co-btn" onclick="VueKit.ouvrir('${id}')">Aperçu</button>`);
+    if (ok && !d.interne && !echu && d.groupe !== "Modes d'emploi" && this._peutEnvoyer()) actions.push(`<button class="co-btn p" onclick="VueKit.envoyer('${id}')">Envoyer</button>`);
     if (this._admin()) actions.push(`<label class="co-btn kit-up">${ok ? 'Remplacer' : 'Ajouter le fichier'}<input type="file" accept=".pdf,.pptx,.docx,.md,.png,.jpg,.jpeg" hidden onchange="VueKit.televerser('${id}',this)"/></label>`,
       `<label class="kit-val" title="Date de validité">Valide jusqu’au <input type="date" value="${E(String(d.valide_au || '').slice(0, 10))}" onchange="VueKit.majValidite('${id}',this.value)"/></label>`);
     const dispo = (ok ? `<span class="co-mut">${E(d.fichier_nom || '')} ${E(this._taille(d.taille))}</span>` : '<span class="co-mut">Fichier bientôt disponible</span>') + (this._admin() ? ` <span class="co-mut">Identifiant : <code>${id}</code></span>` : '');
-    return `<div class="kit-ligne ${echu ? 'kit-echu' : ''}"><div class="kit-t"><b>${E(d.titre)}</b><div class="kit-b">${badges}</div>${dispo}</div><div class="kit-a">${this.state.occupe === d.id ? '<span class="co-mut">En cours…</span>' : actions.join('')}</div></div>`;
+    return `<div class="kit-ligne ${echu ? 'kit-echu' : ''}"><div class="kit-t"><b ${ok ? `style="cursor:pointer" title="Aperçu" onclick="VueKit.ouvrir('${id}')"` : ''}>${E(d.titre)}</b><div class="kit-b">${badges}</div>${dispo}</div><div class="kit-a">${this.state.occupe === d.id ? '<span class="co-mut">En cours…</span>' : actions.join('')}</div></div>`;
   },
 
   _listeHtml() {
@@ -117,7 +117,9 @@ window.VueKit = {
     // Aperçu dans l'application (bouton Fermer toujours visible), jamais dans une nouvelle fenêtre ni à la place de l'application.
     try {
       const [u, tel] = await Promise.all([this._lien(d, 600), this._lien(d, 600, true)]);
-      Visionneuse.fichier(u, { titre: d.titre, format: d.format, telechargement: tel });
+      // « format » de la fiche = gabarit (A4, Digital…) : le type de fichier se lit dans son nom, sinon l'aperçu PDF ne se déclenche jamais.
+      const ext = (String(d.fichier_nom || d.fichier_path).match(/\.([a-z0-9]+)$/i) || [])[1] || '';
+      Visionneuse.fichier(u, { titre: d.titre, format: ext, telechargement: tel });
     } catch (e) { if (window.Toast) Toast.afficher('Ouverture impossible : ' + (e.message || e), 'erreur'); }
   },
 
