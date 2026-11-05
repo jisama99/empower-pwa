@@ -192,7 +192,7 @@
    },
    "incoherences": [
     "Advanced 10 : PVP TTC 104,99 € dans le Book Grossiste, 59,99 € dans le Book Empower et la cotation Back2School.",
-    "Platinum 20 : PVP TTC 79,99 € chez Tech Data et 99,99 € chez Ingram dans le Book Grossiste ; 99,90 € dans la cotation Back2School.",
+    "Platinum 20 : PVP TTC 79,99 € chez Tech Data et 99,99 € chez Ingram dans le Book Grossiste ; 99,90 € dans la cotation Back2School. Décision du 5 nov. 2026 : 79,99 € retenu.",
     "Premium 10 : PVP TTC 69,99 € (Book) ou 69,90 € (cotation).",
     "Advanced et Platinum : mêmes SKU (21444054, 21444053) chez Tech Data et Ingram ; références boîte identiques chez les deux distributeurs.",
     "Premium 10 et Platinum 20 : absents de la grille portail Empower (prix d'achat Empower à fournir).",
