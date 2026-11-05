@@ -57,15 +57,20 @@ window.Visionneuse = (function () {
     const defil = el.querySelector('.vis-defil'), feuille = el.querySelector('.vis-feuille'), f = el.querySelector('iframe');
     const largeur = opt.largeur || LARGEUR_A4;
     f.style.width = largeur + 'px';
+    let zoom = 1;   // multiplicateur par rapport à « tenir dans la largeur »
     const ajuster = () => {
-      const k = Math.min(1, (defil.clientWidth - 16) / largeur) || 1;
+      const base = Math.min(1, (defil.clientWidth - 16) / largeur) || 1, k = base * zoom;
       let h = 1200;
       try { const d = f.contentDocument; h = Math.max(d.documentElement.scrollHeight, d.body ? d.body.scrollHeight : 0, 600); } catch (e) { /* hauteur par défaut */ }
       f.style.height = h + 'px';
       f.style.transform = 'scale(' + k + ')';
       feuille.style.width = Math.round(largeur * k) + 'px';
       feuille.style.height = Math.round(h * k) + 'px';
+      feuille.style.margin = k * largeur > defil.clientWidth - 16 ? '0' : '0 auto';
     };
+    const regler = z => { zoom = Math.max(1, Math.min(4, z)); ajuster(); };
+    el.querySelector('.vis-corps').insertAdjacentHTML('beforeend', `<div class="vis-zoom" role="group" aria-label="Zoom"><button type="button" data-z="-" aria-label="Réduire">−</button><button type="button" data-z="0" aria-label="Ajuster à l'écran">Ajuster</button><button type="button" data-z="+" aria-label="Agrandir">+</button></div>`);
+    el.querySelector('.vis-zoom').addEventListener('click', e => { const b = e.target.closest('[data-z]'); if (!b) return; regler(b.dataset.z === '0' ? 1 : zoom * (b.dataset.z === '+' ? 1.5 : 1 / 1.5)); });
     f.addEventListener('load', () => { ajuster(); setTimeout(ajuster, 400); setTimeout(ajuster, 1500); });
     redim = ajuster; window.addEventListener('resize', redim);
     f.srcdoc = doc;

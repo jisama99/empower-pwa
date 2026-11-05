@@ -19,3 +19,7 @@ body.vis-ouverte { overflow: hidden; }
 }
 @media print { #visionneuse { display: none !important; } }
 #visionneuse .vis-img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 12px; }
+#visionneuse .vis-corps { position: relative; }
+#visionneuse .vis-zoom { position: absolute; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; padding: 6px; border-radius: 26px; background: #343F48; box-shadow: 0 4px 18px rgba(14,17,20,.3); }
+#visionneuse .vis-zoom button { min-width: 44px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 22px; background: rgba(255,255,255,.14); color: #fff; font: inherit; font-size: 18px; font-weight: 700; cursor: pointer; }
+#visionneuse .vis-zoom button[data-z="0"] { font-size: 13px; }
