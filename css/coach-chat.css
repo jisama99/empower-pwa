@@ -55,3 +55,12 @@
 }
 @keyframes cc-monte { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media print { .cc, .cc-bulle, .cc-fond, .cc-ico { display: none !important; } }
+
+/* En-tête du Coach en panneau large : titre, segments, Plan, réduire et fermer tiennent sur une ligne, rien n'est coupé */
+@media (min-width: 900px) {
+  .cc-tete { gap: 6px; }
+  .cc-titre { flex: 1 1 auto; min-width: 56px; }
+  .cc-seg { margin-left: auto; flex: none; }
+  .cc-seg button { padding: 6px 8px; font-size: 11.5px; }
+  .cc-ib { flex: none; min-width: 32px; height: 32px; padding: 0 10px; font-size: 12px; }
+}
