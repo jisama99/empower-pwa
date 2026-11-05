@@ -8,7 +8,7 @@ const CORS = {
 
 const GEMINI_MODELS = [
   'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
+  'gemini-3.5-flash-lite',   // l'ancien 2.5-flash-lite est retiré par Google (404)
 ]
 
 Deno.serve(async (req) => {
@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
           body: payload,
         },
       )
-      if (r.status === 429) continue  // quota épuisé → essai modèle suivant
+      if (r.status === 429 || r.status === 503 || r.status === 404) continue  // quota, forte demande ou modèle retiré → essai modèle suivant
       if (!r.ok) {
         const err = await r.text()
         return { ok: false, erreur: `Gemini ${model} ${r.status}: ${err.slice(0, 300)}` }
