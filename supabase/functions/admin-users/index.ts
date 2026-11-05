@@ -13,7 +13,7 @@ const SECTIONS = [
   'home', 'tracker', 'historiques', 'phoning', 'visites', 'visites_fdv',
   'objectifs', 'primes', 'comptes', 'manager', 'reporting', 'reporting_cds',
   'admin', 'questionnaire', 'photos', 'mailing', 'a_contacter', 'territoires',
-  'admin_primes', 'admin_baremes', 'admin_reporting',
+  'admin_primes', 'admin_baremes', 'admin_reporting', 'coach', 'kit',
 ]
 
 // Hachage des mots de passe : PBKDF2-SHA256 (210 000 itérations), format « pbkdf2$<itérations>$<hex> ».

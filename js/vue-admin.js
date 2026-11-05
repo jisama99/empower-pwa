@@ -1707,20 +1707,11 @@ window.VueAdmin = {
         </div>
         <div class="bloc-fiche">
           <div class="bloc-titre">Mot de passe</div>
-          <p style="font-size:12px;color:var(--c-text-2);margin-bottom:10px">Un lien de changement de mot de passe est envoyé à votre adresse e-mail.</p>
-          <button class="btn-secondaire" onclick="VueAdmin.envoyerLienMdp()">Recevoir le lien</button>
-          <p id="mes-mdp-msg" style="font-size:12px;margin-top:10px">${E(this.state.mdpMsg)}</p>
+          <p style="font-size:12px;color:var(--c-text-2);margin-bottom:10px">Pour changer votre mot de passe, envoyez une demande depuis Aide &amp; Suggestions : l'administrateur le réinitialise.</p>
+          <button class="btn-secondaire" onclick="Router.aller('#/aide')">Ouvrir Aide &amp; Suggestions</button>
         </div>
       </div></div>
       ${typeof NavBar === 'function' ? NavBar('admin') : ''}`;
-  },
-
-  async envoyerLienMdp() {
-    try {
-      const r = await SheetsAPI._fetchRetry(SheetsAPI.BASE_URL, 'POST', 2, { action: 'sendResetEmail', email: Session.email });
-      this.state.mdpMsg = r.message || 'Lien envoyé si l’adresse est connue.';
-    } catch (e) { this.state.mdpMsg = 'Erreur : ' + e.message; }
-    this._renderMesReglages();
   },
 
   render() {
