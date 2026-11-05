@@ -81,3 +81,30 @@
   .cs-fiche-carte { background: var(--c-surface, #fff); border-radius: 18px; padding: 16px 18px; }
 }
 .cs-decale:has(.cs-split) { margin-right: 0; }
+
+/* Administration > Utilisateurs : le bloc prend toute la largeur disponible (colonne fixe de 900 px levée), plus de menus coupés */
+@media (min-width: 900px) {
+  .dash-body:has(.adm-users) { grid-template-columns: minmax(0, 1fr) !important; }
+  .dash-body:has(.adm-users) .dash-col-main { max-width: none; }
+  .adm-users td.adm-actions { min-width: 300px; max-width: none; }
+}
+
+/* Volet replié : l'élément actif corail devient une pastille ronde centrée, sans étirement sur toute la largeur du rail */
+@media (min-width: 900px) {
+  body.sidebar-collapsed .nav-principale .nav-item { width: 42px; height: 42px; margin: 3px auto; padding: 0; justify-content: center; border-radius: 14px; flex: none; }
+  body.sidebar-collapsed .nav-principale .nav-item.actif { background: #FF6D68; }
+  body.sidebar-collapsed .nav-principale .nav-icone { margin: 0; }
+}
+
+/* Comptes : la liste est un bloc blanc arrondi, lignes compactes en alternance douce, en-tête collant */
+@media (min-width: 900px) {
+  #comptes-liste-zone .desktop-table-wrap { background: var(--c-surface, #fff); border-radius: 22px; padding: 6px 16px 14px; box-shadow: 0 1px 2px rgba(26,34,46,.04); overflow-x: auto; }
+  #comptes-liste-zone .desktop-table-data-view { border-collapse: separate; border-spacing: 0; }
+  #comptes-liste-zone .desktop-table-data-view thead th { position: sticky; top: 0; z-index: 2; background: var(--c-surface, #fff); padding: 14px 8px 10px; }
+  #comptes-liste-zone .desktop-table-data-view tbody td { padding: 8px 8px; height: 54px; background: transparent !important; border-radius: 0 !important; }
+  #comptes-liste-zone .desktop-table-data-view tbody tr:nth-child(even) td { background: var(--cs-fond, #F1F3F4) !important; }
+  #comptes-liste-zone .desktop-table-data-view tbody tr td:first-child { border-radius: 14px 0 0 14px !important; }
+  #comptes-liste-zone .desktop-table-data-view tbody tr td:last-child { border-radius: 0 14px 14px 0 !important; }
+  #comptes-liste-zone .desktop-table-data-view tbody tr { box-shadow: none; }
+  #comptes-liste-zone .desktop-table-data-view tbody tr:hover td { background: rgba(255,109,104,.10) !important; }
+}
