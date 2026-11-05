@@ -20,7 +20,14 @@ window.VueCoach = {
 
   async init() {
     const s = this.state; s.chargement = true; s.erreur = null; this.render();
-    try {
+    try { await this._donnees(); } catch (e) { s.erreur = e.message || String(e); }
+    s.chargement = false; this.render();
+  },
+
+  // Chargement des données du Coach, sans dessin : partagé par la page #/coach et la fenêtre de chat (CoachChat).
+  async _donnees() {
+    const s = this.state;
+    {
       const L = t => SheetsAPI.lire('EMPOWER_MDB', t, { nocache: true });
       const [comptes, leads, visites, appels, objectifs, params, suivi, actions] = await Promise.all([
         L('COMPTES'), L('LEADS'), L('VISITES'), L('PHONING'), L('OBJECTIFS_PRIMES'), SheetsAPI.lire('EMPOWER_MDB', 'PARAMS'),
@@ -35,9 +42,21 @@ window.VueCoach = {
       this._calculer();
       if (!s.fil.length) s.fil.push({ r: 'a', h: `<b>Bonjour ${this._esc(this._prenom())}.</b> Je m'appuie sur vos chiffres, le catalogue et les règles du séminaire. Choisissez une question ci-dessus ou écrivez la vôtre.` });
       s.maj = new Date();
-    } catch (e) { s.erreur = e.message || String(e); }
-    s.chargement = false; this.render();
+    }
+    if (window.CoachChat) CoachChat.maj();
   },
+
+  // Mode « tarifs » (rôle Externe) : catalogue, marges et offres uniquement, aucune donnée de compte.
+  async _donneesTarifs() {
+    const s = this.state;
+    await window.Catalogue.charger(SheetsAPI._sb);
+    s.tarifs = true;
+    if (!s.fil.length) s.fil.push({ r: 'a', h: `<b>Bonjour ${this._esc(this._prenom())}.</b> Je réponds ici sur les tarifs, le calcul de marge et les offres possibles, avec les prix du catalogue. Choisissez une question ou ouvrez le calculateur.` });
+    if (window.CoachChat) CoachChat.maj();
+  },
+
+  // Redessine ce qui est à l'écran : la page Coach si elle est ouverte, et la fenêtre de chat.
+  _maj() { if (document.querySelector('#app .coach')) this.render(); if (window.CoachChat) CoachChat.maj(); },
 
   // ── Contexte du moteur : branche les règles de l'app (Empower, activé, localisé, paliers) ──
   _ctx(extra) {
@@ -217,7 +236,23 @@ window.VueCoach = {
       <div class="co-src">Les documents échus ne peuvent pas être envoyés ; les documents internes ne sortent jamais de l'équipe.</div>`;
   },
 
-  _repMarge() { setTimeout(() => this.ouvrirCalc(), 0); return '<b>Le calculateur est à droite.</b> Choisissez les produits et les quantités : la marge Empower et la marge grossiste se calculent avec les prix des Réglages, cotation en cours comprise.'; },
+  _repMarge() { setTimeout(() => this.ouvrirCalc(), 0); return '<b>Le calculateur s\'ouvre.</b> Choisissez les produits et les quantités : la marge Empower et la marge grossiste se calculent avec les prix des Réglages, cotation en cours comprise.'; },
+
+  // Offres et promotions : uniquement ce qui est dans le catalogue (offre volume, cotations en cours) ; les offres X+Y sont chiffrées avec les termes saisis, jamais inventés.
+  _repOffres() {
+    const C = window.Catalogue, E = this._esc, rv = C.remise_volume, cot = C.cotationsActives();
+    const ex = [['n360-del5', rv.seuil]], v = C.comparer(ex, { volume: true }), n = C.comparer(ex), e = v.empower, e0 = n.empower;
+    const ligne = (t, d) => `<div class="co-step"><span class="co-num">+</span><div><b>${t}</b><br><span class="co-mut">${d}</span></div></div>`;
+    const volume = ex.every(([id]) => C.par(id) && C.par(id).pa_empower != null && C.par(id).pvp_ttc != null)
+      ? ` Exemple : ${rv.seuil} × ${E(C.libelle(C.par(ex[0][0])))} = ${this._eur(e0.marge)} de marge Empower, ${this._eur(e.marge)} avec l'offre (+${this._eur(e.marge - e0.marge)}).` : '';
+    const cotes = cot.length ? cot.map(c => `<b>${E(c.libelle)}</b> (jusqu'au ${E(c.fin.split('-').reverse().join('/'))}, ${(c.canaux || []).map(x => x === 'td' ? 'Tech Data' : x === 'ingram' ? 'Ingram' : E(x)).join(' et ')})`).join(', ') : 'aucune cotation grossiste en cours';
+    return `<b>Offres et promotions possibles</b>
+      ${ligne(`Offre volume : -${Math.round(rv.taux * 100)} % sur le prix d'achat dès ${rv.seuil} licences`, `Références mixtes acceptées, soumise à validation budget commercial.${volume}`)}
+      ${ligne('Offre X achetées + Y offertes', 'Chiffrée dans le calculateur avec les termes que vous saisissez (ex. 2 achetées + 1 offerte). L\'assistant n\'invente aucun terme d\'offre.')}
+      ${ligne('Cotations grossiste', `Aujourd'hui : ${cotes}. Elles réduisent le prix d'achat grossiste, donc l'écart avec Empower.`)}
+      <div class="co-actions"><button class="co-btn p" onclick="VueCoach.ouvrirCalc()">Chiffrer une offre dans le calculateur</button></div>
+      <div class="co-src">Sources : catalogue ${E(C.version)} (prix des Réglages). Chiffres calculés, jamais rédigés par un modèle.</div>`;
+  },
 
   _faits() {
     const d = this.state.d, t = d.sel, tri = d.tri;
@@ -231,10 +266,11 @@ window.VueCoach = {
   },
 
   // ── Interactions ──
-  poser(q, rep) { const s = this.state; s.fil.push({ r: 'u', h: this._esc(q) }); s.fil.push({ r: 'a', h: rep }); this.render(); this._basFil(); },
+  poser(q, rep) { const s = this.state; s.fil.push({ r: 'u', h: this._esc(q) }); s.fil.push({ r: 'a', h: rep }); this._maj(); this._basFil(); },
   chip(k) {
+    if (!this.state.d && ['objectif', 'relancer', 'visite', 'rattrapage', 'document'].includes(k)) return this.poser('Question sur mes comptes', 'Ce mode répond sur les <b>tarifs, les marges et les offres</b>. Le suivi des comptes et des objectifs est réservé aux commerciaux.');
     const Q = { objectif: ['Comment j\'atteins mon objectif ?', () => this._repObjectif()], relancer: ['Qui relancer aujourd\'hui ?', () => this._repRelancer()],
-                visite: ['Prépare ma prochaine visite', () => this._repVisite()], marge: ['Calcule ma marge', () => this._repMarge()], rattrapage: ['Plan de rattrapage', () => this._repRattrapage()], objections: ['Répondre aux objections', () => this._repObjections()], document: ['Quel document envoyer ?', () => this._repDocument()] }[k];
+                visite: ['Prépare ma prochaine visite', () => this._repVisite()], marge: ['Calcule ma marge', () => this._repMarge()], rattrapage: ['Plan de rattrapage', () => this._repRattrapage()], objections: ['Répondre aux objections', () => this._repObjections()], document: ['Quel document envoyer ?', () => this._repDocument()], offres: ['Quelles offres et promotions possibles ?', () => this._repOffres()] }[k];
     if (Q) this.poser(Q[0], Q[1]());
   },
   preparerVisite(id) { this.poser('Prépare la visite de ce compte', this._repVisite(id)); },
@@ -246,26 +282,28 @@ window.VueCoach = {
     if (/document|flyer|brochure|kit|envoyer|book|deck/.test(x)) return 'document';
     if (/relanc|appeler|contacter|prioritaire|cibl|qui /.test(x)) return 'relancer';
     if (/visite|rendez|pr[ée]par/.test(x)) return 'visite';
-    if (/marge|prix|devis|calcul|rentab/.test(x)) return 'marge';
+    if (/offre|promo|op[ée]ration|2 ?\+ ?1|remise|volume|cotation/.test(x)) return 'offres';
+    if (/marge|prix|tarif|devis|calcul|rentab/.test(x)) return 'marge';
     return null;
   },
-  async envoyer() {
-    const inp = document.getElementById('co-q'); const q = (inp && inp.value || '').trim(); if (!q || this.state.ia) return;
-    if (inp) inp.value = '';
+  async envoyer(texte) {
+    const inp = document.getElementById('co-q'); const q = String(texte != null ? texte : (inp && inp.value) || '').trim(); if (!q || this.state.ia) return;
+    if (inp && texte == null) inp.value = '';
     const k = this._route(q);
     if (k) return this.chip(k);
-    const s = this.state; s.fil.push({ r: 'u', h: this._esc(q) }); s.ia = true; s.fil.push({ r: 'a', h: '<span class="co-mut">Réflexion en cours…</span>', tmp: true }); this.render(); this._basFil();
+    if (!this.state.d) return this.poser(q, 'Je réponds ici sur les <b>tarifs, les marges et les offres</b>. Essayez « Calcule ma marge » ou « Quelles offres possibles ? ».');
+    const s = this.state; s.fil.push({ r: 'u', h: this._esc(q) }); s.ia = true; s.fil.push({ r: 'a', h: '<span class="co-mut">Réflexion en cours…</span>', tmp: true }); this._maj(); this._basFil();
     let h;
     try {
       const prompt = `Tu es un coach commercial B2B expert de la vente indirecte (revendeurs informatique, Norton). Réponds en français, en 6 lignes maximum, de façon concrète et actionnable.\nRègle absolue : n'utilise AUCUN chiffre qui ne figure pas dans le bloc FAITS ; si une donnée manque, dis-le.\n\nFAITS :\n${this._faits()}\n\nQUESTION DU COMMERCIAL :\n${q.slice(0, 500)}`;
       const txt = await window.GeminiAPI._appeler(prompt, 'Coach commercial ESI');
       h = `<span class="co-ia">Rédigé par l'IA à partir des chiffres de l'app</span><br>${this._esc(txt).replace(/\n/g, '<br>')}`;
     } catch (e) { h = 'Je n\'ai pas pu joindre l\'assistant. Les réponses guidées restent disponibles ci-dessus.'; }
-    s.fil = s.fil.filter(m => !m.tmp); s.fil.push({ r: 'a', h }); s.ia = false; this.render(); this._basFil();
+    s.fil = s.fil.filter(m => !m.tmp); s.fil.push({ r: 'a', h }); s.ia = false; this._maj(); this._basFil();
   },
   touche(ev) { if (ev.key === 'Enter') { ev.preventDefault(); this.envoyer(); } },
-  _basFil() { const f = document.getElementById('co-fil'); if (f) f.scrollTop = f.scrollHeight; },
-  ouvrirCalc() { this.state.col = 'calc'; this.render(); const c = document.getElementById('co-calc'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); },
+  _basFil() { ['co-fil', 'cc-fil'].forEach(id => { const f = document.getElementById(id); if (f) f.scrollTop = f.scrollHeight; }); },
+  ouvrirCalc() { if (!document.querySelector('#app .coach')) { if (window.CoachChat) CoachChat.vue('calc'); return; } this.state.col = 'calc'; this.render(); const c = document.getElementById('co-calc'); if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); },
 
   // ── Calculateur ──
   majLigne(i, champ, v) { const p = this.state.panier[i]; if (!p) return; if (champ === 'id') p[0] = v; else p[1] = Math.max(0, Math.min(9999, Math.floor(Number(v) || 0))); this._majCalc(); },
@@ -320,7 +358,7 @@ window.VueCoach = {
       <div class="co-ligne" style="grid-template-columns:1fr"><input type="date" value="${E(o.validite)}" aria-label="Valable jusqu'au" onchange="VueCoach.majPdf('validite',this.value)"/></div>
       <button class="co-btn p" style="width:100%;margin-top:6px" onclick="VueCoach.creerPdf()">Créer le PDF</button></div>`;
   },
-  _majCalc() { const el = document.getElementById('co-calc'); if (el) el.outerHTML = this._calcHtml(); else this.render(); },
+  _majCalc() { const el = document.getElementById('co-calc'); if (el) el.outerHTML = this._calcHtml(); else this._maj(); },
 
   _calcHtml() {
     const s = this.state, C = window.Catalogue, E = this._esc, d = s.d;

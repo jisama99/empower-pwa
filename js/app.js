@@ -42,6 +42,7 @@
   // 5. Si pas de session → aller login ; sinon démarrer le polling notifs
   // Init sidebar collapse state (avant toute navigation)
   if (window.SidebarToggle) SidebarToggle.init();
+  if (window.CoachChat) CoachChat.init();   // Coach en fenêtre de chat (bulle bureau, icône d'en-tête mobile)
 
   if (!sessionOk) {
     Router.aller('#/login');

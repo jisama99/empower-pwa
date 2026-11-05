@@ -20,8 +20,8 @@ require('./js/admin-prix.js');
 const P = window.AdminPrix;
 (async () => {
   await P.charger();
-  await ok('affichage : tableau des 13 produits, aucune cotation, éditable', () => {
-    const h = P.html(); assert.strictEqual((h.match(/<tr><td><strong>/g) || []).length, 13); assert.match(h, /Aucune cotation en cours/); assert.match(h, /onchange="AdminPrix.majPrix\('n360-std','pa_td'/);
+  await ok('affichage : tableau des 16 produits, aucune cotation, éditable', () => {
+    const h = P.html(); assert.strictEqual((h.match(/<tr><td><strong>/g) || []).length, 16); assert.match(h, /Aucune cotation en cours/); assert.match(h, /onchange="AdminPrix.majPrix\('n360-std','pa_td'/);
   });
   await ok('majPrix : écrit le bon champ, ignore l’inchangé, refuse un montant invalide', async () => {
     calls.length = 0; await P.majPrix('n360-std', 'pa_td', '24,5');
