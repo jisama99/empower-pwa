@@ -282,6 +282,29 @@ window.VuePilotage = {
     return `<div class="cs-jauges">${part === 'entonnoir' ? sE : part === 'contacts' ? sC : sC + sE}</div>`;
   },
 
+  // Compteur de la base contacts : avancement, échéance 31/12/2026, cadence par semaine, répartition par commercial.
+  _bandeauContacts(manager) {
+    const cs = ((this._raw && this._raw.comptes) || []).filter(c => String(c.deleted || '').toUpperCase() !== 'TRUE');
+    if (!cs.length || !window.ContactsObjectif) return '';
+    const E = this._esc, st = ContactsObjectif.stats(cs), nom = p => (window.resolveCDS ? window.resolveCDS(p) : p);
+    const urgent = st.jours <= 60;
+    const lignes = manager ? st.parCds.filter(x => x.pin).map(x => `<div style="display:flex;align-items:center;gap:10px;font-size:12px;margin-top:7px">
+        <span style="flex:0 0 96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${E(nom(x.pin))}</span>
+        <span style="flex:1;height:8px;border-radius:4px;background:var(--c-border);overflow:hidden"><span style="display:block;height:100%;width:${x.pct}%;background:#FF6D68"></span></span>
+        <span style="flex:0 0 110px;text-align:right;white-space:nowrap;color:var(--c-text-2)">${x.contact} / ${x.tot} · reste ${x.tot - x.contact}</span></div>`).join('') : '';
+    return `<section class="pilo-panneau" aria-label="Base contacts" style="margin:12px 0">
+      <div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Axe focus · base contacts</span><h3>Remplir la base avant le 31/12/2026</h3></div>
+        <button class="pilo-lien" onclick="VueComptes.state.filtreFiche='A_COMPLETER';Router.aller('#/comptes')">${st.reste} fiche${st.reste > 1 ? 's' : ''} à compléter ›</button></div>
+      <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center">
+        <div style="flex:1;min-width:240px">
+          <div style="font-size:30px;font-weight:800;line-height:1">${st.contact}<span style="font-size:15px;font-weight:600;color:var(--c-text-2)"> / ${st.tot} · ${st.pct} %</span></div>
+          <div style="height:10px;border-radius:5px;background:var(--c-border);overflow:hidden;margin-top:10px"><div style="height:100%;width:${st.pct}%;background:#FF6D68"></div></div>
+          <div style="font-size:13px;margin-top:8px"><strong>J-${st.jours}</strong> · <strong>${st.parSemaine}</strong> fiche${st.parSemaine > 1 ? 's' : ''} par semaine pour atteindre 100 %${urgent ? ' · échéance proche' : ''}</div>
+        </div>
+        ${lignes ? `<div style="flex:1.4;min-width:260px">${lignes}</div>` : ''}
+      </div></section>`;
+  },
+
   // ── Cockpit de trajectoire (manager) : qui est en retard sur le trimestre et que faire ──
   // Réalisé / objectif des commerciaux contre le rythme du trimestre fiscal, alertes du séminaire, coaching suggéré (règles lisibles).
   _cockpit(d) {
@@ -353,6 +376,7 @@ window.VuePilotage = {
       </div>
       <p class="pilo-fraicheur">Données actualisées aujourd’hui à ${heure} · <button onclick="VuePilotage.init()">Actualiser</button></p>
       <div class="pilo-kpis" style="grid-template-columns:repeat(${Math.max(1, Math.min(4, kpisHaut.length))},minmax(0,1fr))">${kpisHaut.map(k => this._kpiHtml(k)).join('')}</div>
+      ${this._bandeauContacts(manager)}
       <div class="pilo-grille${equipeBloc ? '' : ' pilo-grille-seul'}">
         <section class="pilo-panneau" aria-label="Actions prioritaires">
           <div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Actions prioritaires</span><h3>${manager ? 'À faire par l’équipe' : 'Mes actions du jour'}</h3></div>
