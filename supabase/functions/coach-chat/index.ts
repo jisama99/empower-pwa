@@ -10,7 +10,7 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
-const MODELES = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+const MODELES = ['gemini-2.5-flash', 'gemini-3.5-flash-lite']   // un modèle retiré (404) est simplement ignoré
 const rep = (corps: unknown, status = 200) => Response.json(corps, { headers: CORS, status })
 
 Deno.serve(async (req) => {
@@ -85,11 +85,11 @@ Deno.serve(async (req) => {
         for (let essai = 0; essai < 2; essai++) {
           const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
             method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cle!.valeur }, body: corps })
-          if (r.status === 429) { dernier = 429; await new Promise(ok => setTimeout(ok, 1500)); continue }   // quota par minute : une courte pause puis un second essai
+          if (r.status === 429 || r.status === 503) { dernier = 429; await new Promise(ok => setTimeout(ok, 1500)); continue }   // quota par minute ou forte demande (503) : une courte pause puis un second essai
           if (!r.ok) {
             const txt = (await r.text()).slice(0, 300)
             console.error('coach-chat modèle', m, r.status, txt)
-            if (r.status === 404 && m !== MODELES[MODELES.length - 1]) { dernierDetail = m + ' ' + r.status + ' ' + txt; break }   // modèle absent : on passe au suivant
+            if (r.status === 404) { dernierDetail = m + ' ' + r.status + ' ' + txt; break }   // modèle absent : on passe au suivant
             const err: any = new Error('Modèle ' + r.status); err.detail = m + ' ' + r.status + ' ' + txt; throw err
           }
           const d = await r.json()
