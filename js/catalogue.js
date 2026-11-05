@@ -45,7 +45,7 @@
      "pvp_ttc": 59.99,
      "pa_td": 33.33,
      "pa_ingram": 33.33,
-     "pa_empower": 16.24,
+     "pa_empower": 16.34,
      "sku_td": "21404968",
      "sku_ingram": "21404845",
      "sku_boite": "21409192"
@@ -58,7 +58,7 @@
      "pvp_ttc": 69.99,
      "pa_td": 37.5,
      "pa_ingram": 37.5,
-     "pa_empower": null,
+     "pa_empower": 22.82,
      "sku_td": "21404987",
      "sku_ingram": "21404998",
      "sku_boite": "21409193"
@@ -195,7 +195,7 @@
     "Platinum 20 : PVP TTC 79,99 € chez Tech Data et 99,99 € chez Ingram dans le Book Grossiste ; 99,90 € dans la cotation Back2School. Décision du 5 nov. 2026 : 79,99 € retenu.",
     "Premium 10 : PVP TTC 69,99 € (Book) ou 69,90 € (cotation).",
     "Advanced et Platinum : mêmes SKU (21444054, 21444053) chez Tech Data et Ingram ; références boîte identiques chez les deux distributeurs.",
-    "Premium 10 et Platinum 20 : absents de la grille portail Empower (prix d'achat Empower à fournir).",
+    "Portail Empower (relevé du 5 nov. 2026) : Premium 10 = 22,82 € ; Deluxe 5 = 16,34 € (corrigé, 16,24 € avant) ; Platinum 20 n'est pas vendu sur le portail Empower, donc pas de prix d'achat Empower.",
     "Prix d'achat grossiste « sans cotation » ; la cotation Back2School (jusqu'à -50 %) a pris fin le 30/09/2026, prix d'achat cotés non fournis."
    ]
   };

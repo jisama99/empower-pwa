@@ -7,15 +7,15 @@ let n = 0; const ok = (nom, f) => { f(); n++; console.log('  ok  ' + nom); };
 
 ok('marge : panier 6 Deluxe5 + 4 Standard + 3 NSB10 (PDF exemple)', () => {
   const r = C.comparer([['n360-del5', 6], ['n360-std', 4], ['nsb-10', 3]]);
-  assert.strictEqual(Math.round(r.empower.marge), 550); assert.strictEqual(r.empower.pct, 70.2);
-  assert.strictEqual(Math.round(r.grossiste.marge), 308); assert.strictEqual(Math.round(r.gain), 242);
+  assert.strictEqual(Math.round(r.empower.marge), 549); assert.strictEqual(r.empower.pct, 70.1);
+  assert.strictEqual(Math.round(r.grossiste.marge), 308); assert.strictEqual(Math.round(r.gain), 241);
 });
 ok('marge : PVP HT = TTC / 1,20', () => assert.strictEqual(Math.round(C.pvpHT(C.par('n360-std')) * 100) / 100, 33.33));
 ok('marge : produit sans PA Empower exclu et signalé, jamais inventé', () => {
-  const r = C.calculer([['n360-prem10', 2], ['n360-std', 1]], 'pa_empower');
-  assert.deepStrictEqual(r.manquants, ['Norton 360 Premium 10']); assert.strictEqual(r.licences, 1);
-  const c = C.comparer([['n360-prem10', 2], ['n360-std', 1]]);
-  assert.deepStrictEqual(c.exclus, ['Norton 360 Premium 10']);
+  const r = C.calculer([['n360-plat20', 2], ['n360-std', 1]], 'pa_empower');
+  assert.deepStrictEqual(r.manquants, ['Norton 360 Platinum 20']); assert.strictEqual(r.licences, 1);
+  const c = C.comparer([['n360-plat20', 2], ['n360-std', 1]]);
+  assert.deepStrictEqual(c.exclus, ['Norton 360 Platinum 20']);
 });
 ok('marge : quantité nulle, négative ou texte ignorée', () => assert.strictEqual(C.calculer([['n360-std', -3], ['n360-std', 'x'], ['inconnu', 5]], 'pa_empower').licences, 0));
 ok('marge : offre volume -20 % sur le PA dès 10 licences (option)', () => {
