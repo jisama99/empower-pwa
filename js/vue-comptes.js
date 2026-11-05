@@ -404,7 +404,8 @@ window.VueComptes = {
       return `<button class="fp ${on ? 'on' : ''}" onclick="VueComptes.ouvrirFeuilleFiltre('${d.cle}')"><span class="fp-l">${d.lib}</span><span class="fp-v">${v}</span><span class="material-symbols-outlined" aria-hidden="true">expand_more</span></button>`;
     }).join('');
     const reinit = actifs ? `<button class="fp fp-raz" onclick="VueComptes.reinitialiserFiltres()" title="Réinitialiser"><span class="material-symbols-outlined" aria-hidden="true">filter_alt_off</span></button>` : '';
-    return `<div class="filtres-pastilles">${pastilles}${reinit}</div>`;
+    const vues = `<button class="fp ${this.state.vueFiltreActive ? 'on' : ''}" onclick="FeuilleVues.ouvrir('VueComptes')"><span class="material-symbols-outlined" aria-hidden="true">bookmark</span><span class="fp-v">Vues</span></button>`;
+    return `<div class="filtres-pastilles">${pastilles}${vues}${reinit}</div>`;
   },
   ouvrirFeuilleFiltre(cle) {
     const cdsList = this._cdsListe || [];
@@ -489,7 +490,7 @@ window.VueComptes = {
         </div>
 
         <!-- Feuille de route Phase 2 — vues de filtre sauvegardées -->
-        <div class="filtres-flags filtres-vues" style="align-items:center">
+        <div class="filtres-flags filtres-vues filtres-desktop" style="align-items:center">
           <select style="flex:1;min-width:140px" onchange="VueComptes.appliquerVueFiltre(this.value)">
             <option value="">Vues sauvegardées…</option>
             ${this.state.vuesFiltres.map(v => `<option value="${v.id}" ${this.state.vueFiltreActive === v.id ? 'selected' : ''}>${v.nom}</option>`).join('')}

@@ -829,6 +829,60 @@ window.VuePipeline = {
   }, 250),
 
   // ── RENDER ──
+  // ── Mobile : les 6 sélecteurs deviennent une rangée de pastilles qui défile ; le choix se fait dans une feuille ──
+  _defsFiltres(cdsList, voitTous) {
+    const s = this.state;
+    const defs = [
+      { cle: 'Statut', lib: 'Statut', val: s.filtreStatut, choix: [['TOUS', 'Tous statuts']].concat(this.STATUTS.map(x => [x.id, x.lbl])) },
+      { cle: 'Potentiel', lib: 'Potentiel', val: s.filtrePotentiel, choix: [['TOUS', 'Tout potentiel'], ['Fort', 'Fort'], ['Moyen', 'Moyen'], ['Faible', 'Faible']] },
+      { cle: 'Alerte', lib: 'Alerte', val: s.filtreAlerte, choix: [['TOUS', 'Toutes alertes'], ['WP_RETARD', 'WP J+14 dépassé'], ['WP_ENVOYE', 'Welcome Pack envoyé'], ['ACTION_DUE', 'Action en retard'], ['ALERTE_48H', 'À rappeler sous 48 h'], ['CONTACT_45J', 'Sans contact +45j'], ['SELLIN_ACTIF', 'A commandé (Sell-In ou déclaré)']] },
+    ];
+    if (voitTous) {
+      defs.push({ cle: 'CDS', lib: 'Commercial', val: String(s.filtreCDS), choix: [['TOUS', 'Tous']].concat(cdsList.map(c => [String(c.pin), this._nomCDS(c.pin)])) });
+      defs.push({ cle: 'Origine', lib: 'Origine', val: s.filtreOrigine, choix: [['TOUS', 'Toutes origines']].concat(this._originesDistinctes().map(o => [o, o])) });
+    }
+    if (this.CHANNELS.length > 1) defs.push({ cle: 'Channel', lib: 'Canal', val: s.filtreChannel, choix: [['TOUS', 'Tous canaux']].concat(this.CHANNELS.map(c => [c, c])) });
+    return defs;
+  },
+  _renderPastilles(cdsList, voitTous) {
+    const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const defs = this._defsFiltres(cdsList, voitTous);
+    const actifs = defs.filter(d => String(d.val) !== 'TOUS').length;
+    const pastilles = defs.map(d => {
+      const on = String(d.val) !== 'TOUS';
+      const v = (d.choix.find(x => String(x[0]).toLowerCase() === String(d.val).toLowerCase()) || [0, 'Tous'])[1];
+      return `<button class="fp ${on ? 'on' : ''}" onclick="VuePipeline.ouvrirFeuilleFiltre('${d.cle}')"><span class="fp-l">${d.lib}</span><span class="fp-v">${esc(v)}</span><span class="material-symbols-outlined" aria-hidden="true">expand_more</span></button>`;
+    }).join('');
+    const vues = `<button class="fp ${this.state.vueFiltreActive ? 'on' : ''}" onclick="FeuilleVues.ouvrir('VuePipeline')"><span class="material-symbols-outlined" aria-hidden="true">bookmark</span><span class="fp-v">Vues</span></button>`;
+    const raz = actifs ? `<button class="fp fp-raz" onclick="VuePipeline.reinitialiserFiltres()" title="Réinitialiser" aria-label="Réinitialiser les filtres"><span class="material-symbols-outlined" aria-hidden="true">filter_alt_off</span></button>` : '';
+    return `<div class="filtres-pastilles">${pastilles}${vues}${raz}</div>`;
+  },
+  ouvrirFeuilleFiltre(cle) {
+    const cdsList = this.CDS.length ? this.CDS : this.CDS_FALLBACK;
+    const d = this._defsFiltres(cdsList, this._voitTous()).find(x => x.cle === cle);
+    if (!d) return;
+    const esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    this.fermerFeuilleFiltre();
+    const el = document.createElement('div');
+    el.id = 'feuille-filtre';
+    el.innerHTML = `<div class="ff-fond" onclick="VuePipeline.fermerFeuilleFiltre()"></div>
+      <div class="ff-feuille" role="dialog" aria-label="${d.lib}">
+        <div class="ff-poignee"></div><h3>${d.lib}</h3>
+        <div class="ff-choix">${d.choix.map(([v, l]) => { const on = String(v).toLowerCase() === String(d.val).toLowerCase(); return `<button class="ff-opt ${on ? 'on' : ''}" data-v="${esc(v)}" onclick="VuePipeline.choisirFiltre('${cle}', this.dataset.v)">${esc(l)}${on ? '<span class="material-symbols-outlined" aria-hidden="true">check</span>' : ''}</button>`; }).join('')}</div>
+      </div>`;
+    document.body.appendChild(el);
+  },
+  fermerFeuilleFiltre() { const e = document.getElementById('feuille-filtre'); if (e) e.remove(); },
+  choisirFiltre(cle, v) {
+    this.fermerFeuilleFiltre();
+    this.state['filtre' + cle] = v;
+    this.render();
+  },
+  reinitialiserFiltres() {
+    Object.assign(this.state, { filtreCDS: 'TOUS', filtrePotentiel: 'TOUS', filtreStatut: 'TOUS', filtreAlerte: 'TOUS', filtreOrigine: 'TOUS', filtreChannel: 'TOUS', vueFiltreActive: null });
+    this.render();
+  },
+
   render() {
     const app = document.getElementById('app');
     if (!this.state || this.state.chargement) {
@@ -866,7 +920,8 @@ window.VuePipeline = {
         <input type="search" placeholder="Nom, ville, contact, tél, email, notes…" value="${this.state.recherche}"
                style="border:1.5px solid var(--c-border);border-radius:var(--radius-sm);padding:8px 12px;font-size:14px;width:100%"
                oninput="VuePipeline.setRecherche(this.value)"/>
-        <div class="filtres-statut">
+        <div class="filtres-mobile">${this._renderPastilles(cdsList, voitTous)}</div>
+        <div class="filtres-statut filtres-desktop">
           ${voitTous ? `
           <select onchange="VuePipeline.state.filtreCDS=this.value;VuePipeline.render()">
             <option value="TOUS">Tous CDS</option>
@@ -901,7 +956,7 @@ window.VuePipeline = {
           </select>` : ''}
         </div>
         <!-- Feuille de route Phase 2 — vues de filtre sauvegardées -->
-        <div class="filtres-statut">
+        <div class="filtres-statut filtres-desktop">
           <select onchange="VuePipeline.appliquerVueFiltre(this.value)">
             <option value="">Vues sauvegardées…</option>
             ${this.state.vuesFiltres.map(v => `<option value="${v.id}" ${this.state.vueFiltreActive === v.id ? 'selected' : ''}>${v.nom}</option>`).join('')}
