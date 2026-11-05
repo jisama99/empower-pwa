@@ -81,7 +81,7 @@
      "famille": "N360",
      "nom": "Norton 360 Advanced",
      "appareils": 10,
-     "pvp_ttc": 104.99,
+     "pvp_ttc": 59.99,
      "pa_td": 36.27,
      "pa_ingram": 36.27,
      "pa_empower": 25.1,
@@ -191,7 +191,7 @@
     "annees": 3
    },
    "incoherences": [
-    "Advanced 10 : PVP TTC 104,99 € dans le Book Grossiste, 59,99 € dans le Book Empower et la cotation Back2School.",
+    "Advanced 10 : PVP TTC 104,99 € dans le Book Grossiste, 59,99 € dans le Book Empower et la cotation Back2School. Décision du 5 nov. 2026 : 59,99 € retenu.",
     "Platinum 20 : PVP TTC 79,99 € chez Tech Data et 99,99 € chez Ingram dans le Book Grossiste ; 99,90 € dans la cotation Back2School. Décision du 5 nov. 2026 : 79,99 € retenu.",
     "Premium 10 : PVP TTC 69,99 € (Book) ou 69,90 € (cotation).",
     "Advanced et Platinum : mêmes SKU (21444054, 21444053) chez Tech Data et Ingram ; références boîte identiques chez les deux distributeurs.",
