@@ -289,6 +289,20 @@
       ca += (qt + offertes) * ht; cout += qt * pa; licences += qt + offertes;
       detail.push({ id, nom: p.nom, appareils: p.appareils, qte: qt, offertes, qte_vendue: qt + offertes, pvp_ttc: Number(p.pvp_ttc), pvp_ht: arr2(ht), pa: arr2(pa), marge_unit: arr2(ht - pa), marge: arr2((qt + offertes) * ht - qt * pa), cotation: e.cotation ? e.cotation.libelle : null });
     });
+    // Offre « produit offert » : { type:'produit', par:2, produit:'util-wl10' | null, nom, pvp_ttc, appareils } : pour chaque `par` licences achetées, un produit offert (coût 0),
+    // revendable à son PVP. Le PVP vient du catalogue, sinon de la saisie (jamais inventé : sans PVP, le produit offert est signalé et non chiffré).
+    const offP = o.offre && o.offre.type === 'produit' ? o.offre : null;
+    if (offP && Number(offP.par) > 0) {
+      const p2 = offP.produit ? par(offP.produit) : null;
+      const pvp = offP.pvp_ttc != null && Number(offP.pvp_ttc) > 0 ? Number(offP.pvp_ttc) : (p2 && p2.pvp_ttc != null ? Number(p2.pvp_ttc) : null);
+      const nom = offP.nom || (p2 ? p2.nom : 'Produit offert'), k = Math.floor(licences / Math.floor(offP.par));
+      if (k > 0 && pvp == null) manquants.push(nom + ' (offert, PVP non renseigné)');
+      else if (k > 0) {
+        const ht = pvp / (1 + DATA.tva);
+        ca += k * ht; licences += k;
+        detail.push({ id: offP.produit || 'offert', nom, appareils: offP.appareils || (p2 ? p2.appareils : 0), qte: 0, offertes: k, qte_vendue: k, pvp_ttc: pvp, pvp_ht: arr2(ht), pa: 0, marge_unit: arr2(ht), marge: arr2(k * ht), cotation: null, produit_offert: true });
+      }
+    }
     return { ca: arr2(ca), cout: arr2(cout), marge: arr2(ca - cout), pct: ca > 0 ? Math.round((ca - cout) / ca * 1000) / 10 : 0, licences, manquants, detail, cotations: [...cotes] };
   }
 

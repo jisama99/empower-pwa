@@ -66,3 +66,18 @@
   .modal-overlay.modal-docked .modal.modal-docked-panel { width: 560px; max-width: 560px; border-left: 0; box-shadow: -10px 0 30px rgba(26,26,46,.10); background: var(--c-surface, #fff); }
   .cs-decale { margin-right: 580px; }
 }
+
+/* Administration > Utilisateurs : les 5 actions (Modifier, Droits, Reset mdp, Désactiver, Supprimer) restent toutes visibles, sur deux lignes si besoin */
+@media (min-width: 900px) {
+  .adm-users th, .adm-users td { padding: 12px 12px; }
+  .adm-users td.adm-actions { white-space: normal; min-width: 240px; max-width: 320px; }
+  .adm-users td.adm-actions .btn-lien { display: inline-block; margin: 2px 10px 2px 0; }
+}
+
+/* Comptes en vue SaaS : la liste compacte reste en vue, la fiche occupe la colonne de droite et suit le défilement */
+@media (min-width: 1100px) {
+  .cs-split { grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 16px; }
+  .cs-file { max-height: calc(100vh - 150px); position: sticky; top: 12px; }
+  .cs-fiche-carte { background: var(--c-surface, #fff); border-radius: 18px; padding: 16px 18px; }
+}
+.cs-decale:has(.cs-split) { margin-right: 0; }

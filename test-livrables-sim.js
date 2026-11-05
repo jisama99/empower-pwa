@@ -27,4 +27,24 @@ t('libellé inconnu', L.offreLibelle({ type: 'zz' }) === '' && L.offreLibelle(nu
 // produit sans PA Empower : signalé, jamais inventé
 const sans = Catalogue.listeProduits().find(p => p.pa_empower == null);
 if (sans) { const hs = L.html({ ...base, lignes: [[sans.id, 2], ['n360-std', 1]] }); t('exclu signalé', hs.includes('Non chiffré')); }
+
+// ── Offres supplémentaires, bundle, cotation (version C, personnalisables) ──
+const S = L.calculerSupp({ type: 'supplementaire', params: { offertPvp: 34.99 }, date: '2026-11-05' });
+t('A 55,6 % vs 33,3 %', S.A.av.pct === 55.6 && S.A.std.pct === 33.3);
+t('B 43,8 % vs 27,4 % (Advanced 59,99)', S.B.av.pct === 43.8 && S.B.std.pct === 27.4);
+const adv = S.C.find(r => r.p.id === 'n360-adv10'); t('volume Advanced 27,4 -> 42,0', adv.pct === 27.4 && adv.pctRem === 42 && adv.pvp === 59.99);
+t('B sans PVP : non chiffré', !L.calculerSupp({ type: 'supplementaire' }).B.offertOk);
+const hs = L.html({ type: 'supplementaire', params: { offertPvp: 34.99, seuil: 20, taux: 0.15 }, validite: '2026-12-31', client: { nom: 'Z' } });
+t('supp personnalisée', hs.includes('-15 %') && hs.includes('minimum de 20 licences') && hs.includes('31 décembre 2026') && hs.includes('validation budget commercial'));
+t('supp ne contient pas 104,99', !hs.includes('104,99'));
+const bd = L.calculerBundle({ type: 'bundle', canal: 'pa_empower', operations: [{ achete: ['n360-del5', 1], offert: { id: 'util-wl10', nom: 'Utilities', pvp_ttc: 59.99, appareils: 10 } }] });
+t('bundle marge = achat seul + offert', bd.ops[0].ok && bd.ops[0].av.marge > bd.ops[0].std.marge && bd.ops[0].av.cout === bd.ops[0].std.cout);
+const bn = L.calculerBundle({ type: 'bundle', canal: 'pa_empower', operations: [{ achete: ['n360-del5', 1], offert: { id: 'vpn-plus5', nom: 'VPN' } }] });
+t('bundle sans PVP : jamais inventé', !bn.ops[0].offertOk && bn.ops[0].av.marge === bn.ops[0].std.marge);
+const hb = L.html({ type: 'bundle', canal: 'pa_empower', debut: '2026-09-01', validite: '2026-09-30', operations: [{ achete: ['nsb-10', 1], offert: { nom: '<i>VPN</i>', pvp_ttc: 69.99 } }] });
+t('bundle échappé + dates', hb.includes('&lt;i&gt;VPN&lt;/i&gt;') && hb.includes('1er septembre 2026'));
+const K = L.calculerCotation({ type: 'cotation', cotation: { libelle: 'B2S', canaux: ['td'], debut: '2026-08-17', fin: '2026-09-30', remise_pct: 50, prix: { 'n360-adv10': 21.76 } }, produits: ['n360-std', 'n360-adv10'] });
+t('cotation remise et prix coté', K.grilles.length === 1 && K.grilles[0].lignes.find(l => l.p.id === 'n360-std').cote === 12.5 && K.grilles[0].lignes.find(l => l.p.id === 'n360-adv10').remise === 40 && K.remiseMax === 50);
+t('cotation sans données : message', L.html({ type: 'cotation', date: '2020-01-01' }).includes('Aucune cotation renseignée'));
+t('aucun tiret cadratin', !L.html({ type: 'cotation', cotation: { libelle: 'x', canaux: ['td'], remise_pct: 10 } }).includes('—'));
 console.log(ok + ' OK, ' + ko + ' KO'); process.exit(ko ? 1 : 0);

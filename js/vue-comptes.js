@@ -93,7 +93,28 @@ window.VueComptes = {
     this.state.ficheDockee = null;
     this.render();
   },
-  _renderFicheDockee() {
+  // Vue SaaS (écran large) : liste compacte à gauche, fiche à droite, sans fenêtre flottante.
+  _inline() { return !!this.state.ficheDockee && window.innerWidth >= 1100; },
+  _renderSplit(liste) {
+    liste = liste || this.listeFiltree;
+    const h = x => String(x == null ? '' : x).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    const lignes = liste.slice(0, 300).map(c => { const id = String(c.ID_Compte || c._uuid || ''); return `<button class="cs-ligne" aria-current="${id === String(this.state.ficheDockee)}" onclick="VueComptes.ouvrirFiche('${h(id)}')"><b>${h(c.Nom_Compte)}</b><span>${h([c.Ville, c.CANAL].filter(Boolean).join(' · '))}</span></button>`; }).join('');
+    const plus = liste.length > 300 ? `<p class="co-mut" style="padding:8px 10px;font-size:12px">${liste.length - 300} autres comptes : affinez la recherche.</p>` : '';
+    return `<div class="cs-split"><div class="cs-file" role="list" aria-label="Comptes">${lignes || '<p class="vide">Aucun compte pour ces critères</p>'}${plus}</div><div class="cs-fiche">${this._renderFicheDockee(true)}</div></div>`;
+  },
+  _renderFicheDockee(inline) {
+    if (inline) {
+      if (this.state.ficheDockeeChargement) return `<div class="cs-fiche-carte">${skeletonListe(4)}</div>`;
+      const c = VueFicheCompte.state.compte;
+      return `<div class="cs-fiche-carte"><div class="bloc-titre" style="position:sticky;top:0;background:var(--c-surface,#fff);z-index:1;padding-bottom:8px">${c.Nom_Compte}
+          <button class="btn-lien" style="margin-left:auto;font-size:13px" onclick="VueComptes.fermerFicheDockee()">Fermer</button></div>
+          ${VueFicheCompte.renderContenuFiche()}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn-action btn-visite" style="width:auto;flex:1" onclick="VueQuestionnaire._visitePlanifiee=null;Router.aller('#/questionnaire/${c.ID_Compte}')">Visite</button>
+            <button class="btn-action btn-appel" style="width:auto;flex:1" onclick="Router.aller('#/phoning/${c.ID_Compte}')">Appeler</button>
+            <button class="btn-action" style="width:auto;flex:1;background:var(--c-text-2);color:#fff" onclick="VueFicheCompte.ouvrirRapportPhoning()">Rapport</button>
+          </div>${VueFicheCompte.state.modalRapportPhoning ? VueFicheCompte._renderModalRapportPhoning() : ''}</div>`;
+    }
     if (this.state.ficheDockeeChargement) {
       return `
         <div class="modal-overlay modal-docked" onclick="if(event.target===this)VueComptes.fermerFicheDockee()">
@@ -547,9 +568,9 @@ window.VueComptes = {
       ${Session.role !== 'CHANNEL_MANAGER' ? `<button class="fab" onclick="VueQuestionnaire._visitePlanifiee=null;Router.aller('#/questionnaire')" title="Nouvelle visite">＋</button>` : ''}
       ${NavBar('comptes')}
       ${FusionTabs.portefeuille()}
-      ${this.state.ficheDockee ? this._renderFicheDockee() : ''}
+      ${this.state.ficheDockee && !this._inline() ? this._renderFicheDockee() : ''}
     `;
-    if (this.state.ficheDockee) app.querySelectorAll('.barre-filtres, .liste-comptes, .cs-jauges, .kpi-grid-layout').forEach(e => e.classList.add('cs-decale'));
+    if (this.state.ficheDockee && !this._inline()) app.querySelectorAll('.barre-filtres, .liste-comptes, .cs-jauges, .kpi-grid-layout').forEach(e => e.classList.add('cs-decale'));
     const champ = document.getElementById('recherche-comptes');
     if (this.state.recherche && champ) {
       champ.focus();
@@ -570,6 +591,7 @@ window.VueComptes = {
   // render() en conditions réelles. Même pattern déjà utilisé par
   // VuePhoning._renderBaseGrid()/#ph-base-grid pour cette raison exacte.
   _renderListeZone(liste, doublons, cdsList) {
+    if (this._inline()) return this._renderSplit(liste);
     liste    = liste    || this.listeFiltree;
     doublons = doublons || this._doublonsSet();
     cdsList  = cdsList  || (this._cdsListe || [

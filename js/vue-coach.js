@@ -9,7 +9,10 @@
 //  Moteur : js/coach-moteur.js ; prix : js/catalogue.js (Réglages › Prix et cotations).
 // ═══════════════════════════════════════
 window.VueCoach = {
-  state: { chargement: true, erreur: null, d: null, pin: '', col: 'chat', fil: [], panier: [['n360-del5', 6]], grossiste: 'pa_td', volume: false, compteSel: '', ia: false, maj: null, pdf: { type: 'proposition', client: '', contact: '', offre: 'xy', achetees: 10, offertes: 1, taux: 10, validite: '' } },
+  state: { chargement: true, erreur: null, d: null, pin: '', col: 'chat', fil: [], panier: [['n360-del5', 6]], grossiste: 'pa_td', volume: false, compteSel: '', ia: false, maj: null, pdf: { type: 'proposition', client: '', contact: '', offre: 'xy', achetees: 10, offertes: 1, taux: 10, validite: '', debut: '', conditions: '', canal: 'pa_td', offertNom: 'Norton Utilities Ultimate', offertPvp: '', par: 2,
+    refA: 'n360-del5', refB: 'n360-adv10', qteB: 2, seuil: 10, tauxVol: 20,
+    op1: 'nsb-10', q1: 1, nom1: 'Norton VPN Plus', pvp1: '', op2: 'n360-del5', q2: 1, nom2: 'Norton Utilities Ultimate', pvp2: '',
+    cotLib: 'Cotation distributeur', cotDebut: '', cotFin: '', cotRemise: 30, cotNonRecond: false } },
   _raw: null, _suivi: new Map(),
   PANIER_REF: [['n360-del5', 6]],   // hypothèse de « première commande type » (modifiable dans le calculateur)
 
@@ -322,7 +325,11 @@ window.VueCoach = {
   setVolume(v) { this.state.volume = !!v; this._majCalc(); },
   majPdf(champ, v) {
     const o = this.state.pdf; if (!(champ in o)) return;
-    if (['achetees', 'offertes', 'taux'].includes(champ)) o[champ] = Math.max(0, Math.min(champ === 'taux' ? 90 : 999, Number(v) || 0));
+    if (['achetees', 'offertes', 'taux', 'par', 'qteB', 'seuil', 'q1', 'q2'].includes(champ)) o[champ] = Math.max(0, Math.min(champ === 'taux' ? 90 : 999, Number(v) || 0));
+    else if (['tauxVol', 'cotRemise'].includes(champ)) o[champ] = Math.max(0, Math.min(90, Number(v) || 0));
+    else if (['offertPvp', 'pvp1', 'pvp2'].includes(champ)) o[champ] = v === '' ? '' : Math.max(0, Math.min(9999, Number(String(v).replace(',', '.')) || 0));
+    else if (champ === 'cotNonRecond') o[champ] = !!v;
+    else if (champ === 'conditions') o[champ] = String(v).slice(0, 300);
     else o[champ] = String(v).slice(0, 120);
     if (champ === 'type' || champ === 'offre') this._majCalc();
   },
@@ -333,10 +340,17 @@ window.VueCoach = {
     const compte = s.compteSel && s.d ? s.d.comptes.find(c => String(c.ID_Compte || c._uuid) === s.compteSel) : null;
     const pin = Number(s.pin) || (window.Session && Session.pin) || null;
     const p = window.EquipeContacts && pin ? EquipeContacts.parPin(pin) : null;
-    const offre = !T.offre ? null : o.offre === 'remise' ? (o.taux > 0 ? { type: 'remise', taux: o.taux / 100 } : null) : (o.achetees > 0 && o.offertes > 0 ? { type: 'xy', achetees: o.achetees, offertes: o.offertes } : null);
+    const offre = !T.offre ? null : o.offre === 'remise' ? (o.taux > 0 ? { type: 'remise', taux: o.taux / 100 } : null)
+      : o.offre === 'produit' ? (o.par > 0 && o.offertNom ? { type: 'produit', par: o.par, nom: o.offertNom, pvp_ttc: o.offertPvp === '' ? null : o.offertPvp } : null)
+      : (o.achetees > 0 && o.offertes > 0 ? { type: 'xy', achetees: o.achetees, offertes: o.offertes } : null);
     if (T.offre && !offre) { if (window.Toast) Toast.afficher("Renseignez les termes de l'offre", 'erreur'); return; }
     if (compte) this._tracerDevis(compte, T, o);
-    L.ouvrir({ type: o.type, lignes: s.panier.filter(([id, q]) => q > 0), grossiste: s.grossiste, volume: s.volume, offre,
+    const op = (id, q, nom, pvp) => ({ achete: [id, q], offert: { nom, pvp_ttc: pvp === '' ? null : pvp } });
+    const extra = o.type === 'supplementaire' ? { canal: o.canal, params: { refA: o.refA, refB: o.refB, qteB: o.qteB, seuil: o.seuil, taux: o.tauxVol / 100, offertNom: o.offertNom, offertPvp: o.offertPvp === '' ? null : o.offertPvp } }
+      : o.type === 'bundle' ? { canal: o.canal === 'pa_td' || o.canal === 'pa_ingram' || o.canal === 'pa_empower' ? o.canal : 'pa_empower', debut: o.debut, operations: [op(o.op1, o.q1, o.nom1, o.pvp1), op(o.op2, o.q2, o.nom2, o.pvp2)].filter(x => x.achete[0]) }
+      : o.type === 'cotation' ? { cotation: { libelle: o.cotLib, debut: o.cotDebut, fin: o.cotFin, remise_pct: o.cotRemise, canaux: ['td', 'ingram'], non_reconductible: o.cotNonRecond }, date: o.cotDebut || undefined }
+      : {};
+    L.ouvrir({ ...extra, conditions: o.conditions, type: o.type, lignes: s.panier.filter(([id, q]) => q > 0), grossiste: s.grossiste, volume: s.volume, offre,
       client: { nom: o.client || (compte && compte.Nom_Compte) || '', contact: o.contact, region: (compte && compte.Ville) || '' },
       emetteur: p ? { nom: p.nom, role: p.role, tel: p.tel ? EquipeContacts.fmtTel(p.tel) : '', mail: p.mail || '' } : {},
       validite: o.validite || '', dejaCA: compte ? window.Paliers.caEmpower(compte) : 0 });
@@ -354,17 +368,50 @@ window.VueCoach = {
     } catch { /* trace non bloquante */ }
   },
   _pdfHtml() {
-    const o = this.state.pdf, E = this._esc, L = window.LivrablesPDF; if (!L) return '';
+    const o = this.state.pdf, E = this._esc, L = window.LivrablesPDF, C = window.Catalogue; if (!L) return '';
     const T = L.TYPES[o.type] || L.TYPES.proposition;
     const opt = (k) => `<option value="${k}" ${o.type === k ? 'selected' : ''}>${E(L.TYPES[k].lib)}</option>`;
+    const prods = (sel) => C.listeProduits().map(p => `<option value="${E(p.id)}" ${p.id === sel ? 'selected' : ''}>${E(C.libelle(p))}</option>`).join('');
+    const inp = (champ, ph, type, extra) => `<input type="${type || 'text'}" ${extra || ''} placeholder="${E(ph)}" value="${E(o[champ])}" aria-label="${E(ph)}" onchange="VueCoach.majPdf('${champ}',this.value)"/>`;
+    const sl = (champ, opts, lab) => `<select aria-label="${E(lab)}" onchange="VueCoach.majPdf('${champ}',this.value)">${opts}</select>`;
+    const ligne = (cols, h) => `<div class="co-ligne" style="grid-template-columns:${cols}">${h}</div>`;
+    const canaux = [['pa_td', 'Prix d\'achat Tech Data'], ['pa_ingram', 'Prix d\'achat Ingram'], ['pa_empower', 'Prix d\'achat Empower']].map(([k, l]) => `<option value="${k}" ${o.canal === k ? 'selected' : ''}>${l}</option>`).join('');
+    let champs = '';
+    if (T.offre) {
+      champs += ligne('1fr', sl('offre', `<option value="xy" ${o.offre === 'xy' ? 'selected' : ''}>X licences achetées, Y offertes</option><option value="remise" ${o.offre === 'remise' ? 'selected' : ''}>Remise en % sur le prix d'achat</option><option value="produit" ${o.offre === 'produit' ? 'selected' : ''}>Produit offert pour X licences achetées</option>`, "Type d'offre"));
+      champs += o.offre === 'remise' ? ligne('1fr', `<input type="number" min="0" max="90" value="${o.taux}" aria-label="Remise en pourcent" onchange="VueCoach.majPdf('taux',this.value)"/>`)
+        : o.offre === 'produit' ? ligne('1fr 1fr', `<input type="number" min="1" value="${o.par}" aria-label="Licences achetées pour un produit offert" onchange="VueCoach.majPdf('par',this.value)"/>${inp('offertNom', 'Produit offert')}`) + ligne('1fr', inp('offertPvp', 'PVP TTC du produit offert (€)', 'number', 'min="0" step="0.01"'))
+        : ligne('1fr 1fr', `<input type="number" min="1" value="${o.achetees}" aria-label="Licences achetées" onchange="VueCoach.majPdf('achetees',this.value)"/><input type="number" min="1" value="${o.offertes}" aria-label="Licences offertes" onchange="VueCoach.majPdf('offertes',this.value)"/>`);
+      champs += '<p class="co-mut" style="margin:2px 0 6px">Les termes sont ceux que vous saisissez : l\'app n\'en invente aucun.</p>';
+    }
+    if (o.type === 'supplementaire') {
+      champs += ligne('1fr', sl('canal', canaux, "Canal d'achat"))
+        + ligne('1fr 1fr', sl('refA', prods(o.refA), 'Référence offre A') + sl('refB', prods(o.refB), 'Référence offre B'))
+        + ligne('1fr 1fr', inp('offertNom', 'Produit offert (offre B)') + inp('offertPvp', 'PVP TTC offert (€)', 'number', 'min="0" step="0.01"'))
+        + ligne('1fr 1fr 1fr', `<input type="number" min="1" value="${o.qteB}" aria-label="Lot acheté, offre B" onchange="VueCoach.majPdf('qteB',this.value)"/><input type="number" min="1" value="${o.seuil}" aria-label="Seuil en licences, offre volume" onchange="VueCoach.majPdf('seuil',this.value)"/><input type="number" min="1" max="90" value="${o.tauxVol}" aria-label="Remise volume en pourcent" onchange="VueCoach.majPdf('tauxVol',this.value)"/>`)
+        + '<p class="co-mut" style="margin:2px 0 6px">Lot offre B · seuil volume · remise volume (%). Le PVP du produit offert est à saisir s\'il n\'est pas dans les Réglages.</p>';
+    }
+    if (o.type === 'bundle') {
+      champs += ligne('1fr', sl('canal', canaux, "Canal d'achat"))
+        + ligne('1fr 70px', sl('op1', prods(o.op1), 'Produit acheté, opération 1') + `<input type="number" min="1" value="${o.q1}" aria-label="Quantité opération 1" onchange="VueCoach.majPdf('q1',this.value)"/>`)
+        + ligne('1fr 1fr', inp('nom1', 'Produit offert 1') + inp('pvp1', 'PVP TTC offert (€)', 'number', 'min="0" step="0.01"'))
+        + ligne('1fr 70px', sl('op2', '<option value="">Aucune seconde opération</option>' + prods(o.op2), 'Produit acheté, opération 2') + `<input type="number" min="1" value="${o.q2}" aria-label="Quantité opération 2" onchange="VueCoach.majPdf('q2',this.value)"/>`)
+        + ligne('1fr 1fr', inp('nom2', 'Produit offert 2') + inp('pvp2', 'PVP TTC offert (€)', 'number', 'min="0" step="0.01"'))
+        + ligne('1fr', `<label class="co-mut">Début de l'opération <input type="date" value="${E(o.debut)}" onchange="VueCoach.majPdf('debut',this.value)"/></label>`);
+    }
+    if (o.type === 'cotation') {
+      champs += ligne('1fr', inp('cotLib', 'Nom de la cotation'))
+        + ligne('1fr 1fr', `<label class="co-mut">Du <input type="date" value="${E(o.cotDebut)}" onchange="VueCoach.majPdf('cotDebut',this.value)"/></label><label class="co-mut">Au <input type="date" value="${E(o.cotFin)}" onchange="VueCoach.majPdf('cotFin',this.value)"/></label>`)
+        + ligne('1fr', `<input type="number" min="0" max="90" value="${o.cotRemise}" aria-label="Remise sur le prix d'achat, en pourcent" onchange="VueCoach.majPdf('cotRemise',this.value)"/>`)
+        + `<label class="co-opt"><input type="checkbox" ${o.cotNonRecond ? 'checked' : ''} onchange="VueCoach.majPdf('cotNonRecond',this.checked)"/> Opération non reconductible</label>`
+        + '<p class="co-mut" style="margin:2px 0 6px">Remise appliquée au prix d\'achat des Réglages ; un prix coté saisi dans les Réglages l\'emporte.</p>';
+    }
     return `<div class="co-soft" style="margin-top:12px"><div class="co-eyebrow">Document PDF paysage</div>
-      <div class="co-ligne" style="grid-template-columns:1fr"><select aria-label="Type de document" onchange="VueCoach.majPdf('type',this.value)">${Object.keys(L.TYPES).map(opt).join('')}</select></div>
-      <div class="co-ligne" style="grid-template-columns:1fr 1fr"><input type="text" placeholder="Client (société)" value="${E(o.client)}" aria-label="Client" onchange="VueCoach.majPdf('client',this.value)"/><input type="text" placeholder="Contact" value="${E(o.contact)}" aria-label="Contact client" onchange="VueCoach.majPdf('contact',this.value)"/></div>
-      ${T.offre ? `<div class="co-ligne" style="grid-template-columns:1fr"><select aria-label="Type d'offre" onchange="VueCoach.majPdf('offre',this.value)"><option value="xy" ${o.offre === 'xy' ? 'selected' : ''}>X licences achetées, Y offertes</option><option value="remise" ${o.offre === 'remise' ? 'selected' : ''}>Remise en % sur le prix d'achat</option></select></div>
-        ${o.offre === 'remise' ? `<div class="co-ligne" style="grid-template-columns:1fr"><input type="number" min="0" max="90" value="${o.taux}" aria-label="Remise en pourcent" onchange="VueCoach.majPdf('taux',this.value)"/></div>`
-          : `<div class="co-ligne" style="grid-template-columns:1fr 1fr"><input type="number" min="1" value="${o.achetees}" aria-label="Licences achetées" onchange="VueCoach.majPdf('achetees',this.value)"/><input type="number" min="1" value="${o.offertes}" aria-label="Licences offertes" onchange="VueCoach.majPdf('offertes',this.value)"/></div>`}
-        <p class="co-mut" style="margin:2px 0 6px">Les termes sont ceux que vous saisissez : l'app n'en invente aucun.</p>` : ''}
-      <div class="co-ligne" style="grid-template-columns:1fr"><input type="date" value="${E(o.validite)}" aria-label="Valable jusqu'au" onchange="VueCoach.majPdf('validite',this.value)"/></div>
+      ${ligne('1fr', `<select aria-label="Type de document" onchange="VueCoach.majPdf('type',this.value)">${Object.keys(L.TYPES).map(opt).join('')}</select>`)}
+      ${ligne('1fr 1fr', `<input type="text" placeholder="Client (société)" value="${E(o.client)}" aria-label="Client" onchange="VueCoach.majPdf('client',this.value)"/><input type="text" placeholder="Contact" value="${E(o.contact)}" aria-label="Contact client" onchange="VueCoach.majPdf('contact',this.value)"/>`)}
+      ${champs}
+      ${o.type === 'cotation' ? '' : ligne('1fr', `<label class="co-mut">Valable jusqu'au <input type="date" value="${E(o.validite)}" onchange="VueCoach.majPdf('validite',this.value)"/></label>`)}
+      ${ligne('1fr', inp('conditions', 'Conditions particulières (facultatif)'))}
       <button class="co-btn p" style="width:100%;margin-top:6px" onclick="VueCoach.creerPdf()">Créer le PDF</button></div>`;
   },
   _majCalc() { const el = document.getElementById('co-calc'); if (el) el.outerHTML = this._calcHtml(); else this._maj(); },

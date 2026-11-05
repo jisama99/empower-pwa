@@ -686,3 +686,7 @@ input[type="search"], input[type="text"].filtre-recherche, .recherche-compte inp
 .tbl-secteurs td { padding: 5px 8px; border-top: 1px solid var(--c-border); }
 .tbl-secteurs select.q-input { padding: 4px 6px; font-size: 12.5px; }
 .tbl-secteurs tr.sec-off td { opacity: .5; }
+
+/* Pilotage > Synthèse : le haut de page remplit la largeur (indicateurs sur autant de colonnes que de cartes, actions à gauche, équipe à droite) */
+.pilo-grille-seul { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 600px) { .pilo-kpis[style*="grid-template-columns"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }

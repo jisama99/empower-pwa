@@ -424,7 +424,7 @@ window.VueAdmin = {
           <button class="btn-secondaire" style="margin-left:auto;width:auto;padding:8px 14px" onclick="VueAdmin.ouvrirModalCreation()">Créer un accès</button>
         </div>
         <div class="desktop-table-wrap">
-          <table class="desktop-table-data-view">
+          <table class="desktop-table-data-view adm-users">
             <thead><tr><th>PIN</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead>
             <tbody>
               ${us.liste.map(u => `
@@ -440,7 +440,7 @@ window.VueAdmin = {
                   <td>
                     <span class="v7-statut" style="font-size:12px;color:${u.actif ? 'var(--c-success,#1a9e5c)' : 'var(--c-danger)'}">${u.actif ? 'Actif' : 'Désactivé'}</span>
                   </td>
-                  <td style="white-space:nowrap">
+                  <td class="adm-actions">
                     <button class="btn-lien" style="font-size:12px" onclick="VueAdmin.ouvrirProfil(${u.pin})">Modifier</button>
                     <button class="btn-lien" style="font-size:12px" ${u.role === 'ADMIN' ? 'disabled title="Un administrateur a tous les droits"' : ''} onclick="VueAdmin.ouvrirDroits(${u.pin})">Droits</button>
                     <button class="btn-lien" style="font-size:12px" onclick="VueAdmin.ouvrirModalReset(${u.pin}, '${jsq(u.nom)}')">Reset mdp</button>
