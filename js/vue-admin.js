@@ -10,7 +10,13 @@ window.VueAdmin = {
   async init() {
     // Alexandra (CHANNEL_MANAGER) garde son espace exports/leads ;
     // seul ADMIN voit le bloc clés API (rendu dans la branche estManager ci-dessous).
-    if (!Session.estManager() && !Session.estChannel()) { Router.aller('#/dashboard'); return; }
+    // Autre profil (CDS, Externe) disposant du droit « Administration » : uniquement SES réglages.
+    if (!Session.estManager() && !Session.estChannel()) {
+      if (!window.Permissions || !Permissions.peut(Session.role, 'admin')) { Router.aller('#/dashboard'); return; }
+      this.state = { chargement: false, mesReglages: true, mdpMsg: '' };
+      this.render();
+      return;
+    }
     this.state = {
       chargement: true, objectifs: [], params: [], envoiEnCours: false,
       alexTab: 'exports',   // 'exports' | 'leads'
@@ -1683,12 +1689,48 @@ window.VueAdmin = {
       </div>`).join('');
   },
 
+  // Réglages personnels : aucun accès aux onglets d'administration (utilisateurs, objectifs, prix…).
+  _renderMesReglages() {
+    const app = document.getElementById('app');
+    const E = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const role = ({ ADMIN: 'Administrateur', CDS: 'Commercial', CHANNEL_MANAGER: 'Manager', EXTERNE: 'Fournisseur de leads' })[Session.role] || Session.role;
+    app.innerHTML = `
+      <header class="header-vue">
+        <button onclick="Router.retour()" class="btn-retour">←</button>
+        <h1>Mes réglages</h1>
+      </header>
+      <div class="dash-body avec-nav"><div class="dash-col-main">
+        <div class="bloc-fiche">
+          <div class="bloc-titre">Mon profil</div>
+          <p style="font-size:14px"><strong>${E(Session.nom)}</strong></p>
+          <p style="font-size:12px;color:var(--c-text-2)">${E(Session.email)} · ${E(role)}</p>
+        </div>
+        <div class="bloc-fiche">
+          <div class="bloc-titre">Mot de passe</div>
+          <p style="font-size:12px;color:var(--c-text-2);margin-bottom:10px">Un lien de changement de mot de passe est envoyé à votre adresse e-mail.</p>
+          <button class="btn-secondaire" onclick="VueAdmin.envoyerLienMdp()">Recevoir le lien</button>
+          <p id="mes-mdp-msg" style="font-size:12px;margin-top:10px">${E(this.state.mdpMsg)}</p>
+        </div>
+      </div></div>
+      ${typeof NavBar === 'function' ? NavBar('admin') : ''}`;
+  },
+
+  async envoyerLienMdp() {
+    try {
+      const r = await SheetsAPI._fetchRetry(SheetsAPI.BASE_URL, 'POST', 2, { action: 'sendResetEmail', email: Session.email });
+      this.state.mdpMsg = r.message || 'Lien envoyé si l’adresse est connue.';
+    } catch (e) { this.state.mdpMsg = 'Erreur : ' + e.message; }
+    this._renderMesReglages();
+  },
+
   render() {
     const app = document.getElementById('app');
     if (!this.state || this.state.chargement) {
       app.innerHTML = skeletonListe(6);
       return;
     }
+
+    if (this.state.mesReglages) { this._renderMesReglages(); return; }
 
     // Alexandra (CHANNEL_MANAGER) : exports + création de leads
     if (Session.estChannel()) {
