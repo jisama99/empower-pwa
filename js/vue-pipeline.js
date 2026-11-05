@@ -595,7 +595,7 @@ window.VuePipeline = {
       Date_Import: dateISOLocale(),
       Timestamp: new Date().toISOString(),
       STATUT_EMPOWER: statutInit, POTENTIEL: vals.potentiel,
-      ORIGINE: vals.origine || (Session.estExterne() ? String(Session.nom || '').split(/\s+/)[0] : vals.origine), CONTACT_NOM: vals.contact, CONTACT_FONCTION: vals.fonction,
+      ORIGINE: Session.estExterne() ? String(Session.nom || '').trim().split(/\s+/)[0] : vals.origine,   // un fournisseur est lui-même la source de ses leads CONTACT_NOM: vals.contact, CONTACT_FONCTION: vals.fonction,
       // Traçabilité de la saisie (colonnes pin_channel / nom_channel déjà en base) : permet à un fournisseur de retrouver ses leads
       ...((Session.estExterne() || Session.estChannel()) ? { PIN_Channel: Number(Session.pin), Nom_Channel: Session.nom || '' } : {}),
     };
@@ -1368,7 +1368,7 @@ window.VuePipeline = {
               <label style="flex:1">Prochaine action
                 <input type="date" id="nl-date-action"/></label>
             </div>
-            <label>Source du lead
+            ${Session.estExterne() ? '' : `<label>Source du lead
               <select id="nl-origine">
                 <option value="Alexandra">Alexandra, saisie directe</option>
                 <option value="FDV">FDV, force de vente terrain</option>
@@ -1377,7 +1377,7 @@ window.VuePipeline = {
                 <option value="Salon">Salon / Événement</option>
                 <option value="Autre">Autre</option>
               </select>
-            </label>
+            </label>`}
             ${/* BLOC 4.1, attribution directe à la création */ this._peutAssigner() ? `
             <label>Attribuer à un CDS (optionnel)
               <select id="nl-cds-assigne">
