@@ -1891,7 +1891,7 @@ window.VuePipeline = {
   // Exécutée à l'ouverture du Tracker par un ADMIN ; l'anti-doublon lit les notifications déjà émises.
   async _escalader48h() {
     if (!Session.estManager()) return;
-    const rouges = this.state.leads.filter(l => { const a = this._alerte48h(l); return a && a.niveau === 'rouge'; });
+    const rouges = this.state.leads.filter(l => { const a = this._alerte48h(l); return a && a.niveau === 'rouge' && a.h <= 21 * 24; });   // au-delà de 21 jours : badge seulement
     if (!rouges.length) return;
     const deja = new Set((await SheetsAPI.lire('EMPOWER_MDB', 'NOTIFS', { nocache: true }).catch(() => []))
       .filter(n => String(n.Type_Notif) === 'ALERTE_48H').map(n => String(n.ID_Cible)));

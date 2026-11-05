@@ -204,7 +204,26 @@ Deno.serve(async (req) => {
       const hash = await hasherMotdepasse(nouveauMotdepasse, salt)
       const { error } = await sb.from('utilisateurs').update({ hash, salt }).eq('pin', targetPin)
       if (error) return Response.json({ ok: false, erreur: error.message }, { headers: CORS, status: 500 })
+      // Les sessions ouvertes avec l'ancien mot de passe sont fermées (sauf celles de l'administrateur qui agit sur son propre compte).
+      if (targetPin !== auth.pin) await sb.from('sessions').delete().eq('pin', targetPin)
+      await tracer('MDP_REINITIALISE', auth.pin, `PIN ${targetPin} : mot de passe réinitialisé`)
       return Response.json({ ok: true }, { headers: CORS })
+    }
+
+    // Purge RGPD : supprime les appels et visites d'un commercial (ADMIN seul, confirmation explicite, action tracée).
+    if (action === 'purgerDonnees') {
+      const pin = Number(body.pinCDS)
+      if (!Number.isInteger(pin) || pin <= 0) return refus('Commercial invalide')
+      if (body.confirmation !== true) return refus('Confirmation requise')
+      const { data: cible } = await sb.from('utilisateurs').select('pin,nom').eq('pin', pin).limit(1)
+      if (!cible || cible.length === 0) return refus('Utilisateur introuvable', 404)
+      const ph = await sb.from('phoning').delete({ count: 'exact' }).eq('pin_cds', pin)
+      if (ph.error) return refus(ph.error.message, 500)
+      const vi = await sb.from('visites').delete({ count: 'exact' }).eq('pin_cds', pin)
+      if (vi.error) return refus(vi.error.message, 500)
+      const n = (ph.count ?? 0) + (vi.count ?? 0)
+      await tracer('PURGE_RGPD', auth.pin, `${cible[0].nom} (PIN ${pin}) : ${ph.count ?? 0} appels et ${vi.count ?? 0} visites supprimés`)
+      return Response.json({ ok: true, lignesSupprimees: n }, { headers: CORS })
     }
 
     // Réglages partagés modifiables par l'admin (liste blanche : jamais les clés d'API ni les PIN).

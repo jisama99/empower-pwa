@@ -73,7 +73,7 @@ window.VueLogin = {
       <div class="login-page">
         <div class="login-carte">
           <h1 class="login-titre" style="font-size:20px">Mot de passe oublié</h1>
-          <p class="login-sous">Saisissez votre email, vous recevrez un lien valable 30 minutes.</p>
+          <p class="login-sous">Saisissez votre e-mail : les administrateurs sont prévenus et vous communiquent un nouveau mot de passe.</p>
           <form class="login-form" onsubmit="VueLogin.envoyerReset(event)">
             <div class="login-champ">
               <span class="champ-icone"><span class="material-symbols-outlined" aria-hidden="true">mail</span></span>
@@ -82,7 +82,7 @@ window.VueLogin = {
             </div>
             ${this.state.resetMsg ? `<div class="login-erreur" style="color:var(--c-success)">${this.state.resetMsg}</div>` : ''}
             <button type="submit" class="btn-login" ${this.state.chargement ? 'disabled' : ''}>
-              ${this.state.chargement ? 'Envoi…' : 'Envoyer le lien →'}
+              ${this.state.chargement ? 'Envoi…' : 'Prévenir les administrateurs →'}
             </button>
             <button type="button" class="btn-secondaire" style="width:100%;margin-top:8px"
                     onclick="VueLogin.state.mode='login';VueLogin.render()">← Retour à la connexion</button>
@@ -117,12 +117,15 @@ window.VueLogin = {
     this.state.resetMsg   = '';
     this._renderReset();
     try {
-      const r = await SheetsAPI._fetchRetry(SheetsAPI.BASE_URL, 'POST', 2, { action: 'sendResetEmail', email: this.state.resetEmail });
-      this.state.resetMsg = r.message || 'Lien envoyé si l\'email est connu.';
-      // Si admin et lien retourné (MailApp non configuré) : afficher le lien
-      if (r.lienAdmin) this.state.resetMsg += `\n\n🔗 (Admin) Lien : ${r.lienAdmin}`;
+      const rep = await fetch(`${SUPABASE_URL}/functions/v1/auth-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ action: 'demandeReset', email: this.state.resetEmail }),
+      });
+      const r = await rep.json();
+      this.state.resetMsg = r.message || 'Demande transmise aux administrateurs.';
     } catch(err) {
-      this.state.resetMsg = '❌ Erreur : ' + err.message;
+      this.state.resetMsg = 'Demande impossible pour le moment, réessayez plus tard.';
     }
     this.state.chargement = false;
     this._renderReset();

@@ -1400,10 +1400,10 @@ window.VueAdmin = {
     const btn = document.getElementById(`btn-purge-${cible}`);
     if (btn) { btn.disabled = true; btn.textContent = 'Purge…'; }
     try {
-      const r = await fetch(SheetsAPI.BASE_URL, {
-        method: 'POST', redirect: 'follow',
-        // Pas de Content-Type → requête simple, évite le préflight CORS (Apps Script ne gère pas OPTIONS)
-        body: JSON.stringify({ action: 'purgerDonnees', token: SheetsAPI.TOKEN, pinCDS: cible }),
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ action: 'purgerDonnees', token: SheetsAPI.TOKEN, pinCDS: Number(cible), confirmation: true }),
       });
       const data = await r.json();
       if (!data.ok) throw new Error(data.erreur);

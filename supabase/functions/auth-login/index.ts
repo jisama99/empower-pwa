@@ -60,6 +60,31 @@ Deno.serve(async (req) => {
     return Response.json({ ok: true }, { headers: CORS })
   }
 
+  // Mot de passe oublié : aucun e-mail n'est envoyé (pas de messagerie configurée). La demande prévient les administrateurs
+  // (notification), qui fixent un nouveau mot de passe dans Administration. La réponse est identique que l'e-mail existe ou non.
+  if (body.action === 'demandeReset') {
+    const reponse = Response.json({ ok: true, message: "Si cette adresse est connue, les administrateurs ont été prévenus et vous communiqueront un nouveau mot de passe." }, { headers: CORS })
+    try {
+      const mail = String(body.email || '').trim().toLowerCase().slice(0, 200)
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return reponse
+      const depuis = new Date(Date.now() - 3600 * 1000).toISOString()
+      const { count: nTotal } = await sbService.from('notifs').select('id', { count: 'exact', head: true }).eq('type_notif', 'DEMANDE_MDP').gte('date_envoi', depuis)
+      if ((nTotal ?? 0) >= 30) return reponse                                   // plafond global : pas d'inondation des administrateurs
+      const { data: u } = await sbService.from('utilisateurs').select('pin,nom,email,actif').eq('email', mail).limit(1)
+      if (!u || !u.length || !u[0].actif) return reponse
+      const { count: deja } = await sbService.from('notifs').select('id', { count: 'exact', head: true }).eq('type_notif', 'DEMANDE_MDP').eq('id_cible', mail).gte('date_envoi', depuis)
+      if ((deja ?? 0) > 0) return reponse                                        // une demande par heure et par personne
+      const { data: admins } = await sbService.from('utilisateurs').select('pin').eq('role', 'ADMIN').eq('actif', true)
+      const lignes = (admins || []).map((a: any) => ({
+        id_notif_gas: 'NOTIF_' + crypto.randomUUID().slice(0, 12), pin_destinataire: a.pin, type_notif: 'DEMANDE_MDP',
+        message: `Demande de nouveau mot de passe : ${u[0].nom} (${mail}). À traiter dans Administration, Utilisateurs.`,
+        id_cible: mail, statut_lu: false, date_envoi: new Date().toISOString(),
+      }))
+      if (lignes.length) await sbService.from('notifs').insert(lignes)
+    } catch { /* réponse neutre dans tous les cas */ }
+    return reponse
+  }
+
   const { email, motdepasse } = body
   if (!email || !motdepasse)
     return Response.json({ ok: false, erreur: 'Email et mot de passe requis' }, { headers: CORS, status: 400 })
