@@ -47,4 +47,7 @@ const K = L.calculerCotation({ type: 'cotation', cotation: { libelle: 'B2S', can
 t('cotation remise et prix coté', K.grilles.length === 1 && K.grilles[0].lignes.find(l => l.p.id === 'n360-std').cote === 12.5 && K.grilles[0].lignes.find(l => l.p.id === 'n360-adv10').remise === 40 && K.remiseMax === 50);
 t('cotation sans données : message', L.html({ type: 'cotation', date: '2020-01-01' }).includes('Aucune cotation renseignée'));
 t('aucun tiret cadratin', !L.html({ type: 'cotation', cotation: { libelle: 'x', canaux: ['td'], remise_pct: 10 } }).includes('—'));
+const ht = L.html({ type: 'cotation', titre: 'Rentrée <b>2026</b>', sousTitre: 'Pour <i>vous</i>', cotation: { libelle: 'x', canaux: ['td'], remise_pct: 10 } });
+t('titre personnalisé échappé', ht.includes('<h1>Rentrée &lt;b&gt;2026&lt;/b&gt;</h1>') && ht.includes('Pour &lt;i&gt;vous&lt;/i&gt;'));
+t('titre par défaut conservé', L.html({ type: 'bundle', operations: [] }).includes('<em>offert</em>'));
 console.log(ok + ' OK, ' + ko + ' KO'); process.exit(ko ? 1 : 0);

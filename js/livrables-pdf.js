@@ -195,11 +195,11 @@ table.t td.g{color:#343F48;font-weight:800}
   function page(cfg, t, num, o) {
     const C = window.Catalogue, em = cfg.emetteur || {}, cl = cfg.client || {};
     const dEmis = cfg.date || aujourdhui();
-    const sous = o.sous != null ? o.sous : `Préparée pour <b>${esc(cl.nom || 'votre société')}</b>${cl.contact ? ' · Contact : ' + esc(cl.contact) : ''}${cl.region ? ' · ' + esc(cl.region) : ''}`;
+    const sous = cfg.sousTitre ? esc(cfg.sousTitre) : o.sous != null ? o.sous : `Préparée pour <b>${esc(cl.nom || 'votre société')}</b>${cl.contact ? ' · Contact : ' + esc(cl.contact) : ''}${cl.region ? ' · ' + esc(cl.region) : ''}`;
     const ech = o.echeance != null ? o.echeance : (cfg.validite ? `Valable jusqu'au ${dLong(cfg.validite)}` : '');
     return `<section class="page"><div class="head"><div class="hrow"><img src="${esc(logoUrl('norton-empower-reseller-dark.png'))}" alt="Norton Empower Reseller Program"/>
 <div class="meta"><b>${esc(t.lib)}</b> n° ${esc(num)}<br>Établie le ${esc(dLong(dEmis))}</div></div>
-<div class="eyebrow">${esc(o.eyebrow || t.eyebrow)}</div><h1>${o.titre || t.titre}</h1><div class="sub">${sous}</div>${ech ? `<div class="echeance">${esc(ech)}</div>` : ''}</div>
+<div class="eyebrow">${esc(o.eyebrow || t.eyebrow)}</div><h1>${cfg.titre ? esc(cfg.titre) : (o.titre || t.titre)}</h1><div class="sub">${sous}</div>${ech ? `<div class="echeance">${esc(ech)}</div>` : ''}</div>
 <div class="body ${o.cls || 'two'}">${o.contenu}</div>${o.apres || ''}
 <div class="foot"><img src="${esc(logoUrl('marvesting-group-cream.png'))}" alt="Marvesting Group"/>
 <div class="ct"><b>${esc(em.nom || '')}</b><span>${esc(em.role || 'Impact Sales Marketing / Norton Gen Digital')}</span><span>${esc([em.tel, em.mail].filter(Boolean).join(' · '))}</span></div>

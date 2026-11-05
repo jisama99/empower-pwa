@@ -11,7 +11,7 @@
 window.VueCoach = {
   state: { chargement: true, erreur: null, d: null, pin: '', col: 'chat', fil: [], panier: [['n360-del5', 6]], grossiste: 'pa_td', volume: false, compteSel: '', ia: false, maj: null, pdf: { type: 'proposition', client: '', contact: '', offre: 'xy', achetees: 10, offertes: 1, taux: 10, validite: '', debut: '', conditions: '', canal: 'pa_td', offertNom: 'Norton Utilities Ultimate', offertPvp: '', par: 2,
     refA: 'n360-del5', refB: 'n360-adv10', qteB: 2, seuil: 10, tauxVol: 20,
-    op1: 'nsb-10', q1: 1, nom1: 'Norton VPN Plus', pvp1: '', op2: 'n360-del5', q2: 1, nom2: 'Norton Utilities Ultimate', pvp2: '',
+    titre: '', sousTitre: '', op1: 'nsb-10', q1: 1, nom1: 'Norton VPN Plus', pvp1: '', op2: 'n360-del5', q2: 1, nom2: 'Norton Utilities Ultimate', pvp2: '',
     cotLib: 'Cotation distributeur', cotDebut: '', cotFin: '', cotRemise: 30, cotNonRecond: false } },
   _raw: null, _suivi: new Map(),
   PANIER_REF: [['n360-del5', 6]],   // hypothèse de « première commande type » (modifiable dans le calculateur)
@@ -330,6 +330,7 @@ window.VueCoach = {
     else if (['offertPvp', 'pvp1', 'pvp2'].includes(champ)) o[champ] = v === '' ? '' : Math.max(0, Math.min(9999, Number(String(v).replace(',', '.')) || 0));
     else if (champ === 'cotNonRecond') o[champ] = !!v;
     else if (champ === 'conditions') o[champ] = String(v).slice(0, 300);
+    else if (champ === 'titre' || champ === 'sousTitre') o[champ] = String(v).slice(0, 90);
     else o[champ] = String(v).slice(0, 120);
     if (champ === 'type' || champ === 'offre') this._majCalc();
   },
@@ -350,7 +351,7 @@ window.VueCoach = {
       : o.type === 'bundle' ? { canal: o.canal === 'pa_td' || o.canal === 'pa_ingram' || o.canal === 'pa_empower' ? o.canal : 'pa_empower', debut: o.debut, operations: [op(o.op1, o.q1, o.nom1, o.pvp1), op(o.op2, o.q2, o.nom2, o.pvp2)].filter(x => x.achete[0]) }
       : o.type === 'cotation' ? { cotation: { libelle: o.cotLib, debut: o.cotDebut, fin: o.cotFin, remise_pct: o.cotRemise, canaux: ['td', 'ingram'], non_reconductible: o.cotNonRecond }, date: o.cotDebut || undefined }
       : {};
-    L.ouvrir({ ...extra, conditions: o.conditions, type: o.type, lignes: s.panier.filter(([id, q]) => q > 0), grossiste: s.grossiste, volume: s.volume, offre,
+    L.ouvrir({ ...extra, conditions: o.conditions, titre: o.titre.trim(), sousTitre: o.sousTitre.trim(), type: o.type, lignes: s.panier.filter(([id, q]) => q > 0), grossiste: s.grossiste, volume: s.volume, offre,
       client: { nom: o.client || (compte && compte.Nom_Compte) || '', contact: o.contact, region: (compte && compte.Ville) || '' },
       emetteur: p ? { nom: p.nom, role: p.role, tel: p.tel ? EquipeContacts.fmtTel(p.tel) : '', mail: p.mail || '' } : {},
       validite: o.validite || '', dejaCA: compte ? window.Paliers.caEmpower(compte) : 0 });
@@ -409,6 +410,8 @@ window.VueCoach = {
     return `<div class="co-soft" style="margin-top:12px"><div class="co-eyebrow">Document PDF paysage</div>
       ${ligne('1fr', `<select aria-label="Type de document" onchange="VueCoach.majPdf('type',this.value)">${Object.keys(L.TYPES).map(opt).join('')}</select>`)}
       ${ligne('1fr 1fr', `<input type="text" placeholder="Client (société)" value="${E(o.client)}" aria-label="Client" onchange="VueCoach.majPdf('client',this.value)"/><input type="text" placeholder="Contact" value="${E(o.contact)}" aria-label="Contact client" onchange="VueCoach.majPdf('contact',this.value)"/>`)}
+      ${ligne('1fr', inp('titre', 'Titre du document (facultatif, remplace le titre du modèle)'))}
+      ${ligne('1fr', inp('sousTitre', 'Sous-titre (facultatif)'))}
       ${champs}
       ${o.type === 'cotation' ? '' : ligne('1fr', `<label class="co-mut">Valable jusqu'au <input type="date" value="${E(o.validite)}" onchange="VueCoach.majPdf('validite',this.value)"/></label>`)}
       ${ligne('1fr', inp('conditions', 'Conditions particulières (facultatif)'))}
