@@ -28,7 +28,7 @@ window.VueTerritoires = {
     else { s.plein = false; rerender(); }
   },
   state: { chargement: true, erreur: null, comptes: [], leads: [], visites: [], secteurs: [], reg: '', dep: '', calque: 'rev',
-           plein: false, com: '', canal: '', avecLeads: false, sel: '', ville: '', nonLoc: false, points: true, z: 1, cx: null, cy: null, _zk: '' },
+           plein: false, com: '', src: '', canal: '', avecLeads: false, sel: '', ville: '', nonLoc: false, points: true, z: 1, cx: null, cy: null, _zk: '' },
 
   _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
 
@@ -41,20 +41,32 @@ window.VueTerritoires = {
     this.render();
     try {
       const sb = SheetsAPI._sb;
-      const [comptes, leads, visites, sect] = await Promise.all([
+      const [comptes, leads, visites, sect, baseLue] = await Promise.all([
         SheetsAPI.lire('EMPOWER_MDB', 'COMPTES'),
         SheetsAPI.lire('EMPOWER_MDB', 'LEADS').catch(() => []),
         Session.estExterne() ? Promise.resolve([]) : SheetsAPI.lire('EMPOWER_MDB', 'VISITES').catch(() => []),
         sb ? sb.from('secteurs_cp').select('*').eq('portee', 'DEPARTEMENT').eq('statut', 'ACTIF').then(r => r.data || []).catch(() => []) : [],
+        SheetsAPI.lire('EMPOWER_MDB', 'base_comptes', { nocache: true }).catch(() => []),
       ]);
       const ok = r => !String(r.deleted || '').toUpperCase().includes('TRUE');
       const monPerimetre = pin => Session.voitTout() || Session.estExterne() || Number(pin) === Session.pin;
+      // Base des comptes actifs enrichie : sert de liste de référence (filtre « Listing ») et de source de localisation.
+      const base = Array.isArray(baseLue) ? baseLue : [];
+      const dansBase = new Set(base.map(b => b.compte_id).filter(Boolean).map(String));
       this.state.comptes = (comptes || []).filter(ok).filter(c => monPerimetre(c.PIN_CDS_Assigne)).map(c => {
         const e = window.ContactsObjectif.etat(c);
-        return { id: c.ID_Compte || c._uuid, nom: c.Nom_Compte, ville: c.Ville, pin: c.PIN_CDS_Assigne, canal: c.CANAL,
+        return { base: dansBase.has(String(c._uuid)), id: c.ID_Compte || c._uuid, nom: c.Nom_Compte, ville: c.Ville, pin: c.PIN_CDS_Assigne, canal: c.CANAL,
                  cp: c.Code_Postal, dep: this._dep(c.Departement, c.Code_Postal), empower: !!window.estEmpower(c),
                  active: !!(window.estEmpower(c) && window.FlagsCanal.active(c)), adresse: e.adresse, fiche: e.pct,
                  palier: window.Paliers.palier(c), raw: c };
+      });
+      // Lignes de la base sans compte rattaché dans l'application : points « base seule » (sans fiche à ouvrir).
+      const pinDe = nom => { const k = String(nom || '').trim().toUpperCase(), reg = window._CDS_REGISTRY || {};
+        const p = Object.keys(reg).find(x => String(reg[x]).trim().toUpperCase().split(/\s+/)[0] === k); return p ? Number(p) : null; };
+      base.filter(b => !b.compte_id).forEach(b => {
+        const pin = pinDe(b.commercial); if (!(Session.voitTout() || Session.estExterne() || (pin != null && pin === Session.pin))) return;
+        this.state.comptes.push({ baseSeule: true, base: true, id: 'base:' + b.id, nom: b.nom, ville: b.ville, pin, canal: b.type_compte, cp: b.code_postal,
+          dep: this._dep(null, b.code_postal), empower: /^(empower|mi2)$/i.test(String(b.type_compte || '')), active: false, adresse: !!String(b.adresse || '').trim(), fiche: 0, raw: null });
       });
       this.state.leads = (leads || []).filter(ok).filter(l => Session.voitTout() || Session.estExterne() || !l.PIN_CDS_Assigne || Number(l.PIN_CDS_Assigne) === Session.pin)
         .map(l => ({ id: l.ID_Prospect || l._uuid, nom: l.Nom_Compte, ville: l.Ville, pin: l.PIN_CDS_Assigne, canal: l.CANAL,
@@ -73,6 +85,7 @@ window.VueTerritoires = {
     const s = this.state;
     const l = s.comptes.concat(s.avecLeads ? s.leads : []);
     return l.filter(c => (!s.com || String(c.pin) === s.com)
+      && (!s.src || (s.src === 'BASE' ? c.base : (!c.base && !c.lead)))
       && (!s.ville || this._cleVille(c.ville) === s.ville)
       && (!s.canal || (s.canal === 'EMPOWER' ? this._estCanal(c) : !this._estCanal(c))));
   },
@@ -120,7 +133,7 @@ window.VueTerritoires = {
   },
 
   // Points revendeurs : uniquement quand la lecture le permet (département choisi, région ou zoom suffisant), jamais sur la vue nationale
-  _pointsVisibles() { const s = this.state; return s.points && (!!s.dep || (!!s.reg && s.z >= 1.6) || s.z >= 3); },
+  _pointsVisibles() { return !!this.state.points; },
   // Position exacte : coordonnées GPS de la fiche projetées sur la carte (calage vérifié sur les fiches géolocalisées),
   // acceptées seulement si le point tombe bien dans le département de la fiche ; sinon placement au département.
   _gps(c, dep) {
@@ -164,8 +177,8 @@ window.VueTerritoires = {
       approx.slice(0, Math.max(0, MAX - pos.length)).forEach(([c], i) => { const r = rd * 2.3 * Math.sqrt(i + .6), a = i * 2.39996; pos.push([c, d.cx + r * Math.cos(a), d.cy + r * Math.sin(a), false]); });
       pos.forEach(([c, x, y, exact]) => {
         const sel = String(s.sel) === String(c.id);
-        const tip = `${c.nom}${c.lead ? ' (lead)' : ''}\n${c.ville || 'Ville n.c.'} · ${d.c}\n${c.lead ? 'Lead' : c.active ? 'Revendeur activé' : c.empower ? 'Empower, pas encore activé' : 'Grossiste'}\n${this._precision(c).lib}${exact ? '' : ' (point au département)'}`;
-        svg += `<circle class="terr-pt-m" data-pt="${c.lead ? '' : this._esc(c.id)}" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(sel ? rd * 1.7 : rd).toFixed(3)}" fill="${sel ? 'var(--terr-sel)' : this._couleurPoint(c)}" stroke="#fff" stroke-width="${(rd * .35).toFixed(3)}" data-tip="${this._esc(tip)}"></circle>`;
+        const tip = `${c.nom}${c.lead ? ' (lead)' : ''}\n${c.ville || 'Ville n.c.'} · ${d.c}\n${c.lead ? 'Lead' : c.active ? 'Revendeur activé' : c.empower ? 'Empower, pas encore activé' : 'Grossiste'}\n${c.base ? 'Dans la base enrichie\n' : ''}${this._precision(c).lib}${exact ? '' : ' (point au département)'}`;
+        svg += `<circle class="terr-pt-m" data-pt="${c.lead || c.baseSeule ? '' : this._esc(c.id)}" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(sel ? rd * 1.7 : rd).toFixed(3)}" fill="${sel ? 'var(--terr-sel)' : this._couleurPoint(c)}" stroke="${c.base && !sel ? '#343F48' : '#fff'}" stroke-width="${(rd * (c.base && !sel ? .5 : .35)).toFixed(3)}" data-tip="${this._esc(tip)}"></circle>`;
         n++;
       });
       if (tri.length > pos.length) {
@@ -245,7 +258,7 @@ window.VueTerritoires = {
     const s = this.state, base = this._lignes().filter(c => !c.lead);
     const adr = base.filter(c => c.dep && c.adresse).length, cp = base.filter(c => c.dep && !c.adresse).length, nl = base.filter(c => !c.dep).length, tot = base.length || 1;
     const seg = (n, col, lib) => `<i style="width:${n / tot * 100}%;background:${col}" title="${lib} : ${n}"></i>`;
-    const liste = s.nonLoc ? `<ul class="terr-liste" style="margin-top:8px">${base.filter(c => !c.dep).slice(0, 60).map(c => `<li><a href="#/compte/${encodeURIComponent(c.id)}">${this._esc(c.nom)}</a><span>${this._esc(c.ville || 'Ville inconnue')} · code postal à renseigner</span></li>`).join('')}</ul>${nl > 60 ? `<p class="terr-sub">60 premiers sur ${nl}.</p>` : ''}` : '';
+    const liste = s.nonLoc ? `<ul class="terr-liste" style="margin-top:8px">${base.filter(c => !c.dep).slice(0, 60).map(c => `<li>${c.baseSeule ? `<strong>${this._esc(c.nom)}</strong>` : `<a href="#/compte/${encodeURIComponent(c.id)}">${this._esc(c.nom)}</a>`}<span>${this._esc(c.ville || 'Ville inconnue')} · code postal à renseigner</span></li>`).join('')}</ul>${nl > 60 ? `<p class="terr-sub">60 premiers sur ${nl}.</p>` : ''}` : '';
     return `<section class="terr-panneau" aria-label="Alimentation de la carte"><div class="terr-eyebrow">Alimentation de la carte</div>
       <h2>${base.length} compte${base.length > 1 ? 's' : ''}, ${base.length - nl} placé${base.length - nl > 1 ? 's' : ''}</h2>
       <div class="terr-stk">${seg(adr, '#343F48', 'Adresse complète')}${seg(cp, '#8A949E', 'Code postal seul')}${seg(nl, '#C93A34', 'À localiser')}</div>
@@ -323,8 +336,8 @@ window.VueTerritoires = {
     const s = this.state, l = this._dansPerimetre().filter(c => !c.lead || s.avecLeads);
     const parDep = {}; l.forEach(c => { (parDep[c.dep] = parDep[c.dep] || []).push(c); });
     const nomDep = c => { const d = window.FR.deps.find(x => x.c === c); return d ? d.n : ''; };
-    const ligne = c => `<li class="${String(s.sel) === String(c.id) ? 'sel' : ''}"><a href="#/compte/${encodeURIComponent(c.id)}" data-sel="${this._esc(c.id)}">${this._esc(c.nom)}${c.lead ? ' <em>(lead)</em>' : ''}</a>
-        <span>${window.Paliers.badgePalier(c.raw || {})} ${this._estCanal(c) ? 'Empower' : 'Grossiste'} · ${this._esc(window.resolveCDS(c.pin))} ${c.raw ? window.ContactsObjectif.pastille(c.raw) : ''}</span></li>`;
+    const ligne = c => `<li class="${String(s.sel) === String(c.id) ? 'sel' : ''}">${c.baseSeule ? `<strong>${this._esc(c.nom)}</strong>` : `<a href="#/compte/${encodeURIComponent(c.id)}" data-sel="${this._esc(c.id)}">${this._esc(c.nom)}${c.lead ? ' <em>(lead)</em>' : ''}</a>`}
+        <span>${c.base ? '<em>Base</em> ·' : ''} ${c.baseSeule ? '' : window.Paliers.badgePalier(c.raw || {})} ${this._estCanal(c) ? 'Empower' : 'Grossiste'} · ${this._esc(window.resolveCDS(c.pin))} ${c.raw ? window.ContactsObjectif.pastille(c.raw) : ''}</span></li>`;
     const blocs = Object.keys(parDep).sort().slice(0, 40).map(dp => {
       const parVille = {}; parDep[dp].forEach(c => { (parVille[c.ville || 'Ville inconnue'] = parVille[c.ville || 'Ville inconnue'] || []).push(c); });
       return `<div class="terr-grp"><button class="terr-grp-t" data-dep-go="${dp}"><span>${dp} · ${this._esc(nomDep(dp))}</span><span>${parDep[dp].length} ›</span></button>
@@ -394,7 +407,11 @@ window.VueTerritoires = {
       <nav class="pilo-ariane" aria-label="Fil d'Ariane" style="margin:2px 0 6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="pilo-lien" data-ariane="fr">France</button>${s.reg ? `<i>›</i><button class="pilo-lien" data-ariane="reg">${this.REG[s.reg]}</button>` : ''}${s.dep ? `<i>›</i><strong>${s.dep} ${this._esc(((window.FR.deps.find(d => d.c === s.dep)) || {}).n || '')}</strong>` : ''}
         <span style="flex:1"></span><button class="terr-lien" data-ariane="fr">Réinitialiser</button></nav>
       <div class="terr-bar" role="group" aria-label="Filtres commercial">
-        ${Session.voitTout() ? `<button class="terr-chip" aria-pressed="${!s.com}" data-com="">Tous les commerciaux</button>${pinsFiltre.map(p => `<button class="terr-chip" aria-pressed="${s.com === p}" data-com="${p}"><i style="background:${this._couleur(p)}"></i>${this._esc(window.resolveCDS(p))}</button>`).join('')}` : ''}
+        ${(Session.voitTout() || Session.estExterne()) ? `<button class="terr-chip" aria-pressed="${!s.com}" data-com="">Tous les commerciaux</button>${pinsFiltre.map(p => `<button class="terr-chip" aria-pressed="${s.com === p}" data-com="${p}"><i style="background:${this._couleur(p)}"></i>${this._esc(window.resolveCDS(p))}</button>`).join('')}` : ''}
+      </div>
+      <div class="terr-bar" role="group" aria-label="Listing des comptes">
+        <span class="terr-sub" style="margin:0">Listing</span>
+        <div class="terr-seg" role="group" aria-label="Source du listing">${[['', 'Base + Tracker'], ['BASE', `Base (${s.comptes.filter(c => c.base).length})`], ['HORS', `Hors base (${s.comptes.filter(c => !c.base).length})`]].map(([k, l]) => `<button data-src="${k}" aria-pressed="${s.src === k}">${l}</button>`).join('')}</div>
       </div>
       <div class="terr-bar" role="group" aria-label="Filtres carte">
         <div class="terr-seg" role="group" aria-label="Calque de la carte">${calques.map(([k, l]) => `<button data-calque="${k}" aria-pressed="${s.calque === k}">${l}</button>`).join('')}</div>
@@ -408,7 +425,7 @@ window.VueTerritoires = {
         <div>
           <div class="terr-map">${this._carte(par)}
             <div class="terr-tools"><button id="terr-zi" aria-label="Zoom avant" title="Zoom avant">+</button><button id="terr-zo" aria-label="Zoom arrière" title="Zoom arrière">−</button><button id="terr-zr" aria-label="Recentrer" title="Recentrer" style="font-size:13px">⌖</button><button id="terr-up" aria-label="Niveau supérieur" title="Niveau supérieur">↑</button><button id="terr-fs" aria-label="${s.plein ? 'Quitter le plein écran' : 'Carte en plein écran'}" title="${s.plein ? 'Quitter le plein écran (Échap)' : 'Plein écran'}">${s.plein ? '⤡' : '⤢'}</button></div>
-            <div class="terr-legende" aria-hidden="true"><span><i style="background:#343F48;opacity:.35"></i>Teinte plus soutenue = plus de ${s.calque === 'vis' ? 'visites' : s.calque === 'act' ? 'activés' : 'revendeurs'} (max ${maxLeg})</span><span><i style="background:repeating-linear-gradient(45deg,#8A949E 0 3px,#E1E5E8 3px 6px)"></i>Département partagé</span><span><i style="background:#FF6D68"></i>Sélectionné</span>${this._pointsVisibles() ? `<span><i style="background:#343F48;border-radius:50%"></i>Activé</span><span><i style="background:#7B8A97;border-radius:50%"></i>Empower</span><span><i style="background:#C2CAD1;border-radius:50%"></i>Grossiste</span>${s.avecLeads ? '<span><i style="background:#3E8E9B;border-radius:50%"></i>Lead</span>' : ''}<span style="opacity:.7">Point exact si GPS connu ; sinon placé au département (la fiche indique la précision)</span>` : ''}${s.calque === 'act' ? '<span><i style="background:repeating-linear-gradient(90deg,#FF6D68 0 3px,transparent 3px 5px)"></i>Zone blanche</span>' : ''}</div>
+            <div class="terr-legende" aria-hidden="true"><span><i style="background:#343F48;opacity:.35"></i>Teinte plus soutenue = plus de ${s.calque === 'vis' ? 'visites' : s.calque === 'act' ? 'activés' : 'revendeurs'} (max ${maxLeg})</span><span><i style="background:repeating-linear-gradient(45deg,#8A949E 0 3px,#E1E5E8 3px 6px)"></i>Département partagé</span><span><i style="background:#FF6D68"></i>Sélectionné</span>${this._pointsVisibles() ? `<span><i style="background:#343F48;border-radius:50%"></i>Activé</span><span><i style="background:#7B8A97;border-radius:50%"></i>Empower</span><span><i style="background:#C2CAD1;border-radius:50%"></i>Grossiste</span>${s.avecLeads ? '<span><i style="background:#3E8E9B;border-radius:50%"></i>Lead</span>' : ''}<span><i style="background:#fff;border:2px solid #343F48;border-radius:50%;width:7px;height:7px"></i>Contour ardoise : dans la base</span><span style="opacity:.7">Point exact si GPS connu ; sinon placé au département (la fiche indique la précision)</span>` : ''}${s.calque === 'act' ? '<span><i style="background:repeating-linear-gradient(90deg,#FF6D68 0 3px,transparent 3px 5px)"></i>Zone blanche</span>' : ''}</div>
           </div>
           ${this._zonesBlanches()}
         </div>
@@ -434,6 +451,7 @@ window.VueTerritoires = {
     app.querySelector('#terr-dep').onchange = e => { s.dep = e.target.value; s.sel = ''; if (s.dep) { const d = window.FR.deps.find(x => x.c === s.dep); if (d) s.reg = d.r; } rerender(); };
     app.querySelector('#terr-canal').onchange = e => { s.canal = e.target.value; rerender(); };
     app.querySelectorAll('[data-com]').forEach(b => b.onclick = () => { s.com = b.dataset.com; rerender(); });
+    app.querySelectorAll('[data-src]').forEach(b => b.onclick = () => { s.src = b.dataset.src; s.sel = ''; rerender(); });
     app.querySelector('#terr-leads').onclick = () => { s.avecLeads = !s.avecLeads; rerender(); };
     app.querySelectorAll('[data-ariane]').forEach(b => b.onclick = () => { const k = b.dataset.ariane; if (k === 'fr') { s.reg = ''; s.dep = ''; s.sel = ''; } else if (k === 'reg') { s.dep = ''; s.sel = ''; } rerender(); });
     app.querySelectorAll('[data-calque]').forEach(b => b.onclick = () => { s.calque = b.dataset.calque; rerender(); });
