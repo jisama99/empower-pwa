@@ -123,6 +123,7 @@ window.Studio = (function () {
     document.body.appendChild(el); document.body.classList.add('vis-ouverte');
     document.addEventListener('keydown', echap); window.addEventListener('resize', ajuster);
     onglet('reglages'); rafraichir(true); chargerComptes();
+    if (window.LivrablesPDF.sonder) window.LivrablesPDF.sonder().then(() => { if (el) rafraichir(false); });
     return true;
   }
   function echap(e) { if (e.key === 'Escape') fermer(); }

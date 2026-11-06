@@ -188,6 +188,17 @@ table.t td.g{color:#343F48;font-weight:800}
 .remise{display:inline-block;background:#343F48;color:#FF8A85;border-radius:999px;padding:1px 8px;font-size:9px;font-weight:800}
 `;
 
+  // Visuels produits : img/produits/<id>.png. Les aperçus sont dans un cadre sans script (les « onerror » n'y tournent pas) :
+  // on vérifie donc à l'avance quelles images existent, et seules celles-là sont insérées ; les autres reçoivent la pastille typographique.
+  const IMAGES = new Set();
+  function sonder() {
+    if (typeof Image === 'undefined' || !window.Catalogue) return Promise.resolve();
+    return Promise.all(window.Catalogue.produits.map(p => new Promise(ok => {
+      if (IMAGES.has(p.id)) return ok();
+      const im = new Image(); im.onload = () => { IMAGES.add(p.id); ok(); }; im.onerror = () => ok(); im.src = imgUrl(p.id);
+    }))).then(() => IMAGES.size);
+  }
+
   const logoUrl = f => { const base = (typeof document !== 'undefined' && document.baseURI) || ''; try { return new URL('img/' + f, base).href; } catch (x) { return 'img/' + f; } };
   const imgUrl = id => { const base = (typeof document !== 'undefined' && document.baseURI) || ''; try { return new URL('img/produits/' + encodeURIComponent(id) + '.png', base).href; } catch (x) { return 'img/produits/' + encodeURIComponent(id) + '.png'; } };
 
@@ -213,7 +224,7 @@ table.t td.g{color:#343F48;font-weight:800}
     const C = window.Catalogue, R = calculer(cfg), t = R.type, e = R.e, g = R.g, cmp = R.cmp;
     const compact = e.detail.length > 5 ? ' compact' : '';
     const lignes = e.detail.map(d => `<div class="ln">
-        <span class="pk"><img src="${esc(imgUrl(d.id))}" alt="" onerror="this.parentNode.classList.add('no')"/><b>${d.appareils}</b><i>appareil${d.appareils > 1 ? 's' : ''}</i></span>
+        <span class="pk${IMAGES.has(d.id) ? '' : ' no'}">${IMAGES.has(d.id) ? `<img src="${esc(imgUrl(d.id))}" alt=""/>` : ''}<b>${d.appareils}</b><i>appareil${d.appareils > 1 ? 's' : ''}</i></span>
         <span class="nm"><b>${esc(d.nom)}</b><small>${d.appareils} appareil${d.appareils > 1 ? 's' : ''} · PVP conseillé ${e2(d.pvp_ttc)} TTC</small></span>
         <span class="r q">${d.qte}${d.offertes ? `<small class="of">+ ${d.offertes} offerte${d.offertes > 1 ? 's' : ''}</small>` : ''}</span>
         <span class="r">${e2(d.pa)}</span><span class="r">${d.qte_vendue ? e2(d.marge / d.qte_vendue) : ''}</span><span class="r pos">${e2(d.marge)}</span></div>`).join('');
@@ -297,8 +308,9 @@ ${of ? `<div class="big"><span class="eb">Votre marge avec l'offre</span><b>${e2
   function ouvrir(cfg) {
     if (!window.Visionneuse) { if (window.Toast) Toast.afficher('Visionneuse indisponible, rechargez la page', 'erreur'); return false; }
     const t = TYPES[cfg.type] || TYPES.proposition;
-    return Visionneuse.html(html(cfg), { titre: t.lib + (cfg.client && cfg.client.nom ? ' · ' + cfg.client.nom : '') });
+    sonder().then(() => Visionneuse.html(html(cfg), { titre: t.lib + (cfg.client && cfg.client.nom ? ' · ' + cfg.client.nom : '') }));
+    return true;
   }
 
-  return { TYPES, CANAUX, offreLibelle, calculer, calculerSupp, calculerBundle, calculerCotation, html, ouvrir };
+  return { sonder, visuels: IMAGES, TYPES, CANAUX, offreLibelle, calculer, calculerSupp, calculerBundle, calculerCotation, html, ouvrir };
 })();

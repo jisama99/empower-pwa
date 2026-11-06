@@ -13,7 +13,10 @@ t('paysage', h.includes('@page{size:A4 landscape;margin:0}')); t('200mm', h.incl
 t('échappé', h.includes('&lt;b&gt;X&amp;Y&lt;/b&gt;') && !h.includes('<b>X&Y</b>')); t('guillemets', h.includes('&quot;Z&quot;'));
 t('logos', h.includes('norton-empower-reseller-dark.png') && h.includes('marvesting-group-cream.png'));
 t('sans offre', !h.includes('class="ribbon"'));
-t('visuel produit', h.includes('img/produits/n360-del5.png'));
+t('visuel absent : pastille typographique, pas d\'image cassée', !h.includes('img/produits/n360-del5.png') && h.includes('class="pk no"'));
+L.visuels.add('n360-del5');
+t('visuel présent : image insérée', L.html(base).includes('img/produits/n360-del5.png'));
+L.visuels.delete('n360-del5');
 // offre xy : offertes revendables, coût sur achetées uniquement
 const o = L.html({ ...base, type: 'bienvenue', offre: { type: 'xy', achetees: 10, offertes: 1 }, validite: '2026-12-15' });
 t('ribbon xy', o.includes('10 licences achetées, 1 offerte') && o.includes('15 décembre 2026'));
