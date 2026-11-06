@@ -1676,6 +1676,83 @@ window.VueAdmin = {
     }
   },
 
+  // ── Export complet de la base : un seul classeur Excel propre (Synthèse, Comptes, Tracker, Base comptes actifs) ──
+  async exporterBaseComplete() {
+    const btn = document.getElementById('btn-export-base-complete');
+    if (btn) { btn.disabled = true; btn.textContent = 'Préparation…'; }
+    try {
+      if (typeof XLSX === 'undefined') throw new Error('Bibliothèque Excel non chargée (réseau ?)');
+      const L = (t, o) => SheetsAPI.lire('EMPOWER_MDB', t, o || {});
+      const [comptes0, leads0, base0] = await Promise.all([L('COMPTES', { nocache: true }), L('LEADS', { nocache: true }), L('base_comptes', { nocache: true }).catch(() => [])]);
+      const v = x => (x === null || x === undefined) ? '' : denaturer(String(x)).replace(/\s+/g, ' ').trim();
+      const d10 = x => String(x || '').slice(0, 10);
+      const non = r => String(r.deleted || r.Flag_traite || '').toUpperCase() !== 'TRUE' && String(r.Flag_traite || '').toUpperCase() !== 'DELETED';
+      const comptes = (comptes0 || []).filter(non), leads = (leads0 || []).filter(non), base = Array.isArray(base0) ? base0 : [];
+      const parCompte = {}; base.forEach(b => { if (b.compte_id) parCompte[String(b.compte_id)] = b; });
+      const oui = b => b ? 'Oui' : 'Non';
+      const rowsComptes = comptes.map(c => {
+        const e = ContactsObjectif.etat(c), b = parCompte[String(c._uuid)], emp = !!window.estEmpower(c);
+        return {
+          'Commercial': v(resolveCDS(c.PIN_CDS_Assigne)), 'Société': v(c.Nom_Compte), 'Canal': v(c.CANAL), 'Empower': oui(emp),
+          'Empower activé (1re commande)': oui(emp && window.FlagsCanal.active(c)), 'Palier': emp ? v(window.Paliers.palier(c).lib) : '',
+          'Adresse': v(c.Adresse), 'Code postal': v(c.Code_Postal), 'Ville': v(c.Ville), 'Département': v(c.Departement),
+          'Interlocuteur': v(c.Contact_Nom), 'Fonction': v(c.Contact_Fonction), 'Téléphone': v(c.Tel), 'E-mail': v(c.Email), 'Site web': v(c.Site_Web),
+          'Contact renseigné': oui(e.contact), 'Fiche complète': oui(e.complet), 'Fiche remplie (%)': e.pct,
+          'Dans la base comptes actifs': oui(!!b), 'Statut base': b ? (b.statut === 'ENRICHI' ? 'Enrichi' : 'À compléter') : '',
+          'CA FY26 (€)': Math.round(CACanal.valeur(c, 'FY26', 'TOUS') || 0), 'CA Q1 FY27 (€)': Math.round(CACanal.valeur(c, 'Q1FY27', 'TOUS') || 0),
+          'CA Q2 FY27 (€)': Math.round(CACanal.valeur(c, 'Q2FY27', 'TOUS') || 0), 'CA Q3 FY27 (€)': Math.round(CACanal.valeur(c, 'Q3FY27', 'TOUS') || 0),
+          'CA Q4 FY27 (€)': Math.round(CACanal.valeur(c, 'Q4FY27', 'TOUS') || 0), 'Dernière action': d10(c.Date_Derniere_Action),
+        };
+      }).sort((a, b) => a['Commercial'].localeCompare(b['Commercial']) || a['Société'].localeCompare(b['Société']));
+      const lib = { SAISIE: 'À traiter', ASSIGNE: 'Assigné', EN_COURS: 'En cours', COMPTE_CREE: 'Compte créé', INTEGRE: 'Activé Empower', ARCHIVE: 'Archivé' };
+      const rowsLeads = leads.map(p => ({
+        'Société': v(p.Nom_Compte), 'Statut': lib[String(p.STATUT_EMPOWER || '').toUpperCase()] || v(p.STATUT_EMPOWER), 'Commercial': v(resolveCDS(p.PIN_CDS_Assigne || p.Nom_CDS)),
+        'Potentiel': v(p.POTENTIEL), 'Origine / fournisseur': v(p.ORIGINE), 'Saisi par': v(p.Nom_Channel), 'Date de saisie': d10(p.Date_Import || p.Timestamp),
+        'Prochaine action': d10(p.Date_prochaine_action), 'Dernière action': d10(p.Date_Derniere_Action), 'Date d’activation': d10(p.Date_Integration),
+        'Welcome Pack': d10(p.Welcome_Pack_Date), 'Canal': v(p.CANAL), 'Adresse': v(p.Adresse), 'Code postal': v(p.Code_Postal), 'Ville': v(p.Ville), 'Département': v(p.Departement),
+        'Interlocuteur': v(p.Interlocuteur || p.Contact_Nom), 'Téléphone': v(p.Tel), 'E-mail': v(p.Email), 'Produits potentiels': v(p.Produits_Potentiels), 'Note': v(p.Note_initiale),
+        'Source': v(p.Source_Import),
+      })).sort((a, b) => b['Date de saisie'].localeCompare(a['Date de saisie']));
+      const nomCompte = {}; comptes.forEach(c => { nomCompte[String(c._uuid)] = c.Nom_Compte; });
+      const rowsBase = base.map(b => ({
+        'Commercial': v(b.commercial), 'Société': v(b.nom), 'Type': v(b.type_compte), 'Adresse': v(b.adresse), 'Code postal': v(b.code_postal), 'Ville': v(b.ville),
+        'Téléphone': v(b.tel), 'E-mail': v(b.email), 'Site web': v(b.site_web), 'Contact principal': v(b.contact_principal),
+        'Statut': b.statut === 'ENRICHI' ? 'Enrichi' : 'À compléter', 'Compte dans l’appli': v(nomCompte[String(b.compte_id)] || ''),
+      })).sort((a, b) => a['Commercial'].localeCompare(b['Commercial']) || a['Société'].localeCompare(b['Société']));
+      // Synthèse
+      const cnt = (arr, f) => arr.filter(f).length;
+      const syn = [['EXPORT COMPLET DE LA BASE ESI'], ['Date', new Date().toLocaleString('fr-FR')], ['Exporté par', v(Session.nom)], [],
+        ['COMPTES'], ['Comptes dans l’appli', rowsComptes.length], ['Dans la base comptes actifs', cnt(rowsComptes, r => r['Dans la base comptes actifs'] === 'Oui')],
+        ['Contact renseigné', cnt(rowsComptes, r => r['Contact renseigné'] === 'Oui')], ['Fiche complète', cnt(rowsComptes, r => r['Fiche complète'] === 'Oui')],
+        ['Empower activés', cnt(rowsComptes, r => r['Empower activé (1re commande)'] === 'Oui')], [],
+        ['BASE COMPTES ACTIFS'], ['Lignes', rowsBase.length], ['Enrichies', cnt(rowsBase, r => r['Statut'] === 'Enrichi')], ['À compléter', cnt(rowsBase, r => r['Statut'] === 'À compléter')], [],
+        ['TRACKER (LEADS)'], ['Leads', rowsLeads.length], ...Object.values(lib).map(l => [l, cnt(rowsLeads, r => r['Statut'] === l)]), [],
+        ['PAR COMMERCIAL', 'Comptes', 'Contact renseigné', 'Leads']];
+      [...new Set(rowsComptes.map(r => r['Commercial']).concat(rowsLeads.map(r => r['Commercial'])))].filter(Boolean).sort().forEach(n =>
+        syn.push([n, cnt(rowsComptes, r => r['Commercial'] === n), cnt(rowsComptes, r => r['Commercial'] === n && r['Contact renseigné'] === 'Oui'), cnt(rowsLeads, r => r['Commercial'] === n)]));
+      const feuille = rows => {
+        const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ 'Aucune donnée': '' }]);
+        const cles = Object.keys(rows[0] || { x: 1 });
+        ws['!cols'] = cles.map(k => ({ wch: Math.min(40, Math.max(k.length + 2, ...rows.slice(0, 200).map(r => String(r[k] ?? '').length + 2))) }));
+        if (rows.length) ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: cles.length - 1 } }) };
+        return ws;
+      };
+      const wb = XLSX.utils.book_new();
+      const wsS = XLSX.utils.aoa_to_sheet(syn); wsS['!cols'] = [{ wch: 34 }, { wch: 22 }, { wch: 18 }, { wch: 10 }];
+      XLSX.utils.book_append_sheet(wb, wsS, 'Synthèse');
+      XLSX.utils.book_append_sheet(wb, feuille(rowsComptes), 'Comptes');
+      XLSX.utils.book_append_sheet(wb, feuille(rowsLeads), 'Tracker');
+      XLSX.utils.book_append_sheet(wb, feuille(rowsBase), 'Base comptes actifs');
+      XLSX.writeFile(wb, `ESI_BASE_COMPLETE_${dateISOLocale()}.xlsx`);
+      await this._logExport('BASE_COMPLETE', rowsComptes.length + rowsLeads.length + rowsBase.length);
+      Toast.afficher(`Export complet : ${rowsComptes.length} comptes, ${rowsLeads.length} leads, ${rowsBase.length} lignes de base`, 'succes');
+    } catch (e) {
+      Toast.afficher('Export complet : ' + (e.message || e), 'erreur');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Excel'; }
+    }
+  },
+
   _renderExports() {
     const de = this.state.filtrePickupDe || '';
     const au = this.state.filtrePickupA  || '';
@@ -1712,7 +1789,17 @@ window.VueAdmin = {
                   onclick="VueAdmin.exporterTracker()">CSV</button>
         </div>
       </div>`;
-    return filtrePickupHtml + trackerExportHtml + this.EXPORT_GROUPES.map(groupe => `
+    const completHtml = `
+      <div style="margin-bottom:18px;padding:12px;border-radius:var(--radius-sm);background:var(--c-bg);border:1px solid var(--c-border)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700">Export complet de la base (Excel)</div>
+            <div style="font-size:11px;color:var(--c-text-2);margin-top:2px">Un seul classeur propre : Synthèse, Comptes (coordonnées, contact, CA, présence dans la base), Tracker (tous les leads) et Base comptes actifs. Colonnes lisibles, filtres activés. Sans filtre de dates.</div>
+          </div>
+          <button id="btn-export-base-complete" class="btn-secondaire" style="padding:8px 14px;width:auto;flex-shrink:0" onclick="VueAdmin.exporterBaseComplete()">Excel</button>
+        </div>
+      </div>`;
+    return completHtml + filtrePickupHtml + trackerExportHtml + this.EXPORT_GROUPES.map(groupe => `
       <div style="margin-bottom:18px">
         <div style="font-size:12px;font-weight:700;color:var(--c-title);letter-spacing:.04em;margin-bottom:8px;padding-bottom:6px;">${groupe.titre}</div>
         ${groupe.exports.map(e => `
