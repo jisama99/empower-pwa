@@ -1216,6 +1216,29 @@ window.VueAdmin = {
       </div>`;
   },
 
+  // Base des comptes actifs : lit le Google Sheet, met à jour base_comptes et complète les champs VIDES des comptes (jamais d'écrasement).
+  syncBaseComptes() {
+    if (this.state.syncBaseEnCours) return;
+    ConfirmModal.demander({
+      titre: 'Synchroniser la base des comptes actifs ?',
+      detail: 'Lit le Google Sheet « BASE COMPTES ACTIFS » (lecture seule), met à jour la base et complète uniquement les champs vides des comptes. Aucune saisie existante n’est écrasée.',
+      labelConfirmer: 'Synchroniser',
+      onConfirm: () => this._syncBaseConfirme(),
+    });
+  },
+  async _syncBaseConfirme() {
+    this.state.syncBaseEnCours = true; this.state.syncBaseResultat = null; this.render();
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/base-comptes-sync`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ token: Session.token, action: 'lire' }) });
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.error || `HTTP ${r.status}`);
+      this.state.syncBaseResultat = { ok: true, ...d };
+      Toast.afficher(`Base synchronisée : ${d.total_base} comptes, ${d.comptes_enrichis} fiche(s) complétée(s)`, 'succes');
+    } catch (e) { this.state.syncBaseResultat = { ok: false, message: e.message || String(e) }; Toast.afficher('Synchronisation de la base impossible : ' + (e.message || e), 'erreur'); }
+    this.state.syncBaseEnCours = false; this.render();
+  },
+
   syncSellIn() {
     if (this.state.syncSellInEnCours) return;
     ConfirmModal.demander({
@@ -2009,6 +2032,13 @@ window.VueAdmin = {
           <p style="font-size:11px;color:var(--c-text-2);margin-top:8px">
             Lit directement le Google Sheet Sell-In (partagé par lien, lecture seule) : onglet DATA et onglets « REVENDEURS AU DETAIL ». Aucune clé Google requise · Edge Function <code>sellin-drive-lire</code>
           </p>
+          <button class="btn-secondaire" style="padding:8px 16px;width:100%;margin-top:16px" ${this.state.syncBaseEnCours ? 'disabled' : ''} onclick="VueAdmin.syncBaseComptes()">
+            ${this.state.syncBaseEnCours ? 'Synchronisation en cours…' : 'Synchroniser la base des comptes actifs'}
+          </button>
+          <p style="font-size:11px;color:var(--c-text-2);margin-top:8px">
+            Lit le Google Sheet « BASE COMPTES ACTIFS - MATCHES ET ENRICHIS » (lecture seule) et complète les champs vides des comptes. Les nouveaux leads y sont ajoutés automatiquement à leur création · Edge Function <code>base-comptes-sync</code>
+          </p>
+          ${this.state.syncBaseResultat ? `<p style="font-size:12px;margin-top:6px">${this.state.syncBaseResultat.ok ? `${this.state.syncBaseResultat.total_base} comptes dans la base · ${this.state.syncBaseResultat.ajoutees} ajouté(s), ${this.state.syncBaseResultat.modifiees} modifié(s), ${this.state.syncBaseResultat.rattachees} rattaché(s), ${this.state.syncBaseResultat.comptes_enrichis} fiche(s) complétée(s)` : 'Échec : ' + this.state.syncBaseResultat.message}</p>` : ''}
         </div>` : ''}
 
         ${adminTab === 'rgpd' ? `

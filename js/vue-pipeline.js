@@ -83,6 +83,15 @@ window.VuePipeline = {
   // Saisir un nouveau lead : ADMIN + CHANNEL_MANAGER (Alexandra) + CDS (commercial terrain).
   _peutSaisir()  { return Session.estManager() || Session.estChannel() || Session.estCDS() || Session.estExterne(); },
 
+  // Ajoute le lead à la base des comptes actifs (table base_comptes + Google Sheet si le webhook est configuré). Échec silencieux : la création du lead prime.
+  async _ajouterABase(idProspect) {
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/base-comptes-sync`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ token: Session.token, action: 'ajouter_lead', lead_id: idProspect }) });
+    } catch (e) { /* non bloquant */ }
+  },
+
   async init() {
     // BLOC — audit retour arrière : même défaut que VuePhoning — le routeur
     // ré-exécute init() à chaque retour sur #/empower-tracker (ex. depuis la
@@ -615,7 +624,8 @@ window.VuePipeline = {
         attrib = d;
       }
       await SheetsAPI.ecrire('EMPOWER_MDB', 'LEADS', lead);
-      if (attrib) AttributionCP.appliquer(lead, attrib).catch(() => {});
+      // Base des comptes actifs (Google Sheet) : le lead y est ajouté, une fois l'attribution appliquée (non bloquant).
+      Promise.resolve(attrib ? AttributionCP.appliquer(lead, attrib).catch(() => {}) : null).then(() => this._ajouterABase(lead.ID_Prospect));
       this.state.leads.unshift({ ...lead, _statut: lead.FLAG_ACTION });
       // BLOC 4.3 — notif in-app au CDS assigné
       if (cdsAssignePin) {
