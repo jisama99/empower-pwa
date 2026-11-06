@@ -1,10 +1,11 @@
-// sellin-drive-lire v1 (6/11/2026) : lit le Google Sheet Sell In PARTAGÉ PAR LIEN (lecture seule) et renvoie ses lignes.
+// sellin-drive-lire v2 (6/11/2026) : lit le Google Sheet Sell In PARTAGÉ PAR LIEN (lecture seule) et renvoie ses lignes.
 // Aucun compte de service Google : l'export CSV public (gviz) suffit. Le navigateur n'y accède pas directement (pas de CORS),
 // d'où cette fonction. Elle n'écrit rien : l'import reste celui de sync-sellin et sync-sellin-semaines (mêmes contrôles, même purge confirmée).
-// Réservée aux sessions ADMIN / CHANNEL_MANAGER. L'identifiant du Sheet vient du secret SELLIN_SHEET_ID, sinon de la valeur ci-dessous.
+// Réservée aux sessions ADMIN / CHANNEL_MANAGER. L'identifiant du Sheet est fixe (ci-dessous).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const SHEET_ID = Deno.env.get('SELLIN_SHEET_ID') || '1LyGE0-fdFKNYtIxA143HCjE9SxDF52ux1Ao7YbLzijY'
+// v2 (6/11/2026) : identifiant fixe. Un ancien secret SELLIN_SHEET_ID pointait vers un autre fichier (« Onglet DATA introuvable »).
+const SHEET_ID = '1LyGE0-fdFKNYtIxA143HCjE9SxDF52ux1Ao7YbLzijY'
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' }
 const jres = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json', ...CORS } })
 

@@ -134,22 +134,24 @@
         .then(l => { CO._base = Array.isArray(l) ? l : []; CO._majSuivi(); })
         .catch(() => { CO._base = []; CO._majSuivi(); });
     },
-    _bloc(titre, sous, n, tot, details, couleur) {
+    _bloc(titre, sous, n, tot, details, couleur, src) {
       const pct = tot ? Math.round(n / tot * 100) : 0;
-      return `<section class="cs-jauge suivi-bloc" aria-label="${esc(titre)}">
+      const clic = src ? ` role="button" tabindex="0" title="Voir les comptes à compléter" onclick="ContactsObjectif._ouvrir('${src}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ContactsObjectif._ouvrir('${src}')}" style="cursor:pointer"` : '';
+      return `<section class="cs-jauge suivi-bloc" aria-label="${esc(titre)}"><div${clic}>
         <div class="bloc-titre" style="margin-bottom:2px">${esc(titre)}</div>
         <div style="font-size:12px;color:var(--c-text-2);margin-bottom:8px">${esc(sous)}</div>
         <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
           <span style="font-size:28px;font-weight:800;color:var(--c-title);line-height:1">${pct} %</span>
           <span style="font-size:13px;color:var(--c-text-2)">${n} / ${tot}</span></div>
         <div role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${esc(titre)} : ${pct} %"
-             style="height:12px;border-radius:6px;background:var(--c-border);overflow:hidden;margin-top:8px"><div style="height:100%;width:${pct}%;background:${couleur}"></div></div>
+             style="height:12px;border-radius:6px;background:var(--c-border);overflow:hidden;margin-top:8px"><div style="height:100%;width:${pct}%;background:${couleur}"></div></div></div>
         ${details}</section>`;
     },
-    _lignes(items, tot) {
-      return `<details style="margin-top:10px"><summary style="font-size:12px;cursor:pointer;color:var(--c-text-2)">Détail par information</summary>${items.map(([lib, n]) => {
+    _lignes(items, tot, src) {
+      return `<details style="margin-top:10px"><summary style="font-size:12px;cursor:pointer;color:var(--c-text-2)">Détail par information</summary>${items.map(([lib, n, cle]) => {
         const p = tot ? Math.round(n / tot * 100) : 0;
-        return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:5px"><span style="flex:0 0 110px">${esc(lib)}</span>
+        const clic = src && cle ? ` role="button" tabindex="0" title="Voir les comptes à compléter : ${esc(lib)}" onclick="ContactsObjectif._ouvrir('${src}','${cle}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ContactsObjectif._ouvrir('${src}','${cle}')}"` : '';
+        return `<div${clic} style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:5px;${clic ? 'cursor:pointer;' : ''}"><span style="flex:0 0 110px">${esc(lib)}</span>
           <span style="flex:1;height:6px;border-radius:3px;background:var(--c-border);overflow:hidden"><span style="display:block;height:100%;width:${p}%;background:#343F48"></span></span>
           <span style="flex:0 0 64px;text-align:right;color:var(--c-text-2)">${n} · ${p} %</span></div>`;
       }).join('')}</details>`;
@@ -166,6 +168,16 @@
       const R = 42, C = 2 * Math.PI * R, a = C * p / 100;
       return `<circle cx="55" cy="55" r="${R}" fill="none" stroke="${sel === 'no' ? '#FF6D68' : '#C9CED3'}" stroke-width="${sel === 'no' ? 14 : 12}" data-w="no" style="cursor:pointer"/>
         <circle cx="55" cy="55" r="${R}" fill="none" stroke="${sel === 'ok' ? '#FF6D68' : '#343F48'}" stroke-width="${sel === 'ok' ? 14 : 12}" stroke-dasharray="${a.toFixed(2)} ${(C - a).toFixed(2)}" transform="rotate(-90 55 55)" data-w="ok" style="cursor:pointer"/>`;
+    },
+    // Rubriques listables : les 4 donuts, chaque information du détail, et la fiche renseignée (clic sur la card).
+    _defs() {
+      return [...CO.DONUTS, ...CO.CHAMPS.map(x => ({ k: x.cle, lib: x.lib, ok: x.ok })),
+              { k: 'fiche', lib: 'Fiche renseignée', ok: () => false, okx: x => x.st !== 'a_completer' }];
+    },
+    _okItem(d, x) { return d.okx ? d.okx(x) : d.ok(x.v); },
+    // Clic sur une card ou une ligne de détail : ouvre directement la liste des comptes à compléter de la source cliquée.
+    _ouvrir(src, cle) {
+      const f = CO._filtre; f.src = src; f.sel = { k: cle || 'fiche', w: 'no' }; f.max = 10; CO._defile = true; CO._majSuivi();
     },
     _choisir(k, w) { const f = CO._filtre; f.sel = (f.sel && f.sel.k === k && f.sel.w === w) ? null : { k, w }; f.max = 10; CO._majSuivi(); },
     _source(s) { CO._filtre.src = s; CO._filtre.sel = null; CO._filtre.max = 10; CO._majSuivi(); },
@@ -185,7 +197,7 @@
       }).join('');
       let liste = '<p style="font-size:12px;color:var(--c-text-2);margin:8px 0 0">Cliquez sur un donut ou sur « à compléter » pour lister les comptes concernés.</p>';
       if (f.sel) {
-        const d = CO.DONUTS.find(x => x.k === f.sel.k), S = L.filter(x => d.ok(x.v) === (f.sel.w === 'ok'));
+        const d = CO._defs().find(x => x.k === f.sel.k) || CO.DONUTS[0], S = L.filter(x => CO._okItem(d, x) === (f.sel.w === 'ok'));
         const lignes = S.slice(0, f.max).map(x => {
           const manque = CO.DONUTS.filter(y => !y.ok(x.v)).map(y => y.lib).join(', ');
           const corps = `<span><strong>${esc(x.nom)}</strong><span style="color:var(--c-text-2)"> · ${esc(x.com || 'n.c.')}${x.ville ? ' · ' + esc(x.ville) : ''}</span>${manque ? `<br><small style="color:var(--c-text-2)">Manque : ${esc(manque)}</small>` : ''}</span><span style="color:var(--c-text-2);white-space:nowrap">${x.id ? 'Ouvrir ›' : esc(x.sans || 'Sans fiche')}</span>`;
@@ -252,27 +264,32 @@
       const coms = Array.from(new Set([...tItems, ...aItems, ...bItems].map(x => x.com).filter(Boolean))).sort();
       // Les filtres « renseigné » et « complet » se cumulent : un compte complet est aussi renseigné.
       const garde = (st, filtre) => !filtre || st === filtre || (filtre === 'renseigne' && st === 'complet');
-      const filtrer = l => l.filter(x => (!f.com || x.com === f.com) && garde(x.st, f.statut));
-      const tc = filtrer(tItems), ac = filtrer(aItems), bc = filtrer(bItems);
+      // Profil : un CDS ne voit que ses comptes (et les comptes sans commercial) ; admin, channel manager et fournisseur voient tout.
+      const cds = !!(window.Session && Session.estCDS && Session.estCDS()), moi = cds ? CO._nomCom(Session.pin) : '';
+      const filtrer = (l, base) => l.filter(x => (cds ? (x.com === moi || (!base && !x.com)) : (!f.com || x.com === f.com)) && garde(x.st, f.statut));
+      const tc = filtrer(tItems), ac = filtrer(aItems), bc = filtrer(bItems, true);
       const rens = l => l.filter(x => x.st !== 'a_completer').length;
       const cnt = (l, fn) => l.filter(fn).length;
-      const det = l => CO._lignes([...CO.CHAMPS.map(x => [x.lib, cnt(l, y => x.ok(y.v))]), ['Site web', cnt(l, y => !vide(y.v.Site_Web))]], l.length);
+      const det = (l, src) => CO._lignes([...CO.CHAMPS.map(x => [x.lib, cnt(l, y => x.ok(y.v)), x.cle]), ['Site web', cnt(l, y => !vide(y.v.Site_Web)), 'web']], l.length, src);
       const opt = (v, l, cur) => `<option value="${esc(v)}"${cur === v ? ' selected' : ''}>${esc(l)}</option>`;
       const barreFiltre = `<div class="suivi-filtres" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-        <label style="font-size:12px;font-weight:600">Commercial <select aria-label="Filtrer par commercial" onchange="ContactsObjectif._filtre.com=this.value;ContactsObjectif._majSuivi()" style="margin-left:4px">
-          ${opt('', 'Tous', f.com)}${coms.map(c => opt(c, c.charAt(0) + c.slice(1).toLowerCase(), f.com)).join('')}</select></label>
+        ${cds ? `<span style="font-size:12px;font-weight:600">Mes comptes${moi ? ' · ' + esc(moi.charAt(0) + moi.slice(1).toLowerCase()) : ''}</span>` : `<label style="font-size:12px;font-weight:600">Commercial <select aria-label="Filtrer par commercial" onchange="ContactsObjectif._filtre.com=this.value;ContactsObjectif._majSuivi()" style="margin-left:4px">
+          ${opt('', 'Tous', f.com)}${coms.map(c => opt(c, c.charAt(0) + c.slice(1).toLowerCase(), f.com)).join('')}</select></label>`}
         <label style="font-size:12px;font-weight:600">Statut <select aria-label="Filtrer par statut" onchange="ContactsObjectif._filtre.statut=this.value;ContactsObjectif._majSuivi()" style="margin-left:4px">
           ${opt('', 'Tous', f.statut)}${opt('renseigne', 'Renseignés', f.statut)}${opt('a_completer', 'À compléter', f.statut)}${opt('complet', 'Fiches complètes', f.statut)}</select></label></div>`;
       const charge = t => `<section class="cs-jauge suivi-bloc"><div class="bloc-titre">${t}</div><p class="pilo-vide" style="font-size:13px">Chargement…</p></section>`;
-      const blocT = CO._leads === null ? charge('Infos Tracker') : CO._bloc('Infos Tracker', 'Leads du pipeline kanban', rens(tc), tc.length, det(tc), '#FF6D68');
-      const blocA = (CO._leads === null || CO._base === null) ? charge('Autres comptes') : CO._bloc('Autres comptes', 'Hors kanban, croisés avec la base', rens(ac), ac.length, det(ac), '#8A949E');
-      const blocB = CO._base === null ? charge('Infos comptes Base') : CO._bloc('Infos comptes Base', 'Fichier des comptes actifs enrichis', rens(bc), bc.length, det(bc), '#343F48');
+      const blocT = CO._leads === null ? charge('Infos Tracker') : CO._bloc('Infos Tracker', 'Leads du pipeline kanban', rens(tc), tc.length, det(tc, 'T'), '#FF6D68', 'T');
+      const blocA = (CO._leads === null || CO._base === null) ? charge('Autres comptes') : CO._bloc('Autres comptes', 'Hors kanban, croisés avec la base', rens(ac), ac.length, det(ac, 'A'), '#8A949E', 'A');
+      const blocB = CO._base === null ? charge('Infos comptes Base') : CO._bloc('Infos comptes Base', 'Fichier des comptes actifs enrichis', rens(bc), bc.length, det(bc, 'B'), '#343F48', 'B');
       const cur = { T: tc, A: ac, B: bc }[f.src] || tc, pret = f.src === 'B' ? CO._base !== null : f.src === 'A' ? (CO._leads !== null && CO._base !== null) : CO._leads !== null;
       return barreFiltre + `<div class="cs-jauges">${blocT}${blocA}${blocB}</div>
         ${pret ? CO._donutsHtml(cur) : ''}
         <p style="font-size:12px;color:var(--c-text-2);margin:12px 0 0">Objectif 100 % au 31/12/2026 : ${CO.joursRestants()} jours restants.</p>`;
     },
-    _majSuivi() { document.querySelectorAll('.suivi-rempl').forEach(el => { el.innerHTML = CO._suiviHtml(); }); },
+    _majSuivi() {
+      document.querySelectorAll('.suivi-rempl').forEach(el => { el.innerHTML = CO._suiviHtml(); });
+      if (CO._defile) { CO._defile = false; const t = document.querySelector('.suivi-rempl section[aria-label="Coordonnées renseignées"]'); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    },
     renderSuivi(comptes) {
       CO._cs = comptes || [];
       CO.chargerBase(); CO.chargerLeads();
