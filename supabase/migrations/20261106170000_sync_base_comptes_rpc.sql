@@ -1,4 +1,4 @@
--- NON APPLIQUÉE : à appliquer après accord explicite (prod).
+-- APPLIQUÉE en production le 6/11/2026 (migration sync_base_comptes_rpc).
 -- Synchronisation de la base des comptes actifs depuis le Google Sheet « BASE COMPTES ACTIFS - MATCHES ET ENRICHIS » :
 -- met à jour base_comptes (clé : nom normalisé), rattache les comptes de l'app, complète UNIQUEMENT les champs vides des comptes.
 -- Appelée par l'edge function base-comptes-sync (service_role) ; jamais par le navigateur.
