@@ -590,7 +590,36 @@ async function dlPDF(){
     if(M){ const res=await M.archiver(rec); _statut(res&&res.ok?"Mandat archivé dans l'application.":("Archivage impossible : "+((res&&res.message)||"erreur")+". Le PDF reste téléchargeable."),!!(res&&res.ok)); }
     else _statut("Archivage indisponible : ouvrez le générateur depuis l'application pour archiver. Le PDF reste téléchargeable.",false);
   }catch(e){ _statut("Archivage impossible. Le PDF reste téléchargeable.",false); }
-  setTimeout(()=>window.print(),300);
+  telechargerPdf();
+}
+
+// PDF téléchargé directement (sans passer par la fenêtre d'impression, absente ou limitée sur téléphone). Repli : impression.
+function _script(src){return new Promise((ok,ko)=>{const t=document.createElement("script");t.src=src;t.onload=ok;t.onerror=()=>ko(new Error("bibliothèque PDF indisponible"));document.head.appendChild(t);});}
+async function telechargerPdf(){
+  const bouton=document.querySelector(".btn-pdf"), lib=bouton?bouton.textContent:"";
+  if(bouton){bouton.disabled=true;bouton.textContent="Création du PDF…";}
+  const cv=g("cv"), garde={t:cv.style.transform,mb:cv.style.marginBottom,mr:cv.style.marginRight,w:cv.style.width};
+  try{
+    if(!window.html2canvas) await _script("/lib/pdfgen/html2canvas.min.js");
+    if(!window.jspdf) await _script("/lib/pdfgen/jspdf.umd.min.js");
+    cv.style.transform="";cv.style.marginBottom="";cv.style.marginRight="";cv.style.width="";   // feuilles à leur taille réelle pour la capture
+    const pages=[...cv.querySelectorAll(".page")]; if(!pages.length) throw new Error("aperçu vide");
+    const pdf=new window.jspdf.jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
+    for(let i=0;i<pages.length;i++){
+      const c=await window.html2canvas(pages[i],{scale:2,useCORS:true,backgroundColor:"#ffffff",logging:false});
+      let w=210,h=210*c.height/c.width; if(h>297){h=297;w=297*c.width/c.height;}
+      if(i>0) pdf.addPage();
+      pdf.addImage(c.toDataURL("image/jpeg",0.92),"JPEG",(210-w)/2,0,w,h);
+    }
+    const soc=(window.__dernier&&window.__dernier.societe||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60);
+    pdf.save("Mandat-"+(soc||"revendeur")+"-"+new Date().toISOString().slice(0,10)+".pdf");
+  }catch(e){
+    _statut("Téléchargement direct impossible ("+((e&&e.message)||"erreur")+"). Ouverture de l'impression.",false);
+    setTimeout(()=>window.print(),300);
+  }finally{
+    cv.style.transform=garde.t;cv.style.marginBottom=garde.mb;cv.style.marginRight=garde.mr;cv.style.width=garde.w;
+    if(bouton){bouton.disabled=false;bouton.textContent=lib;}
+  }
 }
 
 buildTables();
