@@ -120,7 +120,7 @@
     //  · Tracker : les comptes saisis dans l'application.
     //  · Base    : le fichier « BASE COMPTES ACTIFS - MATCHES ET ENRICHIS » (table base_comptes).
     //  Filtres communs : commercial et statut (renseignés / à compléter / complets).
-    _filtre: { com: '', statut: '' },
+    _filtre: { com: '', statut: '', src: 'T', sel: null, max: 10 },
     _cs: [], _base: null, _baseCharge: false,
     _nomCom(pin) { const n = window.resolveCDS ? window.resolveCDS(pin) : pin; return String(n || '').trim().toUpperCase().split(/\s+/)[0] || ''; },
     _baseVersCompte(b) {
@@ -154,6 +154,59 @@
           <span style="flex:0 0 64px;text-align:right;color:var(--c-text-2)">${n} · ${p} %</span></div>`;
       }).join('')}</details>`;
     },
+    // ── Donuts interactifs : part des comptes ayant adresse + code postal, téléphone, e-mail, site web ──
+    // Les filtres commercial / statut s'appliquent aux donuts ; un clic sur une part liste les comptes concernés (lien vers la fiche).
+    DONUTS: [
+      { k: 'adr',  lib: 'Adresse + CP', ok: c => !vide(c.Adresse) && !vide(c.Code_Postal) },
+      { k: 'tel',  lib: 'Téléphone',    ok: c => !vide(c.Tel) },
+      { k: 'mail', lib: 'E-mail',       ok: c => !vide(c.Email) },
+      { k: 'web',  lib: 'Site web',     ok: c => !vide(c.Site_Web) },
+    ],
+    _arc(p, sel) {
+      const R = 42, C = 2 * Math.PI * R, a = C * p / 100;
+      return `<circle cx="55" cy="55" r="${R}" fill="none" stroke="${sel === 'no' ? '#FF6D68' : '#C9CED3'}" stroke-width="${sel === 'no' ? 14 : 12}" data-w="no" style="cursor:pointer"/>
+        <circle cx="55" cy="55" r="${R}" fill="none" stroke="${sel === 'ok' ? '#FF6D68' : '#343F48'}" stroke-width="${sel === 'ok' ? 14 : 12}" stroke-dasharray="${a.toFixed(2)} ${(C - a).toFixed(2)}" transform="rotate(-90 55 55)" data-w="ok" style="cursor:pointer"/>`;
+    },
+    _choisir(k, w) { const f = CO._filtre; f.sel = (f.sel && f.sel.k === k && f.sel.w === w) ? null : { k, w }; f.max = 10; CO._majSuivi(); },
+    _source(s) { CO._filtre.src = s; CO._filtre.sel = null; CO._filtre.max = 10; CO._majSuivi(); },
+    _donutsHtml(tc, bc) {
+      const f = CO._filtre, T = f.src !== 'B';
+      const L = T ? tc.map(c => ({ c, v: c, nom: c.Nom_Compte, ville: c.Ville, com: CO._nomCom(c.PIN_CDS_Assigne), id: c.ID_Compte || c._uuid }))
+                  : bc.map(b => { const cp = b.compte_id && (CO._cs || []).find(x => String(x._uuid) === String(b.compte_id));
+                      return { c: b, v: CO._baseVersCompte(b), nom: b.nom, ville: b.ville, com: String(b.commercial || '').toUpperCase(), id: cp ? (cp.ID_Compte || cp._uuid) : null }; });
+      if (!T && CO._base === null) return '';
+      const n = L.length;
+      const cartes = CO.DONUTS.map(d => {
+        const ok = L.filter(x => d.ok(x.v)).length, pc = n ? Math.round(ok / n * 100) : 0, sel = f.sel && f.sel.k === d.k ? f.sel.w : null;
+        return `<div class="cs-jauge" style="text-align:center;padding:10px;margin:0"><svg viewBox="0 0 110 110" width="104" height="104" role="group" aria-label="${esc(d.lib)} : ${pc} % renseigné, ${ok} sur ${n}"
+          onclick="var w=event.target.getAttribute('data-w');if(w)ContactsObjectif._choisir('${d.k}',w)">${CO._arc(pc, sel)}
+          <text x="55" y="53" text-anchor="middle" font-size="20" font-weight="700" fill="currentColor" pointer-events="none">${pc} %</text>
+          <text x="55" y="69" text-anchor="middle" font-size="11" fill="#888780" pointer-events="none">${ok}/${n}</text></svg>
+          <div style="font-size:13px;font-weight:600">${esc(d.lib)}</div>
+          <div style="display:flex;gap:6px;justify-content:center;margin-top:6px;flex-wrap:wrap">
+            <button class="cs-puce" aria-pressed="${sel === 'ok'}" onclick="ContactsObjectif._choisir('${d.k}','ok')" style="font-size:11px">${ok} renseignés</button>
+            <button class="cs-puce" aria-pressed="${sel === 'no'}" onclick="ContactsObjectif._choisir('${d.k}','no')" style="font-size:11px">${n - ok} à compléter</button></div></div>`;
+      }).join('');
+      let liste = '<p style="font-size:12px;color:var(--c-text-2);margin:8px 0 0">Cliquez sur un donut ou sur « à compléter » pour lister les comptes concernés.</p>';
+      if (f.sel) {
+        const d = CO.DONUTS.find(x => x.k === f.sel.k), S = L.filter(x => d.ok(x.v) === (f.sel.w === 'ok'));
+        const lignes = S.slice(0, f.max).map(x => {
+          const manque = CO.DONUTS.filter(y => !y.ok(x.v)).map(y => y.lib).join(', ');
+          const corps = `<span><strong>${esc(x.nom)}</strong><span style="color:var(--c-text-2)"> · ${esc(x.com || 'n.c.')}${x.ville ? ' · ' + esc(x.ville) : ''}</span>${manque ? `<br><small style="color:var(--c-text-2)">Manque : ${esc(manque)}</small>` : ''}</span><span style="color:var(--c-text-2);white-space:nowrap">${x.id ? 'Ouvrir ›' : 'Base seule'}</span>`;
+          return x.id ? `<button type="button" onclick="Router.aller('#/compte/${encodeURIComponent(x.id)}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:var(--c-surface-2,rgba(52,63,72,.06));border-radius:10px;padding:8px 10px;margin-top:4px;font:inherit;font-size:13px;cursor:pointer">${corps}</button>`
+                      : `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border-radius:10px;padding:8px 10px;margin-top:4px;font-size:13px;background:var(--c-surface-2,rgba(52,63,72,.06))">${corps}</div>`;
+        }).join('');
+        liste = `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:14px">${esc(d.lib)} · ${f.sel.w === 'ok' ? 'renseignés' : 'à compléter'} (${S.length})</strong>
+          <button class="cs-puce" onclick="ContactsObjectif._filtre.sel=null;ContactsObjectif._majSuivi()">Fermer</button></div>${lignes || '<p style="font-size:13px;margin:8px 0 0">Aucun compte.</p>'}
+          ${S.length > f.max ? `<button class="cs-puce" style="margin-top:8px" onclick="ContactsObjectif._filtre.max+=20;ContactsObjectif._majSuivi()">Voir ${Math.min(20, S.length - f.max)} de plus (${S.length - f.max} restants)</button>` : ''}</div>`;
+      }
+      const seg = `<div style="display:inline-flex;border:0.5px solid var(--c-border);border-radius:999px;overflow:hidden;font-size:13px" role="group" aria-label="Source des comptes">
+        <button type="button" aria-pressed="${T}" onclick="ContactsObjectif._source('T')" style="border:0;padding:5px 12px;cursor:pointer;font:inherit;${T ? 'background:#343F48;color:#fff' : 'background:none;color:inherit'}">Tracker</button>
+        <button type="button" aria-pressed="${!T}" onclick="ContactsObjectif._source('B')" style="border:0;padding:5px 12px;cursor:pointer;font:inherit;${!T ? 'background:#343F48;color:#fff' : 'background:none;color:inherit'}">Base</button></div>`;
+      return `<section aria-label="Coordonnées renseignées" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <div class="bloc-titre" style="margin:0">Coordonnées renseignées · ${T ? 'comptes du Tracker' : 'base des comptes actifs'}</div>${seg}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">${cartes}</div>${liste}</section>`;
+    },
     _suiviHtml() {
       const f = CO._filtre;
       const vivants = (CO._cs || []).filter(c => String(c.deleted || '').toUpperCase() !== 'TRUE');
@@ -179,7 +232,8 @@
         ? `<section class="cs-jauge suivi-bloc"><div class="bloc-titre">Infos comptes Base</div><p class="pilo-vide" style="font-size:13px">Chargement de la base…</p></section>`
         : CO._bloc('Infos comptes Base', 'Fichier des comptes actifs enrichis', bRens, bc.length, detB, '#343F48');
       return barreFiltre + `<div class="cs-jauges">${CO._bloc('Infos comptes Tracker', 'Comptes saisis dans l’application', tRens, tc.length, detT, '#FF6D68')}${blocB}</div>
-        <p style="font-size:12px;color:var(--c-text-2);margin:8px 0 0">Objectif 100 % au 31/12/2026 : ${CO.joursRestants()} jours restants.</p>`;
+        ${CO._donutsHtml(tc, bc)}
+        <p style="font-size:12px;color:var(--c-text-2);margin:12px 0 0">Objectif 100 % au 31/12/2026 : ${CO.joursRestants()} jours restants.</p>`;
     },
     _majSuivi() { document.querySelectorAll('.suivi-rempl').forEach(el => { el.innerHTML = CO._suiviHtml(); }); },
     renderSuivi(comptes) {
