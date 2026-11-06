@@ -1219,8 +1219,8 @@ window.VueAdmin = {
   syncSellIn() {
     if (this.state.syncSellInEnCours) return;
     ConfirmModal.demander({
-      titre: 'Synchroniser les données Sell-In depuis Google Drive ?',
-      detail: 'Cela met à jour les CA (FY25, FY26, Q1FY27) et les statuts dans Comptes.',
+      titre: 'Synchroniser le Sell-In depuis le Google Sheet ?',
+      detail: 'Lit le Sheet Sell-In (partagé par lien) et met à jour les CA par compte, les objectifs et le signal « dernière semaine de commande ». Même contrôle que l’import de fichier : une purge importante demande confirmation.',
       labelConfirmer: 'Synchroniser',
       onConfirm: () => this._syncSellInConfirme(),
     });
@@ -1232,8 +1232,22 @@ window.VueAdmin = {
     this.state.syncSellInNonMatcher = [];
     this.render();
     try {
-      const { r: _r1, data } = await this._postSellIn({});
+      // Lecture du Google Sheet partagé par lien (fonction sellin-drive-lire), puis import par les mêmes fonctions que le fichier .xlsx.
+      const lu = await fetch(`${SUPABASE_URL}/functions/v1/sellin-drive-lire`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON}` },
+        body: JSON.stringify({ token: Session.token }),
+      });
+      const sheet = await lu.json();
+      if (!lu.ok || !sheet?.ok) throw new Error(sheet?.error || `Lecture du Google Sheet impossible (HTTP ${lu.status})`);
+      const { r: _r1, data } = await this._postSellIn({ rows: sheet.data });
       if (!_r1.ok || !data?.ok) throw new Error(data?.error || `HTTP ${_r1.status}`);
+      // Signal par semaine : onglets « REVENDEURS AU DETAIL Qn » du même Sheet (non bloquant, comme pour le fichier)
+      if (sheet.detail && sheet.detail.length) {
+        const wb = { SheetNames: sheet.detail.map(d => d.onglet), Sheets: {} };
+        sheet.detail.forEach(d => { wb.Sheets[d.onglet] = XLSX.utils.aoa_to_sheet(d.rows); });
+        await this._importerSemaines(wb, 'Google Sheet Sell In');
+      }
       // Bloc C (07/2026) — les noms de champs ci-dessous ne correspondaient à
       // rien dans la réponse réelle de l'edge function (comptesMisAJour/
       // sellinLignes/timestamp n'ont jamais existé côté serveur) : "matched"
@@ -1257,6 +1271,7 @@ window.VueAdmin = {
       // seul 🏢_COMPTES était invalidé ici, laissant le Reporting figé jusqu'à
       // 30 min (TTL cache IndexedDB) après une synchro.
       await Promise.all([
+        SheetsAPI.viderCache('EMPOWER_MDB', 'SELLIN_SEMAINES'),
         SheetsAPI.viderCache('EMPOWER_MDB', 'COMPTES'),
         SheetsAPI.viderCache('EMPOWER_MDB', 'OBJECTIFS_PRIMES'),
         SheetsAPI.viderCache('EMPOWER_MDB', 'COMPTES_HISTORIQUES'),
@@ -1989,10 +2004,10 @@ window.VueAdmin = {
                   style="padding:8px 16px;width:100%"
                   ${this.state.syncSellInEnCours ? 'disabled' : ''}
                   onclick="VueAdmin.syncSellIn()">
-            ${this.state.syncSellInEnCours ? 'Synchronisation en cours…' : 'Repli : synchroniser depuis Google Drive'}
+            ${this.state.syncSellInEnCours ? 'Synchronisation en cours…' : 'Synchroniser depuis le Google Sheet'}
           </button>
           <p style="font-size:11px;color:var(--c-text-2);margin-top:8px">
-            Repli : Google Sheet fixe (ID en dur côté serveur, pas de secret <code>SELLIN_SHEET_ID</code> à jour) · Edge Function <code>sync-sellin</code>
+            Lit directement le Google Sheet Sell-In (partagé par lien, lecture seule) : onglet DATA et onglets « REVENDEURS AU DETAIL ». Aucune clé Google requise · Edge Function <code>sellin-drive-lire</code>
           </p>
         </div>` : ''}
 
