@@ -1,6 +1,6 @@
 -- Push : les alertes LEAD_ATTRIBUE_AUTO et LEAD_A_ATTRIBUER (envoyées à l'ADMIN quand Alexandra, un CDS ou un externe saisit un lead)
 -- ouvrent le Tracker au clic, comme dans la cloche (NotifCenter._route). Avant : elles ouvraient le tableau de bord.
--- À APPLIQUER en production (non appliquée au moment de l'ajout du fichier).
+-- APPLIQUÉE en production le 06/11/2026.
 CREATE OR REPLACE FUNCTION public.notify_push()
  RETURNS trigger
  LANGUAGE plpgsql
