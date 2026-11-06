@@ -17,6 +17,14 @@ window.VuePilotage = {
     this.render();
     try {
       const L = t => SheetsAPI.lire('EMPOWER_MDB', t, { nocache: true });
+      if (Session.estExterne()) {
+        // Fournisseur de leads : uniquement ses leads et la base des comptes (aucune visite, aucun sell-in, aucun objectif).
+        const [leads, comptes] = await Promise.all([L('LEADS'), L('COMPTES')]);
+        this._raw = { comptes };
+        this.state.ext = this._calculerExterne(leads);
+        this.state.chargement = false; this.state.maj = new Date(); this.render();
+        return;
+      }
       const [leads, appels, visites, objectifs, params, comptes] = await Promise.all([
         L('LEADS'), L('PHONING'), L('VISITES'), L('OBJECTIFS_PRIMES'), SheetsAPI.lire('EMPOWER_MDB', 'PARAMS'), L('COMPTES'),
       ]);
@@ -338,6 +346,48 @@ window.VuePilotage = {
       ${coaching ? `<div class="pilo-grille pilo-grille-g">${coaching}</div>` : '<p class="pilo-note" style="margin-top:12px">Aucun commercial en retard sur le rythme du trimestre.</p>'}`;
   },
 
+  // ── Fournisseur de leads (EXTERNE) : son activité propre, rien d'autre ──
+  // Ses leads = ceux qu'il a saisis (PIN_Channel) ou, pour l'historique, dont l'origine porte son prénom (même règle que le Tracker).
+  _calculerExterne(leads) {
+    const norm = this._norm, prenom = String(Session.nom || '').trim().split(/\s+/)[0].toLowerCase();
+    const mes = (leads || []).filter(l => norm(l.Flag_traite) !== 'DELETED' && (Number(l.PIN_Channel) === Number(Session.pin) || (!!prenom && String(l.ORIGINE || '').trim().toLowerCase() === prenom)));
+    const st = l => norm(l.STATUT_EMPOWER || l.FLAG_ACTION);
+    const appele = l => !!String(l.Date_Derniere_Action || '').slice(0, 10) || !['', 'SAISIE'].includes(st(l));
+    const dateSaisie = l => String(l.Date_Import || l.Timestamp || '').slice(0, 10);
+    const il7 = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+    const inscrits = mes, appeles = mes.filter(appele), actives = mes.filter(l => st(l) === 'INTEGRE');
+    const attribues = mes.filter(l => l.PIN_CDS_Assigne), enCours = mes.filter(l => ['EN_COURS', 'COMPTE_CREE'].includes(st(l)));
+    const sansSuite = mes.filter(l => st(l) === 'ARCHIVE'), aTraiter = mes.filter(l => !appele(l) && st(l) !== 'ARCHIVE');
+    const recents = mes.slice().sort((a, b) => dateSaisie(b).localeCompare(dateSaisie(a))).slice(0, 8);
+    return { inscrits, appeles, actives, attribues, enCours, sansSuite, aTraiter, recents, ins7: inscrits.filter(l => dateSaisie(l) >= il7).length, dateSaisie, appele, st };
+  },
+
+  _renderExterne() {
+    const E = this._esc, x = this.state.ext, tot = x.inscrits.length, pct = n => tot ? Math.round(n / tot * 100) : 0;
+    const prenom = String(Session.nom || '').split(' ')[0];
+    const heure = this.state.maj ? this.state.maj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+    const carte = (l, v, sous, to) => `<button class="pilo-kpi" onclick="Router.aller('${to || '#/empower-tracker'}')"><span class="pilo-kpi-l">${E(l)}</span><strong>${E(v)}</strong><small>${E(sous)}</small><i aria-hidden="true">›</i></button>`;
+    const kpis = [
+      carte('Leads inscrits', tot, `${x.ins7} sur 7 jours`),
+      carte('Leads appelés', x.appeles.length, `${pct(x.appeles.length)} % de mes leads · ${x.aTraiter.length} à traiter`),
+      carte('Leads activés', x.actives.length, `${pct(x.actives.length)} % · ${x.enCours.length} en cours`),
+    ].join('');
+    const barre = (l, n, col) => `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${E(l)}</span><strong>${n}</strong></div><div style="height:10px;border-radius:5px;background:var(--c-border);overflow:hidden"><div style="height:100%;width:${pct(n)}%;background:${col}"></div></div></div>`;
+    const entonnoir = `<section class="pilo-panneau" aria-label="Parcours de mes leads"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Mes leads</span><h3>Du lead inscrit au compte activé</h3></div></div>
+      ${tot ? barre('Inscrits', tot, '#343F48') + barre('Attribués à un commercial', x.attribues.length, '#8A949E') + barre('Appelés', x.appeles.length, '#5B7A99') + barre('Activés Empower', x.actives.length, '#FF6D68') : '<p class="pilo-vide">Aucun lead inscrit pour le moment.</p>'}</section>`;
+    const lib = { SAISIE: 'À traiter', ASSIGNE: 'Assigné', EN_COURS: 'En cours', COMPTE_CREE: 'Compte créé', INTEGRE: 'Activé', ARCHIVE: 'Archivé' };
+    const recents = `<section class="pilo-panneau" aria-label="Mes derniers leads"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Mes derniers leads</span><h3>Où en sont-ils ?</h3></div><button class="pilo-lien" onclick="Router.aller('#/empower-tracker')">Tout voir ›</button></div>
+      ${x.recents.map(l => `<button class="pilo-task" onclick="Router.aller('#/empower-tracker')"><span class="pilo-task-main"><strong>${E(l.Nom_Compte || l.Enseigne || 'Lead')}</strong><span>${E(l.Ville || '')}${x.dateSaisie(l) ? ' · inscrit le ' + E(this._fmt(x.dateSaisie(l))) : ''}</span></span><span class="pilo-task-why"><span>${E(lib[x.st(l)] || x.st(l) || 'À traiter')}</span><small>${x.appele(l) ? 'Appelé' : 'Pas encore appelé'}</small></span><span class="pilo-chev" aria-hidden="true">›</span></button>`).join('') || '<p class="pilo-vide">Aucun lead inscrit pour le moment.</p>'}</section>`;
+    const cs = ((this._raw && this._raw.comptes) || []).filter(c => String(c.deleted || '').toUpperCase() !== 'TRUE');
+    const base = cs.length && window.ContactsObjectif ? `<section class="pilo-panneau" aria-label="Base des comptes"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Base des comptes · objectif 31/12/2026</span><h3>Comptes renseignés</h3></div></div>${ContactsObjectif.renderSuivi(cs)}</section>` : '';
+    return `<div class="pilo-contexte"><nav class="pilo-ariane" aria-label="Fil d'Ariane"><span>Pilotage</span><i>›</i><strong>Mon activité</strong></nav></div>
+      <div class="pilo-intro"><h2>Bonjour ${E(prenom)}, voici votre activité</h2><p>Vos leads et la base des comptes</p></div>
+      <p class="pilo-fraicheur">Données actualisées aujourd’hui à ${heure} · <button onclick="VuePilotage.init()">Actualiser</button></p>
+      <div class="pilo-kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">${kpis}</div>
+      <div class="pilo-grille">${entonnoir}${recents}</div>
+      <div class="pilo-grille pilo-grille-seul">${base}</div>`;
+  },
+
   render() {
     const s = this.state, app = document.getElementById('app');
     if (!s || !app) return;
@@ -346,6 +396,7 @@ window.VuePilotage = {
     let corps;
     if (s.chargement) corps = '<p class="pilo-vide">Chargement…</p>';
     else if (s.erreur) corps = `<div class="erreur">Erreur : ${E(s.erreur)}</div>`;
+    else if (Session.estExterne() && s.ext) corps = this._renderExterne();
     else {
       const d = s.d, manager = role && s.vue === 'manager';
       const prenom = String(Session.nom || '').split(' ')[0];
@@ -392,6 +443,6 @@ window.VuePilotage = {
       <div class="pilo-onglets" role="tablist" aria-label="Thèmes du pilotage">${onglets.map(([k, l]) => `<button role="tab" aria-selected="${k === onglet}" onclick="VuePilotage.setOnglet('${k}')">${l}</button>`).join('')}</div>
       <div role="tabpanel">${contenu}</div>`;
     }
-    app.innerHTML = `${entete}${NavBar('home')}${window.FusionTabs ? FusionTabs.pilotage() : ''}<div class="pilo">${corps}</div>`;
+    app.innerHTML = `${entete}${NavBar('home')}${Session.estExterne() ? '' : (window.FusionTabs ? FusionTabs.pilotage() : '')}<div class="pilo">${corps}</div>`;
   },
 };
