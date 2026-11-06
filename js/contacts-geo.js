@@ -117,11 +117,11 @@
       return nu ? corps : `<div class="bloc-fiche"><div class="bloc-titre">Contacts renseignés · objectif 31/12/2026</div>${corps}</div>`;
     },
     // ── Suivi du remplissage : deux mesures séparées, chacune avec sa barre et un filtre ───────────────────
-    //  · Tracker : les comptes saisis dans l'application.
+    //  · Tracker : les leads du kanban (pipeline). · Autres comptes : comptes hors kanban, croisés avec la base. 
     //  · Base    : le fichier « BASE COMPTES ACTIFS - MATCHES ET ENRICHIS » (table base_comptes).
     //  Filtres communs : commercial et statut (renseignés / à compléter / complets).
     _filtre: { com: '', statut: '', src: 'T', sel: null, max: 10 },
-    _cs: [], _base: null, _baseCharge: false,
+    _cs: [], _base: null, _baseCharge: false, _leads: null, _leadsCharge: false,
     _nomCom(pin) { const n = window.resolveCDS ? window.resolveCDS(pin) : pin; return String(n || '').trim().toUpperCase().split(/\s+/)[0] || ''; },
     _baseVersCompte(b) {
       return { Contact_Nom: b.contact_principal || b.Contact_Principal, Tel: b.tel || b.Tel, Email: b.email || b.Email, Adresse: b.adresse || b.Adresse,
@@ -169,13 +169,9 @@
     },
     _choisir(k, w) { const f = CO._filtre; f.sel = (f.sel && f.sel.k === k && f.sel.w === w) ? null : { k, w }; f.max = 10; CO._majSuivi(); },
     _source(s) { CO._filtre.src = s; CO._filtre.sel = null; CO._filtre.max = 10; CO._majSuivi(); },
-    _donutsHtml(tc, bc) {
-      const f = CO._filtre, T = f.src !== 'B';
-      const L = T ? tc.map(c => ({ c, v: c, nom: c.Nom_Compte, ville: c.Ville, com: CO._nomCom(c.PIN_CDS_Assigne), id: c.ID_Compte || c._uuid }))
-                  : bc.map(b => { const cp = b.compte_id && (CO._cs || []).find(x => String(x._uuid) === String(b.compte_id));
-                      return { c: b, v: CO._baseVersCompte(b), nom: b.nom, ville: b.ville, com: String(b.commercial || '').toUpperCase(), id: cp ? (cp.ID_Compte || cp._uuid) : null }; });
-      if (!T && CO._base === null) return '';
-      const n = L.length;
+    _donutsHtml(items) {
+      const f = CO._filtre, T = f.src;
+      const L = items, n = L.length;
       const cartes = CO.DONUTS.map(d => {
         const ok = L.filter(x => d.ok(x.v)).length, pc = n ? Math.round(ok / n * 100) : 0, sel = f.sel && f.sel.k === d.k ? f.sel.w : null;
         return `<div class="cs-jauge" style="text-align:center;padding:10px;margin:0"><svg viewBox="0 0 110 110" width="104" height="104" role="group" aria-label="${esc(d.lib)} : ${pc} % renseigné, ${ok} sur ${n}"
@@ -192,7 +188,7 @@
         const d = CO.DONUTS.find(x => x.k === f.sel.k), S = L.filter(x => d.ok(x.v) === (f.sel.w === 'ok'));
         const lignes = S.slice(0, f.max).map(x => {
           const manque = CO.DONUTS.filter(y => !y.ok(x.v)).map(y => y.lib).join(', ');
-          const corps = `<span><strong>${esc(x.nom)}</strong><span style="color:var(--c-text-2)"> · ${esc(x.com || 'n.c.')}${x.ville ? ' · ' + esc(x.ville) : ''}</span>${manque ? `<br><small style="color:var(--c-text-2)">Manque : ${esc(manque)}</small>` : ''}</span><span style="color:var(--c-text-2);white-space:nowrap">${x.id ? 'Ouvrir ›' : 'Base seule'}</span>`;
+          const corps = `<span><strong>${esc(x.nom)}</strong><span style="color:var(--c-text-2)"> · ${esc(x.com || 'n.c.')}${x.ville ? ' · ' + esc(x.ville) : ''}</span>${manque ? `<br><small style="color:var(--c-text-2)">Manque : ${esc(manque)}</small>` : ''}</span><span style="color:var(--c-text-2);white-space:nowrap">${x.id ? 'Ouvrir ›' : esc(x.sans || 'Sans fiche')}</span>`;
           return x.id ? `<button type="button" onclick="Router.aller('#/compte/${encodeURIComponent(x.id)}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:var(--c-surface-2,rgba(52,63,72,.06));border-radius:10px;padding:8px 10px;margin-top:4px;font:inherit;font-size:13px;cursor:pointer">${corps}</button>`
                       : `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border-radius:10px;padding:8px 10px;margin-top:4px;font-size:13px;background:var(--c-surface-2,rgba(52,63,72,.06))">${corps}</div>`;
         }).join('');
@@ -200,45 +196,86 @@
           <button class="cs-puce" onclick="ContactsObjectif._filtre.sel=null;ContactsObjectif._majSuivi()">Fermer</button></div>${lignes || '<p style="font-size:13px;margin:8px 0 0">Aucun compte.</p>'}
           ${S.length > f.max ? `<button class="cs-puce" style="margin-top:8px" onclick="ContactsObjectif._filtre.max+=20;ContactsObjectif._majSuivi()">Voir ${Math.min(20, S.length - f.max)} de plus (${S.length - f.max} restants)</button>` : ''}</div>`;
       }
-      const seg = `<div style="display:inline-flex;border:0.5px solid var(--c-border);border-radius:999px;overflow:hidden;font-size:13px" role="group" aria-label="Source des comptes">
-        <button type="button" aria-pressed="${T}" onclick="ContactsObjectif._source('T')" style="border:0;padding:5px 12px;cursor:pointer;font:inherit;${T ? 'background:#343F48;color:#fff' : 'background:none;color:inherit'}">Tracker</button>
-        <button type="button" aria-pressed="${!T}" onclick="ContactsObjectif._source('B')" style="border:0;padding:5px 12px;cursor:pointer;font:inherit;${!T ? 'background:#343F48;color:#fff' : 'background:none;color:inherit'}">Base</button></div>`;
+      const bouton = (k, lib) => `<button type="button" aria-pressed="${T === k}" onclick="ContactsObjectif._source('${k}')" style="border:0;padding:5px 12px;cursor:pointer;font:inherit;${T === k ? 'background:#343F48;color:#fff' : 'background:none;color:inherit'}">${lib}</button>`;
+      const seg = `<div style="display:inline-flex;border:0.5px solid var(--c-border);border-radius:999px;overflow:hidden;font-size:13px" role="group" aria-label="Source des comptes">${bouton('T', 'Tracker')}${bouton('A', 'Autres comptes')}${bouton('B', 'Base')}</div>`;
+      const titre = { T: 'leads du Tracker (pipeline kanban)', A: 'autres comptes croisés avec la base', B: 'base des comptes actifs' }[T];
       return `<section aria-label="Coordonnées renseignées" style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <div class="bloc-titre" style="margin:0">Coordonnées renseignées · ${T ? 'comptes du Tracker' : 'base des comptes actifs'}</div>${seg}</div>
+        <div class="bloc-titre" style="margin:0">Coordonnées renseignées · ${titre}</div>${seg}</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">${cartes}</div>${liste}</section>`;
+    },
+    // Leads du kanban (Tracker) : mêmes exclusions que la vue Pipeline, pour retrouver le même nombre de leads.
+    chargerLeads() {
+      if (CO._leadsCharge || !window.SheetsAPI) return;
+      CO._leadsCharge = true;
+      const mgr = !!(window.Session && Session.estManager && Session.estManager());
+      const nn = s => (window.normaliserNom ? window.normaliserNom(s) : String(s || '').toUpperCase());
+      SheetsAPI.lire('EMPOWER_MDB', 'LEADS', { nocache: true }).then(raw => {
+        const l = (Array.isArray(raw) ? raw : []).filter(p => { const src = String(p.Source_Import || '').toUpperCase(); return !src.includes('FLAVIE') && src !== 'BASE_PROSPECTS_RELANCER' && src !== 'ESI_VISITE_FROID'; })
+          .filter(p => String(p.Flag_traite || '').toUpperCase() !== 'DELETED' && String(p.deleted || '').toUpperCase() !== 'TRUE')
+          .filter(p => mgr || String(p.Flag_converti || '').toUpperCase() !== 'TRUE');
+        const vus = new Set();
+        CO._leads = l.filter(p => { const k = nn(p.Nom_Compte); if (vus.has(k)) return false; vus.add(k); return true; });
+        CO._majSuivi();
+      }).catch(() => { CO._leads = []; CO._majSuivi(); });
     },
     _suiviHtml() {
       const f = CO._filtre;
+      const nn = s => (window.normaliserNom ? window.normaliserNom(s) : String(s || '').toUpperCase());
       const vivants = (CO._cs || []).filter(c => String(c.deleted || '').toUpperCase() !== 'TRUE');
-      const base = CO._base || [];
-      const coms = Array.from(new Set([...vivants.map(c => CO._nomCom(c.PIN_CDS_Assigne)), ...base.map(b => String(b.commercial || b.Commercial || '').toUpperCase())].filter(Boolean))).sort();
-      const stT = c => { const e = CO.etat(c); return e.complet ? 'complet' : e.contact ? 'renseigne' : 'a_completer'; };
+      const base = CO._base || [], leads = CO._leads || [];
+      const parId = {}, parNom = {};
+      vivants.forEach(c => { if (c.ID_Compte) parId[String(c.ID_Compte)] = c; const k = nn(c.Nom_Compte); if (k && !parNom[k]) parNom[k] = c; });
+      const stV = v => { const e = CO.etat(v); return e.complet ? 'complet' : e.contact ? 'renseigne' : 'a_completer'; };
+      const pick = (a, b) => (!vide(a) ? a : b);
+      // 1. Tracker = les leads du kanban ; les informations manquantes (et le site web) viennent du compte lié.
+      const pris = new Set();
+      const tItems = leads.map(l => {
+        const cp = parId[String(l.ID_Compte_Gas || '')] || parNom[nn(l.Nom_Compte)] || null;
+        if (cp) pris.add(cp);
+        const v = { Contact_Nom: pick(l.CONTACT_NOM, cp && cp.Contact_Nom), Tel: pick(l.Tel, cp && cp.Tel), Email: pick(l.Email, cp && cp.Email), Adresse: pick(l.Adresse, cp && cp.Adresse),
+                    Code_Postal: pick(l.Code_Postal, cp && cp.Code_Postal), Ville: pick(l.Ville, cp && cp.Ville), Site_Web: cp && cp.Site_Web };
+        return { v, st: stV(v), nom: l.Nom_Compte, ville: v.Ville, com: CO._nomCom(l.PIN_CDS_Assigne), id: cp ? (cp.ID_Compte || cp._uuid) : null, sans: 'Lead sans compte' };
+      });
+      // 2. Autres comptes = comptes hors kanban, complétés par la ligne de la base des comptes actifs (rattachement par id puis par nom).
+      const bParCompte = {}, bParNom = {};
+      base.forEach(b => { if (b.compte_id) bParCompte[String(b.compte_id)] = b; const k = nn(b.nom); if (k && !bParNom[k]) bParNom[k] = b; });
+      const aItems = vivants.filter(c => !pris.has(c)).map(c => {
+        const b = bParCompte[String(c._uuid)] || bParNom[nn(c.Nom_Compte)] || null, bv = b ? CO._baseVersCompte(b) : {};
+        const v = { Contact_Nom: pick(c.Contact_Nom, bv.Contact_Nom), Tel: pick(c.Tel, bv.Tel), Email: pick(c.Email, bv.Email), Adresse: pick(c.Adresse, bv.Adresse),
+                    Code_Postal: pick(c.Code_Postal, bv.Code_Postal), Ville: pick(c.Ville, bv.Ville), Site_Web: pick(c.Site_Web, bv.Site_Web) };
+        return { v, st: stV(v), nom: c.Nom_Compte, ville: v.Ville, com: CO._nomCom(c.PIN_CDS_Assigne), id: c.ID_Compte || c._uuid };
+      });
+      // 3. Base = le fichier des comptes actifs enrichis.
       const stB = b => { const e = CO.etat(CO._baseVersCompte(b)); return e.complet ? 'complet' : (b.statut || b.Statut) === 'ENRICHI' ? 'renseigne' : 'a_completer'; };
+      const bItems = base.map(b => { const cp = b.compte_id && vivants.find(x => String(x._uuid) === String(b.compte_id));
+        return { v: CO._baseVersCompte(b), st: stB(b), nom: b.nom, ville: b.ville, com: String(b.commercial || b.Commercial || '').toUpperCase(), id: cp ? (cp.ID_Compte || cp._uuid) : null, sans: 'Base seule' }; });
+      const coms = Array.from(new Set([...tItems, ...aItems, ...bItems].map(x => x.com).filter(Boolean))).sort();
       // Les filtres « renseigné » et « complet » se cumulent : un compte complet est aussi renseigné.
       const garde = (st, filtre) => !filtre || st === filtre || (filtre === 'renseigne' && st === 'complet');
-      const tc = vivants.filter(c => (!f.com || CO._nomCom(c.PIN_CDS_Assigne) === f.com) && garde(stT(c), f.statut));
-      const bc = base.filter(b => (!f.com || String(b.commercial || b.Commercial || '').toUpperCase() === f.com) && garde(stB(b), f.statut));
-      const tRens = tc.filter(c => CO.etat(c).contact).length, bRens = bc.filter(b => stB(b) !== 'a_completer').length;
+      const filtrer = l => l.filter(x => (!f.com || x.com === f.com) && garde(x.st, f.statut));
+      const tc = filtrer(tItems), ac = filtrer(aItems), bc = filtrer(bItems);
+      const rens = l => l.filter(x => x.st !== 'a_completer').length;
       const cnt = (l, fn) => l.filter(fn).length;
-      const detT = CO._lignes([...CO.CHAMPS.map(x => [x.lib, cnt(tc, c => x.ok(c))]), ['Site web', cnt(tc, c => !vide(c.Site_Web))]], tc.length);
-      const detB = CO._lignes([...CO.CHAMPS.map(x => [x.lib, cnt(bc, b => x.ok(CO._baseVersCompte(b)))]), ['Site web', cnt(bc, b => !vide(b.site_web || b.Site_Web))]], bc.length);
+      const det = l => CO._lignes([...CO.CHAMPS.map(x => [x.lib, cnt(l, y => x.ok(y.v))]), ['Site web', cnt(l, y => !vide(y.v.Site_Web))]], l.length);
       const opt = (v, l, cur) => `<option value="${esc(v)}"${cur === v ? ' selected' : ''}>${esc(l)}</option>`;
       const barreFiltre = `<div class="suivi-filtres" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
         <label style="font-size:12px;font-weight:600">Commercial <select aria-label="Filtrer par commercial" onchange="ContactsObjectif._filtre.com=this.value;ContactsObjectif._majSuivi()" style="margin-left:4px">
           ${opt('', 'Tous', f.com)}${coms.map(c => opt(c, c.charAt(0) + c.slice(1).toLowerCase(), f.com)).join('')}</select></label>
         <label style="font-size:12px;font-weight:600">Statut <select aria-label="Filtrer par statut" onchange="ContactsObjectif._filtre.statut=this.value;ContactsObjectif._majSuivi()" style="margin-left:4px">
           ${opt('', 'Tous', f.statut)}${opt('renseigne', 'Renseignés', f.statut)}${opt('a_completer', 'À compléter', f.statut)}${opt('complet', 'Fiches complètes', f.statut)}</select></label></div>`;
-      const blocB = CO._base === null
-        ? `<section class="cs-jauge suivi-bloc"><div class="bloc-titre">Infos comptes Base</div><p class="pilo-vide" style="font-size:13px">Chargement de la base…</p></section>`
-        : CO._bloc('Infos comptes Base', 'Fichier des comptes actifs enrichis', bRens, bc.length, detB, '#343F48');
-      return barreFiltre + `<div class="cs-jauges">${CO._bloc('Infos comptes Tracker', 'Comptes saisis dans l’application', tRens, tc.length, detT, '#FF6D68')}${blocB}</div>
-        ${CO._donutsHtml(tc, bc)}
+      const charge = t => `<section class="cs-jauge suivi-bloc"><div class="bloc-titre">${t}</div><p class="pilo-vide" style="font-size:13px">Chargement…</p></section>`;
+      const blocT = CO._leads === null ? charge('Infos Tracker') : CO._bloc('Infos Tracker', 'Leads du pipeline kanban', rens(tc), tc.length, det(tc), '#FF6D68');
+      const blocA = (CO._leads === null || CO._base === null) ? charge('Autres comptes') : CO._bloc('Autres comptes', 'Hors kanban, croisés avec la base', rens(ac), ac.length, det(ac), '#8A949E');
+      const blocB = CO._base === null ? charge('Infos comptes Base') : CO._bloc('Infos comptes Base', 'Fichier des comptes actifs enrichis', rens(bc), bc.length, det(bc), '#343F48');
+      const cur = { T: tc, A: ac, B: bc }[f.src] || tc, pret = f.src === 'B' ? CO._base !== null : f.src === 'A' ? (CO._leads !== null && CO._base !== null) : CO._leads !== null;
+      return barreFiltre + `<div class="cs-jauges">${blocT}${blocA}${blocB}</div>
+        ${pret ? CO._donutsHtml(cur) : ''}
         <p style="font-size:12px;color:var(--c-text-2);margin:12px 0 0">Objectif 100 % au 31/12/2026 : ${CO.joursRestants()} jours restants.</p>`;
     },
     _majSuivi() { document.querySelectorAll('.suivi-rempl').forEach(el => { el.innerHTML = CO._suiviHtml(); }); },
     renderSuivi(comptes) {
       CO._cs = comptes || [];
-      CO.chargerBase();
+      CO.chargerBase(); CO.chargerLeads();
       return `<div class="suivi-rempl">${CO._suiviHtml()}</div>`;
     },
     // Pastille de complétude d'une fiche (liste Comptes).
