@@ -116,6 +116,77 @@
         <details style="margin-top:10px"><summary style="font-size:12px;cursor:pointer;color:var(--c-text-2)">Détail par information</summary>${champs}</details>`;
       return nu ? corps : `<div class="bloc-fiche"><div class="bloc-titre">Contacts renseignés · objectif 31/12/2026</div>${corps}</div>`;
     },
+    // ── Suivi du remplissage : deux mesures séparées, chacune avec sa barre et un filtre ───────────────────
+    //  · Tracker : les comptes saisis dans l'application.
+    //  · Base    : le fichier « BASE COMPTES ACTIFS - MATCHES ET ENRICHIS » (table base_comptes).
+    //  Filtres communs : commercial et statut (renseignés / à compléter / complets).
+    _filtre: { com: '', statut: '' },
+    _cs: [], _base: null, _baseCharge: false,
+    _nomCom(pin) { const n = window.resolveCDS ? window.resolveCDS(pin) : pin; return String(n || '').trim().toUpperCase().split(/\s+/)[0] || ''; },
+    _baseVersCompte(b) {
+      return { Contact_Nom: b.contact_principal || b.Contact_Principal, Tel: b.tel || b.Tel, Email: b.email || b.Email, Adresse: b.adresse || b.Adresse,
+               Code_Postal: b.code_postal || b.Code_Postal, Ville: b.ville || b.Ville, Site_Web: b.site_web || b.Site_Web };
+    },
+    chargerBase() {
+      if (CO._baseCharge || !window.SheetsAPI) return;
+      CO._baseCharge = true;
+      SheetsAPI.lire('EMPOWER_MDB', 'base_comptes', { nocache: true })
+        .then(l => { CO._base = Array.isArray(l) ? l : []; CO._majSuivi(); })
+        .catch(() => { CO._base = []; CO._majSuivi(); });
+    },
+    _bloc(titre, sous, n, tot, details, couleur) {
+      const pct = tot ? Math.round(n / tot * 100) : 0;
+      return `<section class="cs-jauge suivi-bloc" aria-label="${esc(titre)}">
+        <div class="bloc-titre" style="margin-bottom:2px">${esc(titre)}</div>
+        <div style="font-size:12px;color:var(--c-text-2);margin-bottom:8px">${esc(sous)}</div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+          <span style="font-size:28px;font-weight:800;color:var(--c-title);line-height:1">${pct} %</span>
+          <span style="font-size:13px;color:var(--c-text-2)">${n} / ${tot}</span></div>
+        <div role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${esc(titre)} : ${pct} %"
+             style="height:12px;border-radius:6px;background:var(--c-border);overflow:hidden;margin-top:8px"><div style="height:100%;width:${pct}%;background:${couleur}"></div></div>
+        ${details}</section>`;
+    },
+    _lignes(items, tot) {
+      return `<details style="margin-top:10px"><summary style="font-size:12px;cursor:pointer;color:var(--c-text-2)">Détail par information</summary>${items.map(([lib, n]) => {
+        const p = tot ? Math.round(n / tot * 100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:5px"><span style="flex:0 0 110px">${esc(lib)}</span>
+          <span style="flex:1;height:6px;border-radius:3px;background:var(--c-border);overflow:hidden"><span style="display:block;height:100%;width:${p}%;background:#343F48"></span></span>
+          <span style="flex:0 0 64px;text-align:right;color:var(--c-text-2)">${n} · ${p} %</span></div>`;
+      }).join('')}</details>`;
+    },
+    _suiviHtml() {
+      const f = CO._filtre;
+      const vivants = (CO._cs || []).filter(c => String(c.deleted || '').toUpperCase() !== 'TRUE');
+      const base = CO._base || [];
+      const coms = Array.from(new Set([...vivants.map(c => CO._nomCom(c.PIN_CDS_Assigne)), ...base.map(b => String(b.commercial || b.Commercial || '').toUpperCase())].filter(Boolean))).sort();
+      const stT = c => { const e = CO.etat(c); return e.complet ? 'complet' : e.contact ? 'renseigne' : 'a_completer'; };
+      const stB = b => { const e = CO.etat(CO._baseVersCompte(b)); return e.complet ? 'complet' : (b.statut || b.Statut) === 'ENRICHI' ? 'renseigne' : 'a_completer'; };
+      // Les filtres « renseigné » et « complet » se cumulent : un compte complet est aussi renseigné.
+      const garde = (st, filtre) => !filtre || st === filtre || (filtre === 'renseigne' && st === 'complet');
+      const tc = vivants.filter(c => (!f.com || CO._nomCom(c.PIN_CDS_Assigne) === f.com) && garde(stT(c), f.statut));
+      const bc = base.filter(b => (!f.com || String(b.commercial || b.Commercial || '').toUpperCase() === f.com) && garde(stB(b), f.statut));
+      const tRens = tc.filter(c => CO.etat(c).contact).length, bRens = bc.filter(b => stB(b) !== 'a_completer').length;
+      const cnt = (l, fn) => l.filter(fn).length;
+      const detT = CO._lignes([...CO.CHAMPS.map(x => [x.lib, cnt(tc, c => x.ok(c))]), ['Site web', cnt(tc, c => !vide(c.Site_Web))]], tc.length);
+      const detB = CO._lignes([...CO.CHAMPS.map(x => [x.lib, cnt(bc, b => x.ok(CO._baseVersCompte(b)))]), ['Site web', cnt(bc, b => !vide(b.site_web || b.Site_Web))]], bc.length);
+      const opt = (v, l, cur) => `<option value="${esc(v)}"${cur === v ? ' selected' : ''}>${esc(l)}</option>`;
+      const barreFiltre = `<div class="suivi-filtres" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600">Commercial <select aria-label="Filtrer par commercial" onchange="ContactsObjectif._filtre.com=this.value;ContactsObjectif._majSuivi()" style="margin-left:4px">
+          ${opt('', 'Tous', f.com)}${coms.map(c => opt(c, c.charAt(0) + c.slice(1).toLowerCase(), f.com)).join('')}</select></label>
+        <label style="font-size:12px;font-weight:600">Statut <select aria-label="Filtrer par statut" onchange="ContactsObjectif._filtre.statut=this.value;ContactsObjectif._majSuivi()" style="margin-left:4px">
+          ${opt('', 'Tous', f.statut)}${opt('renseigne', 'Renseignés', f.statut)}${opt('a_completer', 'À compléter', f.statut)}${opt('complet', 'Fiches complètes', f.statut)}</select></label></div>`;
+      const blocB = CO._base === null
+        ? `<section class="cs-jauge suivi-bloc"><div class="bloc-titre">Infos comptes Base</div><p class="pilo-vide" style="font-size:13px">Chargement de la base…</p></section>`
+        : CO._bloc('Infos comptes Base', 'Fichier des comptes actifs enrichis', bRens, bc.length, detB, '#343F48');
+      return barreFiltre + `<div class="cs-jauges">${CO._bloc('Infos comptes Tracker', 'Comptes saisis dans l’application', tRens, tc.length, detT, '#FF6D68')}${blocB}</div>
+        <p style="font-size:12px;color:var(--c-text-2);margin:8px 0 0">Objectif 100 % au 31/12/2026 : ${CO.joursRestants()} jours restants.</p>`;
+    },
+    _majSuivi() { document.querySelectorAll('.suivi-rempl').forEach(el => { el.innerHTML = CO._suiviHtml(); }); },
+    renderSuivi(comptes) {
+      CO._cs = comptes || [];
+      CO.chargerBase();
+      return `<div class="suivi-rempl">${CO._suiviHtml()}</div>`;
+    },
     // Pastille de complétude d'une fiche (liste Comptes).
     pastille(c) {
       const e = CO.etat(c);

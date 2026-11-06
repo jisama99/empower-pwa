@@ -17,7 +17,7 @@ window.VueFicheCompte = {
   state: {
     compte: null, v17: null, visites: [], appels: [], chargement: true,
     editCoord: false, onglet: 'resume', ongletId: null,
-    formCoord: { adresse: '', ville: '', code_postal: '', departement: '', tel: '', email: '', contact_nom: '', contact_fonction: '' },
+    formCoord: { adresse: '', ville: '', code_postal: '', departement: '', tel: '', email: '', contact_nom: '', contact_fonction: '', site_web: '' },
     sauvegardeEnCours: false,
     modalRapportPhoning: false,
     empowerEnCours: false,
@@ -139,6 +139,7 @@ window.VueFicheCompte = {
       email:       c.Email       || '',
       contact_nom:      c.Contact_Nom      || '',
       contact_fonction: c.Contact_Fonction || '',
+      site_web:    c.Site_Web    || '',
     };
     this.state.formCoord._depAuto = !c.Departement || String(c.Departement).trim() === window.ESI_GEO.depDeCP(c.Code_Postal);
     this.state.editCoord = true;
@@ -174,6 +175,7 @@ window.VueFicheCompte = {
       Email:       f.email.trim()       || null,
       Contact_Nom:      f.contact_nom.trim()      || null,
       Contact_Fonction: f.contact_fonction.trim() || null,
+      Site_Web:    f.site_web.trim()    || null,
     };
 
     this.state.sauvegardeEnCours = true;
@@ -457,6 +459,11 @@ window.VueFicheCompte = {
                      oninput="VueFicheCompte.state.formCoord.email=this.value"
                      style="width:100%;margin-top:4px"/>
             </label>
+            <label style="font-size:13px;font-weight:600">Site web
+              <input type="url" value="${f.site_web}" placeholder="ex : https://www.societe.fr"
+                     oninput="VueFicheCompte.state.formCoord.site_web=this.value"
+                     style="width:100%;margin-top:4px"/>
+            </label>
             <div style="display:flex;gap:8px">
               <label style="flex:1;font-size:13px;font-weight:600">Contact (interlocuteur)
                 <input value="${f.contact_nom}" placeholder="ex : Jean Dupont"
@@ -503,6 +510,7 @@ window.VueFicheCompte = {
           <div class="id-ligne"><span>Contact</span><strong>${c.Contact_Nom ? `${c.Contact_Nom}${c.Contact_Fonction ? ' · ' + c.Contact_Fonction : ''}` : 'n.c.'}</strong></div>
           <div class="id-ligne"><span>Téléphone</span><strong>${c.Tel ? `<a class="lien-tel" href="tel:${c.Tel.replace(/\s/g,'')}">${c.Tel}</a>` : 'n.c.'}</strong></div>
           <div class="id-ligne"><span>Email</span><strong>${c.Email ? `<a class="lien-email" href="mailto:${c.Email}">${c.Email}</a>` : 'n.c.'}</strong></div>
+          <div class="id-ligne"><span>Site web</span><strong>${/^https?:\/\//i.test(c.Site_Web || '') ? `<a class="lien-email" href="${String(c.Site_Web).replace(/"/g, '')}" target="_blank" rel="noopener noreferrer">${String(c.Site_Web).replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '')}</a>` : 'n.c.'}</strong></div>
           <div class="id-ligne"><span>CDS</span>${
             Session.voitTout()
               ? `<select onchange="VueFicheCompte.changerCDS('${c.ID_Compte}', this.value)"

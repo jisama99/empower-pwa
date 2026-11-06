@@ -265,8 +265,8 @@ window.VuePilotage = {
     const aFaire = cs.filter(c => !ContactsObjectif.etat(c).contact).length;
     const entonnoir = [['Comptes Empower', emp.length, '#343F48'], ['Contact renseigné', contactesEmp, '#8A949E'], ['Première commande', act.length, '#FF6D68']];
     const sC = `<section class="cs-jauge" aria-label="Contacts renseignés">
-        <div class="bloc-titre" style="margin-bottom:8px">Contacts renseignés · objectif 31/12/2026</div>
-        ${ContactsObjectif.renderJauge(cs, { sansCarte: true })}
+        <div class="bloc-titre" style="margin-bottom:8px">Suivi du remplissage des comptes · objectif 31/12/2026</div>
+        ${ContactsObjectif.renderSuivi(cs)}
         <button class="cs-puce" style="margin-top:10px" onclick="VueComptes.state.filtreFiche='A_COMPLETER';Router.aller('#/comptes')">${aFaire} fiche${aFaire > 1 ? 's' : ''} à compléter ›</button>
       </section>`;
     const sE = manager ? `<section class="cs-jauge" aria-label="Entonnoir Empower">

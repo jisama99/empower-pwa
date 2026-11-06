@@ -331,8 +331,8 @@ window.VueComptes = {
   _renderJauges() {
     const cs = this.state.comptes, emp = cs.filter(c => window.estEmpower(c));
     const act = emp.filter(c => window.FlagsCanal.active(c)).length, pctAct = emp.length ? Math.round(act / emp.length * 100) : 0;
-    return `<div class="cs-jauges">
-      <div class="cs-jauge"><div class="bloc-titre" style="margin-bottom:8px">Contacts renseignés · objectif 31/12/2026</div>${ContactsObjectif.renderJauge(cs, { sansCarte: true })}</div>
+    return `<div class="cs-suivi" style="margin-bottom:12px"><div class="bloc-titre" style="margin-bottom:8px">Suivi du remplissage des comptes · objectif 31/12/2026</div>${ContactsObjectif.renderSuivi(cs)}</div>
+    <div class="cs-jauges">
       <div class="cs-jauge"><div class="bloc-titre" style="margin-bottom:8px">Activation Empower</div>
         <div style="font-size:28px;font-weight:800;color:var(--c-title);line-height:1">${act}<span style="font-size:15px;font-weight:600;color:var(--c-text-2)"> / ${emp.length}</span></div>
         <div style="height:10px;border-radius:5px;background:var(--c-border);overflow:hidden;margin-top:10px"><div style="height:100%;width:${pctAct}%;background:#FF6D68"></div></div>

@@ -210,7 +210,7 @@ const SheetsAPI = {
       source_import: 'Source_Import',
       badge_visite_froid: 'Badge_Visite_Froid', id: '_uuid',
       // Bloc 3 §1 (09/2026) — contact interlocuteur au niveau compte
-      contact_nom: 'Contact_Nom', contact_fonction: 'Contact_Fonction',
+      contact_nom: 'Contact_Nom', contact_fonction: 'Contact_Fonction', site_web: 'Site_Web',
       // BLOC 04 §1 (09/2026) — date d'onboarding EMPOWER, posée manuellement
       // au moment où Has_EMPOWER passe à Oui (cf. VueFicheCompte.basculerEmpower).
       date_onboarding_empower: 'Date_Onboarding_Empower',
@@ -447,7 +447,7 @@ const SheetsAPI = {
       'Source_Import': 'source_import', 'Badge_Visite_Froid': 'badge_visite_froid',
       'STATUT_COMPTE': 'statut_compte', 'Interet_EMPOWER': 'interet_empower',
       'FLAG_ALERTE_ALEXANDRA': 'flag_alerte_alexandra',
-      'Contact_Nom': 'contact_nom', 'Contact_Fonction': 'contact_fonction',
+      'Contact_Nom': 'contact_nom', 'Contact_Fonction': 'contact_fonction', 'Site_Web': 'site_web',
       'Date_Onboarding_Empower': 'date_onboarding_empower',
     },
     fiches_froides: {
