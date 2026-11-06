@@ -1,3 +1,4 @@
+-- APPLIQUÉE en production le 6/11/2026 (migrations site_web_et_base_comptes_schema, base_comptes_donnees, enrichir_comptes_depuis_base, grant_esi_dep_depuis_cp_anon).
 -- Complète les champs VIDES des comptes à partir de base_comptes (jamais d'écrasement d'une saisie existante).
 -- « Direction » dans la base est une fonction, pas un nom : elle va dans contact_fonction, jamais dans contact_nom.
 update public.comptes c set

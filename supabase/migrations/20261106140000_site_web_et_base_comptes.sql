@@ -1,3 +1,4 @@
+-- APPLIQUÉE en production le 6/11/2026 (migrations site_web_et_base_comptes_schema, base_comptes_donnees, enrichir_comptes_depuis_base, grant_esi_dep_depuis_cp_anon).
 -- Site web sur les comptes + base des comptes actifs enrichis (fichier Drive « BASE COMPTES ACTIFS - MATCHES ET ENRICHIS », 6/11/2026).
 -- La base sert à mesurer l'enrichissement (suivi du remplissage) et à compléter les champs VIDES des comptes de l'app.
 alter table public.comptes add column if not exists site_web text;
