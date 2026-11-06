@@ -8,7 +8,7 @@
 //  Qui peut l'ouvrir : ADMIN, CDS, CHANNEL_MANAGER (comme l'envoi du Kit). Chaque PDF créé pour un compte est inscrit au journal (« Devis »).
 // ═══════════════════════════════════════
 window.Studio = (function () {
-  const TYPES = ['bienvenue', 'exceptionnelle', 'proposition', 'cotation', 'supplementaire'];
+  const TYPES = ['bienvenue', 'exceptionnelle', 'proposition', 'cotation', 'supplementaire', 'bundle'];
   const LARGEUR = 1123;   // A4 paysage à 96 dpi
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const jour = () => new Date().toISOString().slice(0, 10);
@@ -37,6 +37,7 @@ window.Studio = (function () {
       offre: 'xy', achetees: 10, offertes: 1, taux: 10, par: 2, offertNom: 'Norton Utilities Ultimate', offertPvp: '',
       lignes: [['n360-del5', 6], ['', 0], ['', 0]], grossiste: 'pa_td',
       seuil: C && C.remise_volume ? C.remise_volume.seuil : 10, tauxVol: C && C.remise_volume ? Math.round(C.remise_volume.taux * 100) : 10,
+      canal: 'pa_empower', debut: jour(), op1: 'n360-del5', q1: 1, nom1: 'Norton Utilities Ultimate', pvp1: '', op2: '', q2: 1, nom2: '', pvp2: '',
       sig: signature(),
     };
   }
@@ -49,6 +50,7 @@ window.Studio = (function () {
       : s.offre === 'produit' ? (num(s.par) > 0 && s.offertNom ? { type: 'produit', par: num(s.par), nom: s.offertNom, pvp_ttc: s.offertPvp === '' ? null : num(s.offertPvp) } : null)
       : (num(s.achetees) > 0 && num(s.offertes) > 0 ? { type: 'xy', achetees: Math.floor(num(s.achetees)), offertes: Math.floor(num(s.offertes)) } : null);
     const extra = s.type === 'supplementaire' ? { canal: s.grossiste, params: { seuil: Math.max(1, Math.floor(num(s.seuil))), taux: num(s.tauxVol) / 100 } }
+      : s.type === 'bundle' ? { canal: s.canal, debut: s.debut, operations: [[s.op1, s.q1, s.nom1, s.pvp1], [s.op2, s.q2, s.nom2, s.pvp2]].filter(o => o[0]).map(o => ({ achete: [o[0], Math.max(1, Math.floor(num(o[1])) || 1)], offert: { nom: o[2] || 'Produit offert', pvp_ttc: o[3] === '' ? null : num(o[3]) } })) }
       : s.type === 'cotation' ? { cotation: { libelle: s.cotLib, debut: s.cotDebut, fin: s.cotFin, remise_pct: num(s.cotRemise), canaux: ['td', 'ingram'], non_reconductible: s.cotNonRecond }, date: s.cotDebut || undefined }
       : {};
     return Object.assign({ date: s.dateEmission || jour() }, extra, {
@@ -79,6 +81,10 @@ window.Studio = (function () {
         ${champ('Remise sur le prix d\'achat (%)', inp('cotRemise', 'number', 'min="0" max="90" step="0.5" inputmode="decimal"'))}
         <label class="st-o"><input type="checkbox" ${s.cotNonRecond ? 'checked' : ''} onchange="Studio.maj('cotNonRecond',this.checked)"/> Opération non reconductible</label>
         <p class="st-m">Tous les prix cotés et les remises par produit se recalculent depuis ce pourcentage, à partir des prix d'achat du catalogue.</p></div>`;
+    } else if (s.type === 'bundle') {
+      const canaux = [['pa_empower', 'Empower'], ['pa_td', 'Tech Data'], ['pa_ingram', 'Ingram Micro']].map(([k, l]) => `<option value="${k}" ${s.canal === k ? 'selected' : ''}>${l}</option>`).join('');
+      const op = n => `<div class="st-t">Opération ${n}${n === 2 ? ' (facultative)' : ''}</div><div class="st-lg"><select aria-label="Produit acheté ${n}" onchange="Studio.maj('op${n}',this.value)">${prods(s['op' + n])}</select><input type="number" min="1" inputmode="numeric" aria-label="Quantité ${n}" value="${s['q' + n]}" oninput="Studio.maj('q${n}',this.value)"/></div><div class="st-2">${champ('Produit offert', inp('nom' + n))}${champ('PVP TTC offert (€)', inp('pvp' + n, 'number', 'min="0" step="0.01" inputmode="decimal"'))}</div>`;
+      spec = `<div class="st-g"><div class="st-t">Bundle</div>${champ('Prix d\'achat', `<select onchange="Studio.maj('canal',this.value)">${canaux}</select>`)}${champ('Début de l\'opération', inp('debut', 'date'))}${op(1)}${op(2)}<p class="st-m">Le PVP du produit offert se saisit s'il n'est pas dans le catalogue : sans lui, la marge du bundle n'est pas chiffrée.</p></div>`;
     } else if (s.type === 'supplementaire') {
       spec = `<div class="st-g"><div class="st-t">Offres</div>${champ('Prix d\'achat', `<select onchange="Studio.maj('grossiste',this.value)"><option value="pa_td" ${s.grossiste === 'pa_td' ? 'selected' : ''}>Tech Data</option><option value="pa_ingram" ${s.grossiste === 'pa_ingram' ? 'selected' : ''}>Ingram Micro</option><option value="pa_empower" ${s.grossiste === 'pa_empower' ? 'selected' : ''}>Empower</option></select>`)}
         <div class="st-2">${champ('Seuil volume (licences)', inp('seuil', 'number', 'min="1" inputmode="numeric"'))}${champ('Remise volume (%)', inp('tauxVol', 'number', 'min="0" max="90" step="0.5" inputmode="decimal"'))}</div></div>`;

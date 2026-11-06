@@ -231,7 +231,7 @@ window.VueCoach = {
   _repDocument() {
     const E = this._esc, P = window.Paliers, c = this.state.compteSel && this.state.d ? this.state.d.comptes.find(k => String(k.ID_Compte || k._uuid) === this.state.compteSel) : null;
     const cle = c ? P.palier(c).cle : null;
-    const CONSEIL = { DORMANT: 'Kit de démarrage : Book Empower et flyer bonnes pratiques', EVEIL: 'Book Empower, flyer bonnes pratiques et la cotation en cours si elle est valide', ACTIF: 'Bundle rentrée et cross-sell, produits additionnels VPN et Utilities', AMBASSADEUR: 'Deck fonctionnalités avancées et produits additionnels, avec une business review trimestrielle' };
+    const CONSEIL = { DORMANT: 'Kit de démarrage : Book Empower et flyer bonnes pratiques', EVEIL: 'Book Empower, flyer bonnes pratiques et la cotation en cours si elle est valide', ACTIF: 'Bundle et cross-sell, produits additionnels VPN et Utilities', AMBASSADEUR: 'Deck fonctionnalités avancées et produits additionnels, avec une business review trimestrielle' };
     const ligne = k => `<div class="co-step"><span class="co-num">${E(P.PALIERS[k].lib.charAt(0))}</span><div><b>${E(P.PALIERS[k].lib)}</b><br><span class="co-mut">${E(CONSEIL[k])}</span></div></div>`;
     const cibleBloc = c ? `<p>Compte choisi : <b>${E(c.Nom_Compte)}</b>, palier <b>${E(P.PALIERS[cle].lib)}</b>. À lui remettre : ${E(CONSEIL[cle] || 'aucun document spécifique')}.</p>` : '<p>Choisissez un compte (calculateur à droite) pour une recommandation ciblée ; voici les repères par palier.</p>';
     return `<b>Quel document envoyer ?</b>${cibleBloc}${c ? ligne(cle) : ['DORMANT', 'EVEIL', 'ACTIF', 'AMBASSADEUR'].map(ligne).join('')}
