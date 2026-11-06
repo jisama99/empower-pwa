@@ -84,6 +84,39 @@ window.Visionneuse = (function () {
     return true;
   }
 
+
+  // PDF affiché page par page (PDF.js, hébergé avec l'application) : le lecteur PDF du navigateur est bloqué par la politique de sécurité
+  // (object-src 'none'), absent sur Android et limité à la première page sur iPhone. Repli : cadre du navigateur.
+  let pdfjs = null;
+  function chargerPdfjs() {
+    if (!pdfjs) pdfjs = import('/lib/pdfjs/pdf.min.mjs').then(m => { m.GlobalWorkerOptions.workerSrc = '/lib/pdfjs/pdf.worker.min.mjs'; return m; });
+    return pdfjs;
+  }
+  function pdfPages(blob, corps, urlBlob, opt) {
+    const repli = () => { if (corps.isConnected) corps.innerHTML = `<iframe class="vis-plein" title="${esc(opt.titre || 'Fichier')}" src="${urlBlob}"></iframe>`; };
+    return Promise.all([chargerPdfjs(), blob.arrayBuffer()]).then(([lib, buf]) => lib.getDocument({ data: buf }).promise).then(doc => {
+      if (!corps.isConnected) return;
+      corps.innerHTML = `<div class="vis-defil vis-pdf"></div><div class="vis-zoom" role="group" aria-label="Zoom"><button type="button" data-z="-" aria-label="Réduire">−</button><button type="button" data-z="0" aria-label="Ajuster à l'écran">Ajuster</button><button type="button" data-z="+" aria-label="Agrandir">+</button></div>`;
+      const defil = corps.querySelector('.vis-defil');
+      let zoom = 1, jeton = 0;
+      const dessiner = async () => {
+        const mon = ++jeton, larg = Math.max(200, defil.clientWidth - 16) * zoom, dpr = Math.min(window.devicePixelRatio || 1, 2);
+        defil.innerHTML = '';
+        for (let n = 1; n <= doc.numPages; n++) {
+          if (mon !== jeton || !corps.isConnected) return;
+          const page = await doc.getPage(n), v1 = page.getViewport({ scale: 1 }), k = larg / v1.width, v = page.getViewport({ scale: k * dpr });
+          const c = document.createElement('canvas'); c.width = Math.floor(v.width); c.height = Math.floor(v.height);
+          c.style.width = Math.floor(v.width / dpr) + 'px'; c.style.height = Math.floor(v.height / dpr) + 'px';
+          c.className = 'vis-page'; defil.appendChild(c);
+          await page.render({ canvasContext: c.getContext('2d'), viewport: v }).promise;
+        }
+      };
+      corps.querySelector('.vis-zoom').addEventListener('click', e => { const b = e.target.closest('[data-z]'); if (!b) return; zoom = Math.max(1, Math.min(4, b.dataset.z === '0' ? 1 : zoom * (b.dataset.z === '+' ? 1.5 : 1 / 1.5))); dessiner(); });
+      let l0 = defil.clientWidth; redim = () => { if (Math.abs(defil.clientWidth - l0) > 40) { l0 = defil.clientWidth; dessiner(); } }; window.addEventListener('resize', redim);
+      return dessiner();
+    }).catch(repli);
+  }
+
   // Fichier hébergé (lien signé) : aperçu des PDF et images (téléchargés puis affichés depuis la mémoire, sans quitter l'application) ;
   // autres formats ou aperçu impossible : boutons Ouvrir / Télécharger. « Fermer » reste toujours visible.
   function fichier(url, opt) {
@@ -100,6 +133,7 @@ window.Visionneuse = (function () {
       if (!el.isConnected) return;
       const u = URL.createObjectURL(new Blob([b], { type: pdf ? 'application/pdf' : (b.type || 'image/' + (fmt === 'jpg' ? 'jpeg' : fmt)) }));
       blobs.push(u);
+      if (pdf) return pdfPages(b, corps, u, opt);
       corps.innerHTML = pdf ? `<iframe class="vis-plein" title="${esc(opt.titre || 'Fichier')}" src="${u}"></iframe>` : `<div class="vis-defil"><img class="vis-img" alt="${esc(opt.titre || 'Image')}" src="${u}"/></div>`;
     }).catch(() => { if (el.isConnected) corps.innerHTML = carte("L'aperçu n'est pas disponible ici. Utilisez « Ouvrir » ou « Télécharger », puis revenez avec « Fermer »."); });
     return true;

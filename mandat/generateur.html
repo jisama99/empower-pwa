@@ -56,7 +56,8 @@ body{font-family:'Inter',sans-serif;background:var(--fond-e);color:var(--ink-e);
 .statut.ok{background:#DDF1E8;color:#1E6B4A;display:block;}.statut.ko{background:#FBF0DA;color:#8A5A0B;display:block;}
 .pp{background:#DDE1E4;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:1.5rem 1rem;gap:6mm;}
 #cv{display:flex;flex-direction:column;align-items:center;gap:6mm;}
-@media (max-width:900px){.app{grid-template-columns:1fr;height:auto}.fp{box-shadow:none}.pp{padding:1rem .5rem;overflow-x:auto}}
+@media (max-width:600px){.hdr{flex-wrap:wrap;gap:.4rem}.hdr-tag{display:none}.hdr a{margin-left:auto}}
+@media (max-width:900px){.app{grid-template-columns:1fr;height:auto}.fp{box-shadow:none}.pp{padding:1rem .5rem;overflow-x:hidden;align-items:flex-start}}
 
 :root{
   --coral:#FF4438; --coral-soft:#FF6D68; --coral-10:#FFEDEC;
@@ -620,6 +621,26 @@ applyChannelDefaults();
 })();
 
 rend();
+
+// Aperçu ajusté à la largeur de l'écran (téléphone, tablette) : la feuille A4 est réduite pour s'afficher en entier, sans défilement horizontal.
+(function(){
+  const cv=g("cv"), pp=cv.parentElement; let en=false;
+  function ajuster(){
+    if(en) return; en=true;
+    cv.style.transform=""; cv.style.marginBottom=""; cv.style.width="";
+    const page=cv.querySelector(".page"); if(!page){ en=false; return; }
+    const dispo=pp.clientWidth-parseFloat(getComputedStyle(pp).paddingLeft)-parseFloat(getComputedStyle(pp).paddingRight), l=page.offsetWidth;
+    const k=Math.min(1,dispo/l);
+    if(k<1){ cv.style.width=l+"px"; cv.style.transformOrigin="top left"; cv.style.transform="scale("+k+")"; cv.style.marginBottom=(-(cv.offsetHeight*(1-k)))+"px"; cv.style.marginRight=(-(l*(1-k)))+"px"; }
+    else { cv.style.marginRight=""; cv.style.transformOrigin=""; }
+    en=false;
+  }
+  new MutationObserver(()=>setTimeout(ajuster,0)).observe(cv,{childList:true});
+  window.addEventListener("resize",ajuster); window.addEventListener("orientationchange",()=>setTimeout(ajuster,200));
+  window.addEventListener("beforeprint",()=>{ cv.style.transform=""; cv.style.marginBottom=""; cv.style.marginRight=""; cv.style.width=""; });
+  window.addEventListener("afterprint",ajuster);
+  ajuster();
+})();
 </script>
 </body>
 </html>

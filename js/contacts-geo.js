@@ -30,8 +30,8 @@
   window.ESI_GEO = { depDeCP, depDe };
 
   // ── 2. Complétude des contacts ─────────────────────────────────────────
-  // « Contact renseigné » = interlocuteur ET (téléphone OU e-mail) : une personne qu'on peut joindre.
-  // « Fiche complète »    = contact renseigné ET adresse + code postal + ville.
+  // « Fiche renseignée » = au moins une de ces informations : interlocuteur, téléphone, e-mail ou adresse (règle validée le 6/11/2026).
+  // « Fiche complète »   = interlocuteur ET (téléphone OU e-mail) ET adresse + code postal + ville.
   const CO = window.ContactsObjectif = {
     ECHEANCE: '2026-12-31',
     CHAMPS: [
@@ -45,14 +45,14 @@
     etat(c) {
       const f = {}; CO.CHAMPS.forEach(x => { f[x.cle] = x.ok(c); });
       const joignable = f.tel || f.email;
-      const contact = f.interlocuteur && joignable;
+      const contact = !!(f.interlocuteur || f.tel || f.email || f.adresse);
       const adresse = f.adresse && f.cp && f.ville;
       const manquants = [];
       if (!f.interlocuteur) manquants.push('Interlocuteur');
       if (!joignable) manquants.push('Téléphone ou e-mail');
       if (!adresse) manquants.push(!f.cp ? 'Code postal' : !f.adresse ? 'Adresse' : 'Ville');
       const nb = CO.CHAMPS.filter(x => f[x.cle]).length;
-      return { f, joignable, contact, adresse, complet: contact && adresse, manquants, pct: Math.round(nb / CO.CHAMPS.length * 100) };
+      return { f, joignable, contact, adresse, complet: !!(f.interlocuteur && joignable && adresse), manquants, pct: Math.round(nb / CO.CHAMPS.length * 100) };
     },
     joursRestants(now) {
       const fin = new Date(CO.ECHEANCE + 'T23:59:59').getTime();
@@ -107,7 +107,7 @@
           </svg>
           <div style="flex:1;min-width:170px">
             <div style="font-size:28px;font-weight:800;color:var(--c-title);line-height:1">${s.contact}<span style="font-size:15px;font-weight:600;color:var(--c-text-2)"> / ${s.tot}</span></div>
-            <div style="font-size:12px;color:var(--c-text-2);margin-top:4px">comptes avec un interlocuteur et un moyen de le joindre</div>
+            <div style="font-size:12px;color:var(--c-text-2);margin-top:4px">comptes avec au moins un nom, un téléphone, un e-mail ou une adresse</div>
             <div style="font-size:12px;margin-top:6px">Objectif <strong>100 %</strong> au 31/12/2026 : <strong>${s.jours} j</strong> restants, soit <strong>${s.parSemaine}</strong> fiche${s.parSemaine > 1 ? 's' : ''} à compléter par semaine</div>
             <div style="font-size:12px;margin-top:4px;color:var(--c-text-2)">Fiches entièrement complètes (avec adresse) : ${s.complet} (${s.pctComplet} %)</div>
           </div>
@@ -150,7 +150,7 @@
   // Prochaine meilleure action : une règle lisible, jamais un score opaque.
   function prochaineAction(c) {
     const e = CO.etat(c);
-    if (!e.contact) return { lib: 'Renseigner le contact', detail: 'Il manque : ' + e.manquants.join(', ') + '. Objectif de complétude au 31/12/2026.', cible: 'fiche' };
+    if (!e.contact) return { lib: 'Renseigner le contact', detail: 'Aucun nom, téléphone, e-mail ni adresse. Il manque : ' + e.manquants.join(', ') + '. Objectif de complétude au 31/12/2026.', cible: 'fiche' };
     const p = palier(c);
     return { lib: p.cle === 'NA' ? 'Qualifier' : p.lib, detail: p.action, cible: 'action' };
   }
