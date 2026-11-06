@@ -32,7 +32,7 @@ window.VueKit = {
     try {
       const { data, error } = await sb.from('kit_documents').select('*').order('ordre');
       if (error) throw error;
-      s.docs = data || [];
+      s.docs = (data || []).filter(d => d.actif !== false);   // document désactivé (remplacé par le Studio) : fichier conservé, plus listé
     } catch (e) { s.docs = []; s.erreur = 'La bibliothèque n’est pas encore activée sur cette base (' + ((e && e.message) || 'erreur') + ').'; }
     s.chargement = false; this.render();
   },
@@ -69,10 +69,12 @@ window.VueKit = {
   },
 
   _listeHtml() {
-    const E = this._esc, l = this._filtre();
-    if (!l.length) return '<p class="co-mut" style="padding:8px 2px">Aucun document pour ce filtre.</p>';
+    const E = this._esc, l = this._filtre(), cat = this.state.cat;
+    const studio = (['offre', 'cotation'].includes(cat) && this._peutEnvoyer() && window.Studio)
+      ? `<div class="co-carte kit-groupe"><div class="co-eyebrow">Sur mesure</div><h2>${cat === 'cotation' ? 'Cotation' : 'Offre'} personnalisée</h2><p class="co-mut">Destinataire, dates, remise et signature, aperçu en direct et PDF à télécharger.</p><button class="co-btn p" onclick="VueKit.studio('${cat === 'cotation' ? 'cotation' : 'bienvenue'}')">Ouvrir le Studio</button></div>` : '';
+    if (!l.length) return studio || '<p class="co-mut" style="padding:8px 2px">Aucun document pour ce filtre.</p>';
     const groupes = []; l.forEach(d => { let g = groupes.find(x => x.n === d.groupe); if (!g) groupes.push(g = { n: d.groupe, l: [] }); g.l.push(d); });
-    return groupes.map(g => `<div class="co-carte kit-groupe"><div class="co-eyebrow">${E(g.n)}</div>${g.l.map(d => this._ligne(d)).join('')}</div>`).join('');
+    return studio + groupes.map(g => `<div class="co-carte kit-groupe"><div class="co-eyebrow">${E(g.n)}</div>${g.l.map(d => this._ligne(d)).join('')}</div>`).join('');
   },
 
   _outilsHtml() {
