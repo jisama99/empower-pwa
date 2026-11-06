@@ -201,6 +201,7 @@ window.Studio = (function () {
     let cadre = null;
     try {
       await chargerLibs();
+      if (window.LIVRABLES_POLICE_CHARGER) await window.LIVRABLES_POLICE_CHARGER();
       cadre = document.createElement('iframe'); cadre.setAttribute('sandbox', 'allow-same-origin'); cadre.setAttribute('aria-hidden', 'true');
       cadre.style.cssText = 'position:fixed;left:-20000px;top:0;width:' + LARGEUR + 'px;height:800px;border:0;visibility:hidden';
       document.body.appendChild(cadre);
@@ -208,6 +209,7 @@ window.Studio = (function () {
       const d = cadre.contentDocument;
       d.head.insertAdjacentHTML('beforeend', '<style>.page{margin:0!important}html,body{background:#EEF0F1!important}</style>');
       await Promise.all([...d.images].map(i => i.complete ? null : new Promise(ok => { i.onload = i.onerror = ok; })));
+      if (d.fonts && d.fonts.load) { try { await Promise.all(['400','500','600','700','800'].map(w => d.fonts.load(w + ' 12px Montserrat'))); } catch (e) { /* repli police système */ } }
       if (d.fonts && d.fonts.ready) { try { await d.fonts.ready; } catch (e) { /* polices système */ } }
       const page = d.querySelector('.page');
       const canvas = await window.html2canvas(page, { scale: 2, useCORS: true, backgroundColor: '#EEF0F1', logging: false, windowWidth: LARGEUR, windowHeight: 800 });

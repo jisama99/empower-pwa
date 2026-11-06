@@ -119,7 +119,7 @@ window.LivrablesPDF = (function () {
   }
 
   // ── Mise en page ────────────────────────────────────────────────────────────────
-  const CSS = `
+  const CSS = (window.LIVRABLES_POLICE || '') + `
 @page{size:A4 landscape;margin:0}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:#D5D9DC}

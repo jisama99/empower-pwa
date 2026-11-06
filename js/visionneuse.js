@@ -100,7 +100,11 @@ window.Visionneuse = (function () {
       const defil = corps.querySelector('.vis-defil');
       let zoom = 1, jeton = 0;
       const dessiner = async () => {
-        const mon = ++jeton, larg = Math.max(200, defil.clientWidth - 16) * zoom, dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const mon = ++jeton, larg = Math.max(200, defil.clientWidth - 16) * zoom;
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+        // Budget mémoire : les téléphones refusent ou plantent au-delà de quelques dizaines de millions de pixels de canvas au total.
+        const p1 = (await doc.getPage(1)).getViewport({ scale: 1 }), pxCss = larg * larg * (p1.height / p1.width) * doc.numPages;
+        dpr = Math.max(1, Math.min(dpr, Math.sqrt(40e6 / pxCss)));
         defil.innerHTML = '';
         for (let n = 1; n <= doc.numPages; n++) {
           if (mon !== jeton || !corps.isConnected) return;
