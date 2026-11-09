@@ -35,7 +35,7 @@ window.VueObjectifs = {
     this.render();
     try {
       const [objectifs, params, nsb, prospects] = await Promise.all([
-        SheetsAPI.lire('EMPOWER_MDB', 'OBJECTIFS_PRIMES'),
+        SheetsAPI.lire('EMPOWER_MDB', 'OBJECTIFS_PRIMES', { nocache: true }),
         SheetsAPI.lire('EMPOWER_MDB', 'PARAMS'),
         SheetsAPI.lire('EMPOWER_MDB', 'NSB_COMMANDES').catch(() => []),
         SheetsAPI.lire('EMPOWER_MDB', 'LEADS').catch(() => []),

@@ -49,7 +49,7 @@ window.VuePrimes = {
     this.render();
     try {
       const [objectifs, nsb, prospects, params, cdsApi] = await Promise.all([
-        SheetsAPI.lire('EMPOWER_MDB', 'OBJECTIFS_PRIMES'),
+        SheetsAPI.lire('EMPOWER_MDB', 'OBJECTIFS_PRIMES', { nocache: true }),
         SheetsAPI.lire('EMPOWER_MDB', 'NSB_COMMANDES'),
         SheetsAPI.lire('EMPOWER_MDB', 'LEADS'),
         SheetsAPI.lire('EMPOWER_MDB', 'PARAMS'),

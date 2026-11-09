@@ -64,6 +64,7 @@
   // prevoir(réalisé, objectif, trimestre) → { w, source, lineaire, saisonnier, prevu, bas, haut, pct, ecart, parSemaine, statut }
   function prevoir(ca, obj, q) {
     ca = num(ca); obj = num(obj);
+    if (!etat.enCours) charger();   // chargement paresseux des semaines Sell-In
     const { w, source } = semaine(q);
     if (w < 1) return { w: 0, source, lineaire: 0, saisonnier: 0, prevu: 0, bas: 0, haut: 0, pct: null, ecart: null, parSemaine: 0, statut: 'a_venir', clos: false, avenir: true };
     if (w >= NB) return { w: NB, source, lineaire: ca, saisonnier: ca, prevu: ca, bas: ca, haut: ca, pct: obj > 0 ? Math.round(ca / obj * 100) : null, ecart: obj > 0 ? ca - obj : null, parSemaine: 0, statut: obj > 0 ? (ca >= obj ? 'atteint' : 'manque') : 'sans_objectif', clos: true };
