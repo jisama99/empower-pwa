@@ -108,3 +108,23 @@
   #comptes-liste-zone .desktop-table-data-view tbody tr { box-shadow: none; }
   #comptes-liste-zone .desktop-table-data-view tbody tr:hover td { background: rgba(255,109,104,.10) !important; }
 }
+
+/* ── Page Comptes sur ordinateur (≥ 900 px) : utilise toute la largeur, tableau sans coupure, filtres compacts ─────────────── */
+@media (min-width: 900px) {
+  /* La règle générique plafonne chaque bloc de page à 1280 px (refresh-esi.css) : elle laissait une bande vide à droite et coupait le tableau. */
+  #app > .tabs-premium, #app > .cs-suivi, #app > .cs-jauges, #app > .at-panneau, #app > .barre-filtres, #app > .liste-comptes, #app > .fusion-tabs { max-width: none !important; }
+  .suivi-rempl .cs-jauges { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #comptes-liste-zone .desktop-table-data-view { width: 100%; }
+  #comptes-liste-zone .desktop-table-data-view td { padding: 14px 8px !important; }
+  #comptes-liste-zone .desktop-table-data-view th { padding: 14px 8px 10px !important; }
+  /* Statut + badges : la cellule passe à la ligne au lieu d'élargir la colonne (402 px avant). */
+  #comptes-liste-zone .desktop-table-data-view td:first-child, #comptes-liste-zone .desktop-table-data-view th:first-child { width: 240px; max-width: 240px; white-space: normal; }
+  #comptes-liste-zone .desktop-table-data-view td:first-child > * { vertical-align: middle; margin: 2px 4px 2px 0; }
+  /* Filtres : une rangée compacte au lieu d'un empilement pleine largeur. */
+  .barre-filtres { flex-direction: row !important; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .barre-filtres #recherche-comptes { flex: 1 1 360px; min-width: 260px; }
+  .barre-filtres .cs-puces { flex: 0 0 auto; }
+  .barre-filtres .filtres-vues { flex: 1 1 360px; }
+  .barre-filtres .filtres-flags.filtres-desktop { flex: 0 0 auto; }
+  .barre-filtres .filtres-statut { flex: 1 1 380px; }
+}
