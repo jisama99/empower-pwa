@@ -106,7 +106,8 @@ window.VueObjectifs = {
     const pct = (obj > 0 && isFinite(ca) && isFinite(obj)) ? Math.round(ca / obj * 100) : 0;
     const numSem   = parseInt((this.state.semaine || 'S01').replace('S', ''), 10) || 1;
     const semDansQ = Math.min(Math.max(numSem, 1), 13);
-    const projection = isFinite(ca) ? Math.round(ca / semDansQ * 13) : 0;
+    // Atterrissage prévisionnel en fonction des semaines (source unique : Atterrissage) ; ancien calcul linéaire en repli.
+    const projection = isFinite(ca) ? Math.round(window.Atterrissage ? Atterrissage.prevoir(ca, obj, q).prevu : ca / semDansQ * 13) : 0;
     const ecart = isFinite(obj) && isFinite(ca) ? obj - ca : null;
     const pace  = pct >= 100 ? 'ON_TRACK' : pct >= 80 ? 'WATCH' : 'AT_RISK';
     return { ca, obj, pct, projection, ecart, pace, id: o.ID_Objectif || '' };
@@ -337,9 +338,10 @@ window.VueObjectifs = {
             <span>/ ${fmtEUR(d.obj)}, ${q}</span>
           </div>
           ${this._barreProgression(d.pct, d.pace)}
+          ${window.Atterrissage ? Atterrissage.html(d.ca, d.obj, q) : ''}
           <div class="objectifs-grille" style="margin-top:10px">
             <div class="stat-mini"><div>${safePct(d.pct)}</div><div>Atteinte</div></div>
-            <div class="stat-mini"><div>${fmtEUR(d.projection)}</div><div>Projection ${q}</div></div>
+            <div class="stat-mini"><div>${fmtEUR(d.projection)}</div><div>Atterrissage ${q}</div></div>
             <div class="stat-mini" style="color:${ecartCouleur}">
               <div>${ecartHtml}</div>
               <div>Écart</div>

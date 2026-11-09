@@ -22,7 +22,7 @@
       const nRisk = d.equipe.filter(e => e.pace === 'AT_RISK').length;
 
       const kpis = [
-        { l: 'CA total ' + d.quarter, v: eur(d.caTotal), s: `sur ${eur(d.objTotal)} d'objectif`, go: '#/objectifs' },
+        { l: 'CA total ' + d.quarter, v: eur(d.caTotal), s: `sur ${eur(d.objTotal)} d'objectif${window.Atterrissage ? ' · ' + Atterrissage.texte(d.caTotal, d.objTotal, d.quarter) : ''}`, go: '#/objectifs' },
         { l: 'Atteinte objectif', v: d.pctTotal + ' %', s: nRisk ? `${nRisk} commercial${nRisk > 1 ? 'aux' : ''} à risque` : 'Équipe dans la trajectoire', go: '#/objectifs', alerte: d.pctTotal < 80 },
         { l: 'Leads pipeline', v: d.assignes, s: `${d.integres} intégré${d.integres > 1 ? 's' : ''}, ${d.tauxIntegration} % de taux`, go: '#/empower-tracker' },
         { l: 'Activité semaine', v: `${vis} · ${app}`, s: 'visites · appels', go: '#/visites' },

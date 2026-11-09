@@ -99,7 +99,7 @@ window.VuePilotage = {
       { l: 'À contacter', v: d.ac.length, s: 'comptes à relancer', to: '#/a-contacter' },
       { l: 'Empower activés', v: d.integres.length, s: 'leads intégrés', to: '#/empower-tracker' },
     ];
-    if (d.ca) k.push({ l: `Sell-in / objectif ${d.quarter}`, v: d.ca.pct == null ? 'n.c.' : d.ca.pct + ' %', s: d.ca.obj ? `${Math.round(d.ca.ca).toLocaleString('fr-FR')} € sur ${Math.round(d.ca.obj).toLocaleString('fr-FR')} €` : 'objectif non renseigné', to: '#/objectifs' });
+    if (d.ca) k.push({ l: `Sell-in / objectif ${d.quarter}`, v: d.ca.pct == null ? 'n.c.' : d.ca.pct + ' %', s: d.ca.obj ? `${Math.round(d.ca.ca).toLocaleString('fr-FR')} € sur ${Math.round(d.ca.obj).toLocaleString('fr-FR')} €${window.Atterrissage ? ' · ' + Atterrissage.texte(d.ca.ca, d.ca.obj, d.quarter) : ''}` : 'objectif non renseigné', to: '#/objectifs' });
     return k;
   },
 

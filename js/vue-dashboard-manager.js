@@ -334,6 +334,7 @@ window.VueDashboardManager = {
       const visitesTransformeesQ = visitesRealiseesQ.filter(visiteTransformee);
       return {
         pin, nom: o.Nom_CDS, ca, obj, pct, caFY26,
+        atterr: window.Atterrissage ? Atterrissage.texte(ca, obj, quarter) : '',
         pace:       pct >= 100 ? 'ON_TRACK' : pct >= 80 ? 'WATCH' : 'AT_RISK',
         // Bug remonté (09/2026) — même correctif que VueDashboardCDS : semaine
         // calendaire lundi→dimanche (dates réelles), pas Semaine_ISO fiscal
@@ -569,7 +570,7 @@ window.VueDashboardManager = {
       const caAnchor = wCA > 20 ? 'end' : 'start';
       return `
         <text x="0" y="${y + 11}" font-size="11" font-weight="700" fill="var(--c-title)">${e.nom.toUpperCase()}</text>
-        <g data-tip="${e.nom}\nRéalisé ${formatEUR(e.ca)} sur ${formatEUR(e.obj)} (${e.pct} %)" tabindex="0">
+        <g data-tip="${e.nom}\nRéalisé ${formatEUR(e.ca)} sur ${formatEUR(e.obj)} (${e.pct} %)${e.atterr ? '\n' + e.atterr : ''}" tabindex="0">
         <rect x="0" y="${y + 15}" width="${wObj}" height="12" fill="#E6E9EC" rx="6"/>
         <rect x="0" y="${y + 15}" width="${wCA}"  height="12" fill="${col}"   rx="6"/></g>
         <text x="${xPct}" y="${y + 25}" font-size="10" fill="var(--c-title)" font-weight="700">${pctStr}</text>
