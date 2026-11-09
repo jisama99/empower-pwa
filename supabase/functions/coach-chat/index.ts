@@ -60,7 +60,10 @@ Deno.serve(async (req) => {
       remise_pct: num(r.remise_pct), prix: r.prix || {}, actif: r.actif !== false }))
     const catalogue = creerCatalogue({ produits, cotations })
 
-    const perimetre = perimetreComptes(role, pin, rg.data?.valeur)
+    let perimetre = perimetreComptes(role, pin, rg.data?.valeur)
+    // Admin / channel manager : s'ils ont choisi un commercial dans le Coach, la recherche de comptes est limitée à ses comptes (jamais de mélange entre commerciaux).
+    const pp = String(body.perimetre_pin ?? '').replace(/\D/g, '').slice(0, 6)
+    if ((role === 'ADMIN' || role === 'CHANNEL_MANAGER') && pp && perimetre.autorise) perimetre = { ...perimetre, pin: pp }
 
     // Comptes : lecture avec la clé de service, donc le périmètre est appliqué ici (jamais côté modèle).
     async function chercherComptes(f: any, per: any, limite: number) {

@@ -59,7 +59,7 @@ window.Visionneuse = (function () {
     f.style.width = largeur + 'px';
     let zoom = 1;   // multiplicateur par rapport à « tenir dans la largeur »
     const ajuster = () => {
-      const base = Math.min(1, (defil.clientWidth - 16) / largeur) || 1, k = base * zoom;
+      const base = Math.max(0.1, Math.min(1, (defil.clientWidth - 16) / largeur) || 1), k = base * zoom;
       let h = 1200;
       try { const d = f.contentDocument; h = Math.max(d.documentElement.scrollHeight, d.body ? d.body.scrollHeight : 0, 600); } catch (e) { /* hauteur par défaut */ }
       f.style.height = h + 'px';
@@ -68,7 +68,7 @@ window.Visionneuse = (function () {
       feuille.style.height = Math.round(h * k) + 'px';
       feuille.style.margin = k * largeur > defil.clientWidth - 16 ? '0' : '0 auto';
     };
-    const regler = z => { zoom = Math.max(1, Math.min(4, z)); ajuster(); };
+    const regler = z => { zoom = Math.max(0.25, Math.min(4, z)); ajuster(); };
     el.querySelector('.vis-corps').insertAdjacentHTML('beforeend', `<div class="vis-zoom" role="group" aria-label="Zoom"><button type="button" data-z="-" aria-label="Réduire">−</button><button type="button" data-z="0" aria-label="Ajuster à l'écran">Ajuster</button><button type="button" data-z="+" aria-label="Agrandir">+</button></div>`);
     el.querySelector('.vis-zoom').addEventListener('click', e => { const b = e.target.closest('[data-z]'); if (!b) return; regler(b.dataset.z === '0' ? 1 : zoom * (b.dataset.z === '+' ? 1.5 : 1 / 1.5)); });
     f.addEventListener('load', () => { ajuster(); setTimeout(ajuster, 400); setTimeout(ajuster, 1500); });
@@ -100,10 +100,13 @@ window.Visionneuse = (function () {
       const defil = corps.querySelector('.vis-defil');
       let zoom = 1, jeton = 0;
       const dessiner = async () => {
-        const mon = ++jeton, larg = Math.max(200, defil.clientWidth - 16) * zoom;
+        const mon = ++jeton, p1 = (await doc.getPage(1)).getViewport({ scale: 1 }), ratio = p1.height / p1.width;
+        // Base « Ajuster » : sur grand écran, la page entière tient dans la fenêtre (largeur ET hauteur) ; sur téléphone, pleine largeur.
+        const dispoL = Math.max(200, defil.clientWidth - 16), dispoH = Math.max(200, defil.clientHeight - 16);
+        const base = window.innerWidth >= 900 ? Math.min(dispoL, dispoH / ratio) : dispoL, larg = Math.max(120, base * zoom);
         let dpr = Math.min(window.devicePixelRatio || 1, 2);
         // Budget mémoire : les téléphones refusent ou plantent au-delà de quelques dizaines de millions de pixels de canvas au total.
-        const p1 = (await doc.getPage(1)).getViewport({ scale: 1 }), pxCss = larg * larg * (p1.height / p1.width) * doc.numPages;
+        const pxCss = larg * larg * ratio * doc.numPages;
         dpr = Math.max(1, Math.min(dpr, Math.sqrt(40e6 / pxCss)));
         defil.innerHTML = '';
         for (let n = 1; n <= doc.numPages; n++) {
@@ -115,7 +118,7 @@ window.Visionneuse = (function () {
           await page.render({ canvasContext: c.getContext('2d'), viewport: v }).promise;
         }
       };
-      corps.querySelector('.vis-zoom').addEventListener('click', e => { const b = e.target.closest('[data-z]'); if (!b) return; zoom = Math.max(1, Math.min(4, b.dataset.z === '0' ? 1 : zoom * (b.dataset.z === '+' ? 1.5 : 1 / 1.5))); dessiner(); });
+      corps.querySelector('.vis-zoom').addEventListener('click', e => { const b = e.target.closest('[data-z]'); if (!b) return; zoom = Math.max(0.25, Math.min(4, b.dataset.z === '0' ? 1 : zoom * (b.dataset.z === '+' ? 1.5 : 1 / 1.5))); dessiner(); });
       let l0 = defil.clientWidth; redim = () => { if (Math.abs(defil.clientWidth - l0) > 40) { l0 = defil.clientWidth; dessiner(); } }; window.addEventListener('resize', redim);
       return dessiner();
     }).catch(repli);

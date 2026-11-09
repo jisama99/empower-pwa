@@ -12,7 +12,7 @@
   const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
   const H = {
-    etat: { fy: 'FY27', q: 'TOUS', pin: '', tout: false, rows: null, sem: null, enCours: null, erreur: null },
+    etat: { fy: 'FY27', q: 'TOUS', pin: '', canal: 'TOUS', compte: '', tout: false, rows: null, sem: null, enCours: null, erreur: null },
 
     charger(force) {
       const s = this.etat;
@@ -32,38 +32,52 @@
       return s.enCours;
     },
 
-    // Comptes du périmètre, indexés par nom normalisé (commercial et fiche).
+    // Comptes du périmètre, indexés par nom normalisé (commercial, fiche, canal).
     _index() {
       const idx = {};
       ((window.VuePilotage && VuePilotage._raw && VuePilotage._raw.comptes) || []).forEach(c => { const k = norm(c.Nom_Compte); if (k && !idx[k]) idx[k] = c; });
       return idx;
     },
     _com(c) { return c && c.PIN_CDS_Assigne ? (window.resolveCDS ? window.resolveCDS(c.PIN_CDS_Assigne) : String(c.PIN_CDS_Assigne)) : 'Non attribué'; },
+    // Canal du COMPTE (et non celui de la ligne Sell-In, qui n'indique que le distributeur) : un compte Empower reste Empower même s'il achète aussi chez Ingram / TD Synnex.
+    _canalCompte(c, empAny) { return c ? (window.estEmpower && window.estEmpower(c) ? 'Empower' : (empAny ? 'Empower' : 'Grossiste')) : (empAny ? 'Empower' : 'Grossiste'); },
 
-    set(k, v) { this.etat[k] = v; if (k === 'fy' && v !== 'TOUS' && this.etat.q === 'TOUS') { /* garde la vue annuelle */ } this.etat.tout = false; VuePilotage.render(); },
-    choisir(fy, q) { Object.assign(this.etat, { fy, q, tout: false }); VuePilotage.render(); },
+    _versDetail() { setTimeout(() => { const e = document.getElementById('pilo-hist-detail'); if (e && e.scrollIntoView) e.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60); },
+    set(k, v) { this.etat[k] = v; this.etat.tout = false; VuePilotage.render(); },
+    choisir(fy, q) { Object.assign(this.etat, { fy, q, tout: false }); VuePilotage.render(); this._versDetail(); },
+    reinit() { Object.assign(this.etat, { pin: '', canal: 'TOUS', compte: '', tout: false }); VuePilotage.render(); },
     toutAfficher() { this.etat.tout = true; VuePilotage.render(); },
 
+    // Lignes Sell-In du périmètre : commercial, canal du compte et compte choisis (les trimestres/années s'appliquent ensuite).
     _filtrees() {
-      const s = this.etat, idx = this._index();
-      return (s.rows || []).filter(r => !s.pin || String((idx[r.n] || {}).PIN_CDS_Assigne || '') === String(s.pin));
+      const s = this.etat, idx = this._index(), empAny = {};
+      (s.rows || []).forEach(r => { if (r.emp > 0) empAny[r.n] = true; });
+      const cle = norm(s.compte);
+      return (s.rows || []).filter(r => {
+        const c = idx[r.n];
+        if (s.pin && String((c || {}).PIN_CDS_Assigne || '') !== String(s.pin)) return false;
+        if (s.canal !== 'TOUS' && this._canalCompte(c, empAny[r.n]) !== s.canal) return false;
+        if (cle && !r.n.includes(cle)) return false;
+        return true;
+      });
     },
 
     // Détail par revendeur sur la période choisie.
     _detail() {
-      const s = this.etat, idx = this._index(), m = {};
+      const s = this.etat, idx = this._index(), m = {}, empAny = {};
+      (s.rows || []).forEach(r => { if (r.emp > 0) empAny[r.n] = true; });
       this._filtrees().filter(r => (s.fy === 'TOUS' || r.fy === s.fy) && (s.q === 'TOUS' || r.q === s.q) && r.ca !== 0).forEach(r => {
-        const x = m[r.n] = m[r.n] || { reseller: r.reseller, canal: r.canal, ca: 0, emp: 0, qs: new Set() };
+        const x = m[r.n] = m[r.n] || { reseller: r.reseller, distrib: '', ca: 0, emp: 0, qs: new Set() };
         x.ca += r.ca; x.emp += r.emp; x.qs.add(r.q + r.fy);
-        if (!x.canal && r.canal) x.canal = r.canal;
+        if (!x.distrib && r.canal && !/^EMPOWER$/i.test(r.canal)) x.distrib = r.canal;
       });
-      return Object.keys(m).map(k => { const c = idx[k], x = m[k]; return { ...x, com: this._com(c), id: c ? (c.ID_Compte || c._uuid) : '', nbq: x.qs.size }; }).sort((a, b) => b.ca - a.ca);
+      return Object.keys(m).map(k => { const c = idx[k], x = m[k]; return { ...x, canal: this._canalCompte(c, empAny[k]), com: this._com(c), id: c ? (c.ID_Compte || c._uuid) : '', nbq: x.qs.size }; }).sort((a, b) => b.ca - a.ca);
     },
 
     exporter() {
       const s = this.etat, L = this._detail();
-      const csv = ['Revendeur;Commercial;Canal;CA total EUR;dont Empower EUR;Grossiste EUR;Trimestres actifs']
-        .concat(L.map(x => [x.reseller, x.com, x.canal, x.ca.toFixed(2), x.emp.toFixed(2), (x.ca - x.emp).toFixed(2), x.nbq].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';'))).join('\n');
+      const csv = ['Revendeur;Commercial;Canal du compte;Distributeur;CA total EUR;Via Empower EUR;Via grossiste EUR;Trimestres actifs']
+        .concat(L.map(x => [x.reseller, x.com, x.canal, x.distrib, x.ca.toFixed(2), x.emp.toFixed(2), (x.ca - x.emp).toFixed(2), x.nbq].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';'))).join('\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
       a.download = `sellin-${s.fy}-${s.q}.csv`.toLowerCase(); document.body.appendChild(a); a.click(); a.remove();
@@ -79,6 +93,7 @@
       const voitTout = Session.voitTout && Session.voitTout();
       const pins = [...new Set(((VuePilotage._raw && VuePilotage._raw.comptes) || []).map(c => c.PIN_CDS_Assigne).filter(Boolean))];
 
+      const listeComptes = [...new Set((s.rows || []).filter(r => r.ca !== 0).map(r => r.reseller))].sort((a, b) => a.localeCompare(b, 'fr')).slice(0, 600);
       // Récapitulatif des 12 trimestres (FY25 à FY27), même périmètre commercial.
       const agg = {};
       base.forEach(r => { const a = agg[r.q + r.fy] = agg[r.q + r.fy] || { ca: 0, emp: 0, n: new Set() }; a.ca += r.ca; a.emp += r.emp; if (r.ca > 0) a.n.add(r.n); });
@@ -99,7 +114,7 @@
       const vus = s.tout ? detail : detail.slice(0, 40);
       const lignesD = vus.map(x => `<tr>
         <td>${x.id ? `<a href="#/compte/${encodeURIComponent(x.id)}" onclick="Router.aller('#/compte/${encodeURIComponent(x.id)}');return false">${E(x.reseller)}</a>` : E(x.reseller)}</td>
-        <td>${E(x.com)}</td><td>${E(x.canal || '·')}</td><td class="n">${eur(x.ca)}</td><td class="n">${eur(x.emp)}</td><td class="n">${eur(x.ca - x.emp)}</td><td class="n">${x.nbq}</td></tr>`).join('');
+        <td>${E(x.com)}</td><td><b>${E(x.canal)}</b>${x.distrib && x.canal === 'Empower' && x.ca - x.emp > 0 ? `<br><small title="Une partie des achats passe par le distributeur">+ ${E(x.distrib)}</small>` : x.distrib && x.canal === 'Grossiste' ? `<br><small>${E(x.distrib)}</small>` : ''}</td><td class="n">${eur(x.ca)}</td><td class="n">${eur(x.emp)}</td><td class="n">${eur(x.ca - x.emp)}</td><td class="n">${x.nbq}</td></tr>`).join('');
       const sel = (cle, vals, v, lib) => `<select aria-label="${lib}" onchange="PilotageHistorique.set('${cle}',this.value)">${vals.map(([k, l]) => `<option value="${k}" ${String(v) === String(k) ? 'selected' : ''}>${E(l)}</option>`).join('')}</select>`;
       const periode = (s.fy === 'TOUS' ? 'Toutes années' : s.fy) + (s.q === 'TOUS' ? '' : ' · ' + s.q);
 
@@ -115,19 +130,23 @@
           ${sel('fy', [['TOUS', 'Toutes années'], ...FYS.slice().reverse().map(f => [f, f])], s.fy, 'Année fiscale')}
           ${sel('q', [['TOUS', 'Tous trimestres'], ...QS.map(q => [q, q])], s.q, 'Trimestre')}
           ${voitTout ? sel('pin', [['', 'Vue consolidée'], ...pins.map(p => [p, window.resolveCDS ? window.resolveCDS(p) : p])], s.pin, 'Commercial') : ''}
+          ${sel('canal', [['TOUS', 'Tous canaux'], ['Empower', 'Compte Empower'], ['Grossiste', 'Compte grossiste']], s.canal, 'Canal du compte')}
+          <input type="search" list="pilo-hist-cptes" placeholder="Rechercher un compte…" aria-label="Compte" value="${E(s.compte)}" onchange="PilotageHistorique.set('compte',this.value)" style="min-height:40px;border-radius:999px;padding:0 14px;border:1px solid var(--border-medium,#ccd);background:var(--bg-surface,#fff);font:inherit;font-size:14px;min-width:200px"/>
+          <datalist id="pilo-hist-cptes">${listeComptes.map(n => `<option value="${E(n)}"></option>`).join('')}</datalist>
+          ${(s.pin || s.canal !== 'TOUS' || s.compte) ? '<button class="btn-filtre" onclick="PilotageHistorique.reinit()">Réinitialiser</button>' : ''}
           <button class="btn-filtre" onclick="PilotageHistorique.exporter()" ${detail.length ? '' : 'disabled'}>Exporter en CSV</button>
         </div>
         <div class="pilo-hist-k">
           <div><small>Sell-In · ${E(periode)}</small><strong>${eur(tot)}</strong></div>
-          <div><small>dont Empower</small><strong>${eur(emp)}</strong></div>
-          <div><small>dont Grossiste</small><strong>${eur(tot - emp)}</strong></div>
+          <div><small>dont via Empower</small><strong>${eur(emp)}</strong></div>
+          <div><small>dont via grossiste</small><strong>${eur(tot - emp)}</strong></div>
           <div><small>Revendeurs ayant commandé</small><strong>${detail.length}</strong></div>
         </div>
         <section class="pilo-panneau" style="margin-bottom:14px"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Audit · trimestres</span><h3>Montants par trimestre</h3></div></div>
-          <div class="pilo-hist-sc"><table><thead><tr><th>Trimestre</th><th class="n">Revendeurs</th><th class="n">CA</th><th class="n">Empower</th><th class="n">Grossiste</th><th class="n">Unités · semaines</th><th class="n">vs N-1</th></tr></thead><tbody>${lignesQ}</tbody></table></div>
-          <p class="pilo-note" style="margin-top:8px;font-size:12px">Un revendeur ayant commandé = un revendeur avec un montant sur le trimestre (le Sell-In ne détaille pas les commandes unitaires). Unités et semaines: FY27 seulement. Cliquez une ligne pour ouvrir son détail.</p></section>
-        <section class="pilo-panneau"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Audit · ${E(periode)}</span><h3>Détail par revendeur</h3></div></div>
-          ${detail.length ? `<div class="pilo-hist-sc"><table><thead><tr><th>Revendeur</th><th>Commercial</th><th>Canal</th><th class="n">CA</th><th class="n">Empower</th><th class="n">Grossiste</th><th class="n">Trim.</th></tr></thead><tbody>${lignesD}</tbody></table></div>
+          <div class="pilo-hist-sc"><table><thead><tr><th>Trimestre</th><th class="n">Revendeurs</th><th class="n">CA</th><th class="n">Via Empower</th><th class="n">Via grossiste</th><th class="n">Unités · semaines</th><th class="n">vs N-1</th></tr></thead><tbody>${lignesQ}</tbody></table></div>
+          <p class="pilo-note" style="margin-top:8px;font-size:12px">Un revendeur ayant commandé = un revendeur avec un montant sur le trimestre (le Sell-In ne détaille pas les commandes unitaires). « Via Empower » = achats passés par le portail Empower, « via grossiste » = achats chez Ingram / TD Synnex. Le canal d'un compte est celui de sa fiche : un compte Empower reste Empower même s'il achète aussi chez un grossiste. Unités et semaines : FY27 seulement. Cliquez une ligne pour afficher son détail.</p></section>
+        <section class="pilo-panneau" id="pilo-hist-detail"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Audit · ${E(periode)}</span><h3>Détail par revendeur</h3></div></div>
+          ${detail.length ? `<div class="pilo-hist-sc"><table><thead><tr><th>Revendeur</th><th>Commercial</th><th>Canal du compte</th><th class="n">CA</th><th class="n">Via Empower</th><th class="n">Via grossiste</th><th class="n">Trim.</th></tr></thead><tbody>${lignesD}</tbody></table></div>
           ${!s.tout && detail.length > 40 ? `<button class="btn-filtre" style="margin-top:10px" onclick="PilotageHistorique.toutAfficher()">Afficher les ${detail.length} revendeurs</button>` : ''}` : '<p class="pilo-vide">Aucun montant sur cette période.</p>'}
         </section>
       </div>`;

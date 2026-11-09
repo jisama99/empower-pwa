@@ -139,14 +139,20 @@ window.VueCoach = {
     } catch (e) { /* le miroir local garde la coche */ }
   },
 
-  setPin(v) { this.state.pin = v; this._calculer(); this.render(); },
+  setPin(v) {
+    const s = this.state; s.pin = v; s.compteSel = '';
+    s.coupure = s.fil.length;   // les échanges précédents ne sont plus envoyés à l'assistant : ils portaient sur un autre périmètre
+    s.fil.push({ r: 'a', h: `<span class="co-mut">Périmètre : <b>${this._esc(this._libPerimetre())}</b>. Les réponses suivantes ne portent que sur ce périmètre.</span>` });
+    this._calculer(); this.render();
+  },
+  _libPerimetre() { const s = this.state; if (!s.pin) return Session.voitTout() ? 'tout le réseau' : (Session.nom || 'mes comptes'); return (window.resolveCDS ? resolveCDS(s.pin) : s.pin); },
   setCol(c) { this.state.col = c; this.render(); },
 
   // ── Cartes et blocs de réponse ──
   _carteCible(x, sel) {
     const E = this._esc, conf = x.loc ? 'h' : 'l';
     return `<div class="co-cible"><div class="t"><b>${E(x.nom)}</b><span class="co-sp"></span><span class="co-conf ${conf}">${x.loc ? 'confiance haute' : 'confiance faible'}</span></div>
-      <div class="co-mut">${E(x.ville || 'Ville n.c.')} · ${x.raisons.map(E).join(' · ')}</div>
+      <div class="co-mut">${E(x.ville || 'Ville n.c.')}${Session.voitTout() && x.pin && window.resolveCDS ? ' · commercial ' + E(resolveCDS(x.pin)) : ''} · ${x.raisons.map(E).join(' · ')}</div>
       <div class="co-score"><span>Potentiel</span><div class="co-bar"><i style="width:${x.pot}%"></i></div><span>Momentum</span><div class="co-bar"><i style="width:${x.mom}%"></i></div><span>Facilité</span><div class="co-bar"><i style="width:${x.fac}%"></i></div></div>
       <div class="co-actions"><button class="co-btn p" onclick="VueCoach.preparerVisite('${E(String(x.id))}')">Préparer la visite</button><a class="co-btn" href="#/compte/${encodeURIComponent(x.id)}">Voir la fiche</a><a class="co-btn" href="#/phoning/${encodeURIComponent(x.id)}">Appeler</a></div></div>`;
   },
@@ -259,12 +265,12 @@ window.VueCoach = {
 
   _faits() {
     const d = this.state.d, t = d.sel, tri = d.tri;
-    const l = [];
+    const l = [`Périmètre : ${this._libPerimetre()}${this.state.pin ? ' (un seul commercial : ne parle que de ses comptes)' : Session.voitTout() ? ' (plusieurs commerciaux : nomme le commercial de chaque compte)' : ''}.`];
     if (tri) l.push(`Trimestre ${tri.quarter}, semaine ${tri.semaine}, rythme attendu ${tri.pct} %, ${Math.round(tri.semainesRestantes)} semaines restantes.`);
     if (t && t.obj > 0) l.push(`Objectif ${this._eur(t.obj)}, réalisé ${this._eur(t.ca)} (${t.pct} %), écart ${this._eur(t.reste)}, ${this._eur(t.parSemaine)} par semaine, statut ${this._statutLib[t.statut]}.`);
     l.push(`${d.nbCibles} comptes Empower sans première commande. Fiches localisées ${d.qualite.loc} sur ${d.qualite.tot}.`);
     d.alertes.forEach(a => l.push(a.titre + '.'));
-    d.cibles.slice(0, 3).forEach(x => l.push(`Cible : ${x.nom} (${x.ville || 'ville n.c.'}), score ${x.score}.`));
+    d.cibles.slice(0, 3).forEach(x => l.push(`Cible : ${x.nom} (${x.ville || 'ville n.c.'}), commercial ${window.resolveCDS && x.pin ? resolveCDS(x.pin) : 'n.c.'}, score ${x.score}.`));
     return l.join('\n');
   },
 
@@ -297,7 +303,7 @@ window.VueCoach = {
     const s = this.state; s.fil.push({ r: 'u', h: this._esc(q) }); s.ia = true; s.fil.push({ r: 'a', h: '<span class="co-mut">Réflexion en cours…</span>', tmp: true }); this._maj(); this._basFil();
     let h;
     try {
-      const rep = await window.GeminiAPI.coach(this._historique(q), s.d ? this._faits() : '', this._prenom());
+      const rep = await window.GeminiAPI.coach(this._historique(q), s.d ? this._faits() : '', this._prenom(), s.pin || null);
       const src = rep.sources && rep.sources.length ? `<div class="co-mut" style="margin-top:6px">Sources : ${rep.sources.map(x => this._esc(x)).join(', ')}</div>` : '';
       h = `<span class="co-ia">Calculs faits par l'app, texte rédigé par l'IA</span><br>${this._esc(rep.texte).replace(/\n/g, '<br>')}${src}`;
     } catch (e) {
@@ -310,7 +316,7 @@ window.VueCoach = {
   // Historique envoyé au serveur : texte brut des échanges du fil (12 derniers), question en cours en dernier.
   _historique(q) {
     const txt = h => String(h).replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]+/g, ' ').trim();
-    const l = this.state.fil.filter(m => !m.tmp).map(m => ({ role: m.r === 'u' ? 'user' : 'assistant', content: txt(m.h) })).filter(m => m.content);
+    const l = this.state.fil.slice(this.state.coupure || 0).filter(m => !m.tmp).map(m => ({ role: m.r === 'u' ? 'user' : 'assistant', content: txt(m.h) })).filter(m => m.content);
     return l.slice(-12);
   },
   touche(ev) { if (ev.key === 'Enter') { ev.preventDefault(); this.envoyer(); } },

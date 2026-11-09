@@ -41,6 +41,7 @@ window.AttributionCP = {
 
   _notifier(pin, type, message, idProspect) {
     if (!pin) return;
+    if (window.Session && Session.estExterne && Session.estExterne()) return;   // leads externes : alertes émises par la base (déclencheur leads_alerte_externe)
     SheetsAPI.ecrire('EMPOWER_MDB', 'NOTIFS', {
       ID_Notif: genId('NOTIF'), PIN_Destinataire: Number(pin), Type_Notif: type,
       Message: message, ID_Cible: idProspect, Statut_Lu: false, Date_Envoi: new Date().toISOString(),

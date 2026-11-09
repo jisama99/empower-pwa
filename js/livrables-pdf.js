@@ -292,7 +292,7 @@ ${of ? `<div class="big"><span class="eb">Votre marge avec l'offre</span><b>${e2
     const cartes = K.grilles.map(g => `<div class="card"><div class="oh"><span class="tag">${esc(g.nom.toUpperCase())}</span></div><h2>Prix d'achat cotés, revendeurs non managés</h2>
 <table class="t"><thead><tr><th>Produit</th><th>SKU</th><th>App.</th><th>PA habituel</th><th>PA coté</th><th>Remise</th><th>PVP TTC</th></tr></thead><tbody>${g.lignes.map(l => `<tr><td>${esc(l.p.nom.replace('Norton ', ''))}</td><td>${esc(l.sku)}</td><td>${l.p.appareils}</td><td>${e2(l.base)}</td><td class="g">${e2(l.cote)}</td><td><span class="remise">-${l.remise} %</span></td><td>${e2(l.pvp)}</td></tr>`).join('')}</tbody></table></div>`).join('');
     const echeance = c.debut && c.fin ? `Du ${dLong(c.debut)} au ${dLong(c.fin)}` : '';
-    return page(cfg, t, num, { titre: `${esc(c.libelle || 'Cotation')} <em>jusqu'à -${K.remiseMax} %</em>`, sous: `${esc(noms)} · revendeurs non managés${c.non_reconductible ? ' · opération non reconductible' : ''}`, echeance,
+    return page(cfg, t, num, { titre: `${esc(c.libelle || 'Cotation')} <em>jusqu'à -${K.remiseMax} %</em>`, sous: `${esc(noms)} · revendeurs non managés${c.non_reconductible ? ' · opération non reconductible' : ''}${(cfg.client && (cfg.client.nom || cfg.client.contact)) ? ' · Préparée pour <b>' + esc(cfg.client.nom || 'votre société') + '</b>' + (cfg.client.contact ? ' · Contact : ' + esc(cfg.client.contact) : '') + (cfg.client.region ? ' · ' + esc(cfg.client.region) : '') : ''}`, echeance,
       contenu: cartes, cls: K.grilles.length > 1 ? 'half' : 'two', pill: 'Prix indicatifs', legal: `Prix d'achat HT ${esc(noms)} pendant la période de cotation. ${legalBase(C)} Activation immédiate via clé ESD, sans stock à gérer.` });
   }
 

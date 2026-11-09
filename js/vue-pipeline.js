@@ -605,7 +605,8 @@ window.VuePipeline = {
       Date_Import: dateISOLocale(),
       Timestamp: new Date().toISOString(),
       STATUT_EMPOWER: statutInit, POTENTIEL: vals.potentiel,
-      ORIGINE: Session.estExterne() ? String(Session.nom || '').trim().split(/\s+/)[0] : vals.origine,   // un fournisseur est lui-même la source de ses leads CONTACT_NOM: vals.contact, CONTACT_FONCTION: vals.fonction,
+      ORIGINE: Session.estExterne() ? String(Session.nom || '').trim().split(/\s+/)[0] : vals.origine,   // un fournisseur est lui-même la source de ses leads
+      CONTACT_NOM: vals.contact, CONTACT_FONCTION: vals.fonction,
       // Traçabilité de la saisie (colonnes pin_channel / nom_channel déjà en base) : permet à un fournisseur de retrouver ses leads
       ...((Session.estExterne() || Session.estChannel()) ? { PIN_Channel: Number(Session.pin), Nom_Channel: Session.nom || '' } : {}),
     };
@@ -628,7 +629,8 @@ window.VuePipeline = {
       Promise.resolve(attrib ? AttributionCP.appliquer(lead, attrib).catch(() => {}) : null).then(() => this._ajouterABase(lead.ID_Prospect));
       this.state.leads.unshift({ ...lead, _statut: lead.FLAG_ACTION });
       // BLOC 4.3 — notif in-app au CDS assigné
-      if (cdsAssignePin) {
+      // Lead saisi par un externe : les alertes (commercial assigné, admin, channel) sont émises par la base (déclencheur leads_alerte_externe), pas par ce poste.
+      if (cdsAssignePin && !Session.estExterne()) {
         SheetsAPI.ecrire('EMPOWER_MDB', 'NOTIFS', {
           ID_Notif:         genId('NOTIF'),
           PIN_Destinataire: Number(cdsAssignePin),

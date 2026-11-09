@@ -138,11 +138,11 @@ window.Studio = (function () {
     if (o === 'apercu') setTimeout(ajuster, 30);
   }
 
-  function zoomer(d) { zoom = d === 0 ? 1 : Math.max(1, Math.min(4, zoom * (d > 0 ? 1.5 : 1 / 1.5))); ajuster(); }
+  function zoomer(d) { zoom = d === 0 ? 1 : Math.max(0.25, Math.min(4, zoom * (d > 0 ? 1.5 : 1 / 1.5))); ajuster(); }
   function ajuster() {
     if (!el) return;
     const defil = el.querySelector('#st-defil'), feu = el.querySelector('#st-feuille'), f = el.querySelector('#st-iframe'); if (!defil || !f) return;
-    const k = (Math.min(1, (defil.clientWidth - 16) / LARGEUR) || 1) * zoom;
+    const k = Math.max(0.1, Math.min(1, (defil.clientWidth - 16) / LARGEUR) || 1) * zoom;
     let h = 794; try { const d = f.contentDocument; h = Math.max(794, d.documentElement.scrollHeight, d.body ? d.body.scrollHeight : 0); } catch (e) { /* hauteur A4 */ }
     f.style.width = LARGEUR + 'px'; f.style.height = h + 'px'; f.style.transform = 'scale(' + k + ')';
     feu.style.width = Math.round(LARGEUR * k) + 'px'; feu.style.height = Math.round(h * k) + 'px'; feu.style.margin = k * LARGEUR > defil.clientWidth - 16 ? '0' : '0 auto';
