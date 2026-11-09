@@ -34,6 +34,7 @@ window.VueObjectifs = {
     this.state.erreur = null;
     this.render();
     try {
+      if (window.Atterrissage) await Atterrissage.charger().catch(() => {});   // semaines Sell-In avant le premier calcul
       const [objectifs, params, nsb, prospects] = await Promise.all([
         SheetsAPI.lire('EMPOWER_MDB', 'OBJECTIFS_PRIMES', { nocache: true }),
         SheetsAPI.lire('EMPOWER_MDB', 'PARAMS'),
@@ -107,9 +108,12 @@ window.VueObjectifs = {
     const numSem   = parseInt((this.state.semaine || 'S01').replace('S', ''), 10) || 1;
     const semDansQ = Math.min(Math.max(numSem, 1), 13);
     // Atterrissage prévisionnel en fonction des semaines (source unique : Atterrissage) ; ancien calcul linéaire en repli.
-    const projection = isFinite(ca) ? Math.round(window.Atterrissage ? Atterrissage.prevoir(ca, obj, q).prevu : ca / semDansQ * 13) : 0;
+    const att = (window.Atterrissage && isFinite(ca)) ? Atterrissage.prevoir(ca, obj, q) : null;
+    const projection = isFinite(ca) ? Math.round(att ? att.prevu : ca / semDansQ * 13) : 0;
     const ecart = isFinite(obj) && isFinite(ca) ? obj - ca : null;
-    const pace  = pct >= 100 ? 'ON_TRACK' : pct >= 80 ? 'WATCH' : 'AT_RISK';
+    // Statut = atterrissage prévu (trimestre en cours), sinon réalisé ; mêmes seuils que le bloc d'atterrissage (100 / 85).
+    const pPace = (att && !att.avenir && !att.clos && att.pct != null) ? att.pct : pct;
+    const pace  = pPace >= 100 ? 'ON_TRACK' : pPace >= (att && !att.clos ? 85 : 80) ? 'WATCH' : 'AT_RISK';
     return { ca, obj, pct, projection, ecart, pace, id: o.ID_Objectif || '' };
   },
 
