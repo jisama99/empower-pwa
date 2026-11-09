@@ -982,7 +982,7 @@ window.VuePipeline = {
       <div id="tracker-resultats-zone">${this._renderResultatsZone(leads, voitTous)}</div>
 
       ${peutSaisir ? '<button class="fab" onclick="VuePipeline.ouvrirSaisie()" title="Nouveau lead">＋</button>' : ''}
-      ${(Session.estManager() || Session.estChannel()) ? `<button class="fab fab-export" onclick="VuePipeline.ouvrirExport()" title="Export Excel" style="background:var(--c-success);font-size:18px"><span class="material-symbols-outlined" aria-hidden="true">download</span></button>` : ''}
+      ${(Session.estManager() || Session.estChannel() || Session.estExterne()) ? `<button class="fab fab-export" onclick="TrackerExcel.ouvrir('export')" title="Excel : exporter ou importer" style="background:var(--c-success);font-size:18px"><span class="material-symbols-outlined" aria-hidden="true">download</span></button>` : ''}
       ${NavBar('tracker')}
       ${FusionTabs.portefeuille()}
       ${this._renderModal()}
@@ -1179,8 +1179,9 @@ window.VuePipeline = {
     return `
       <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:12px 12px 0;position:relative">
         <span style="font-size:12px;color:var(--c-text-2)">${leads.length} lead(s)</span>
-        ${(Session.estManager() || Session.estChannel()) ? `
-        <button class="btn-secondaire tracker-export-inline" style="width:auto;padding:6px 12px;font-size:12px" onclick="VuePipeline.ouvrirExport()">Export Excel</button>` : ''}
+        ${(Session.estManager() || Session.estChannel() || Session.estExterne()) ? `
+        <button class="btn-secondaire tracker-export-inline" style="width:auto;padding:6px 12px;font-size:12px" onclick="TrackerExcel.ouvrir('export')">Exporter Excel</button>
+        <button class="btn-secondaire tracker-export-inline" style="width:auto;padding:6px 12px;font-size:12px" onclick="TrackerExcel.ouvrir('import')">Importer Excel</button>` : ''}
         <button class="btn-secondaire" style="width:auto;padding:6px 12px;font-size:12px" onclick="VuePipeline.ouvrirColonnesMenu()">Colonnes</button>
         ${this.state.colonnesMenuOuvert ? `
         <div style="position:absolute;top:100%;right:0;z-index:50;margin-top:4px;padding:10px;background:var(--bg-warm-white);border:1.5px solid var(--c-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-modal);min-width:180px">
