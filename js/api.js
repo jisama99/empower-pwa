@@ -166,7 +166,7 @@ const SheetsAPI = {
     '📝_ACTIONS': 'actions', '📊_ACTIONS': 'actions', 'ACTIONS': 'actions',
     '👤_UTILISATEURS': 'utilisateurs', 'UTILISATEURS': 'utilisateurs',
     '❄️_FICHES_FROIDES': 'fiches_froides', 'FICHES_FROIDES': 'fiches_froides',
-    '📦_SELLIN_SEMAINES': 'sellin_semaines', 'SELLIN_SEMAINES': 'sellin_semaines',
+    '📦_SELLIN_SEMAINES': 'sellin_semaines', 'SELLIN_SEMAINES': 'sellin_semaines', 'SELLIN_TRIMESTRES': 'sellin',
     'V_COMPTES_SUIVI': 'v_comptes_suivi', 'ATTRIBUTIONS_HISTORIQUE': 'attributions_historique', 'V_A_CONTACTER': 'v_a_contacter',
   },
 
@@ -233,6 +233,9 @@ const SheetsAPI = {
       id: '_uuid', compte_id: 'Compte_ID', nom_compte: 'Nom_Compte', ancien_pin: 'Ancien_PIN', nouveau_pin: 'Nouveau_PIN',
       ancien_nom: 'Ancien_Nom', nouveau_nom: 'Nouveau_Nom', acteur_pin: 'Acteur_PIN', mode: 'Mode', motif: 'Motif',
       date_effet: 'Date_Effet', created_at: 'Cree_Le',
+    },
+    sellin: {
+      reseller: 'Reseller', quarter: 'Quarter', ca_eur: 'CA_EUR', ca_empower: 'CA_Empower', canal: 'Canal', secteur: 'Secteur', compte_id: 'Compte_ID', id: '_uuid',
     },
     sellin_semaines: {
       reseller: 'Reseller', reseller_norm: 'Reseller_Norm', quarter: 'Quarter', semaine: 'Semaine',

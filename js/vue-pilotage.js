@@ -259,7 +259,7 @@ window.VuePilotage = {
   },
   setVue(v) { this.state.vue = v; this.render(); },
   setOnglet(o) { this.state.onglet = o; this.render(); },
-  _ONGLETS: [['activite', 'Activité'], ['ventes', 'Ventes'], ['portefeuille', 'Portefeuille'], ['objectifs', 'Objectifs']],
+  _ONGLETS: [['activite', 'Activité'], ['ventes', 'Ventes'], ['portefeuille', 'Portefeuille'], ['objectifs', 'Objectifs'], ['historique', 'Historique']],
 
   // Objectifs de fin d'année : contacts renseignés (31/12/2026), entonnoir Empower et paliers (séminaire).
   _jaugesObjectifs(manager, part) {
@@ -412,7 +412,7 @@ window.VuePilotage = {
       const g = fGlob ? this._graphiques(fGlob) : { activite: '', ventes: '', portefeuille: '', objectifs: '' };
       const kr = kpisReste.length ? `<div class="pilo-kpis">${kpisReste.map(k => this._kpiHtml(k)).join('')}</div>` : '';
       const equipeBloc = manager ? `<section class="pilo-panneau" aria-label="Synthèse d'équipe"><div class="pilo-panneau-t"><div><span class="pilo-eyebrow">Synthèse d’équipe</span><h3>Charge et points d’attention</h3></div></div>${this._equipe(d)}</section>` : '';
-      const contenu = { trajectoire: onglet === 'trajectoire' ? this._cockpit(d) : '', activite: kr + g.activite, ventes: g.ventes, portefeuille: this._jaugesObjectifs(manager, 'entonnoir') + g.portefeuille, objectifs: this._jaugesObjectifs(manager, 'contacts') + g.objectifs }[onglet];
+      const contenu = { trajectoire: onglet === 'trajectoire' ? this._cockpit(d) : '', activite: kr + g.activite, ventes: g.ventes, portefeuille: this._jaugesObjectifs(manager, 'entonnoir') + g.portefeuille, objectifs: this._jaugesObjectifs(manager, 'contacts') + g.objectifs, historique: onglet === 'historique' && window.PilotageHistorique ? PilotageHistorique.html() : '' }[onglet];
       corps = `
       <div class="pilo-contexte">
         <nav class="pilo-ariane" aria-label="Fil d'Ariane"><span>Pilotage</span><i>›</i><strong>Synthèse</strong></nav>
@@ -439,7 +439,7 @@ window.VuePilotage = {
       <style>.pilo-filtres-glob{margin:0 0 12px}.pilo [role=tabpanel] .dash-filtres-camembert,.pilo [role=tabpanel] .dash-camembert-actif-pin{display:none}.pilo-onglets{display:flex;gap:6px;overflow-x:auto;margin:18px 0 12px;padding-bottom:2px;scrollbar-width:none}.pilo-onglets::-webkit-scrollbar{display:none}
         .pilo-onglets button{flex:0 0 auto;padding:9px 16px;border:0;border-radius:999px;background:var(--c-surface-2,rgba(52,63,72,.07));color:inherit;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
         .pilo-onglets button[aria-selected=true]{background:#343F48;color:#fff}.pilo-onglets .pilo-onglet-n{margin-left:6px;opacity:.7;font-weight:500}</style>
-      ${fGlob && onglet !== 'trajectoire' ? this._barreFiltres(fGlob) : ''}
+      ${fGlob && onglet !== 'trajectoire' && onglet !== 'historique' ? this._barreFiltres(fGlob) : ''}
       <div class="pilo-onglets" role="tablist" aria-label="Thèmes du pilotage">${onglets.map(([k, l]) => `<button role="tab" aria-selected="${k === onglet}" onclick="VuePilotage.setOnglet('${k}')">${l}</button>`).join('')}</div>
       <div role="tabpanel">${contenu}</div>`;
     }
