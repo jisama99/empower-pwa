@@ -299,12 +299,13 @@ window.VueTerritoires = {
     if (s.com) pins = [Number(s.com)];
     else { const set = new Set(); deps.forEach(c => this._pinsDep(c).forEach(p => set.add(Number(p)))); pins = [...set]; }
     pins = pins.filter(p => EquipeContacts.parPin(p)).sort((a, b) => a - b);
-    const alex = (Session.estChannel() || Session.estExterne() || s.avecLeads) ? EquipeContacts.PERSONNES.find(x => x.pin == null) : null;
-    if (!pins.length && !alex) return '';
+    // Alexandra (source les leads) n'accompagne que les périmètres qui ont un commercial attribué ; sinon : « À attribuer ».
+    const alex = pins.length && (Session.estChannel() || Session.estExterne() || s.avecLeads) ? EquipeContacts.PERSONNES.find(x => x.pin == null) : null;
+    if (!pins.length && !s.dep) return '';
     const lieu = s.dep ? s.dep : s.reg ? this.REG[s.reg] : 'France';
     return `<section class="terr-panneau" aria-label="Cartes de visite"><div class="terr-eyebrow">Commercial${pins.length > 1 ? 'aux' : ''} · ${this._esc(lieu)}</div>
       ${pins.map(p => EquipeContacts.carteDuCommercial(p)).join('')}${alex ? EquipeContacts.carte(alex) : ''}
-      ${pins.length ? '' : '<p class="terr-sub">Aucun commercial attribué dans ce périmètre.</p>'}</section>`;
+      ${pins.length ? '' : '<p class="terr-sub">À attribuer : aucun chef de secteur sur ce périmètre.</p>'}</section>`;
   },
 
   _secteur() {
@@ -314,19 +315,26 @@ window.VueTerritoires = {
     const liste = (window.VueFicheCompte ? VueFicheCompte.CDS_ASSIGNABLES : []);
     const d = window.FR.deps.find(x => x.c === s.dep);
     return `<section class="terr-panneau" aria-label="Secteur du département"><div class="terr-eyebrow">Secteur · ${s.dep} ${this._esc(d ? d.n : '')}</div>
-      <h2>${pins.length ? pins.map(p => this._esc(window.resolveCDS(p))).join(' et ') : 'Aucun commercial attribué'}</h2>
+      <h2>${pins.length ? pins.map(p => this._esc(window.resolveCDS(p))).join(' et ') : 'À attribuer'}</h2>
+      ${pins.length ? '' : '<p class="terr-sub">Département sans chef de secteur' + (edit ? ' : choisissez-le ci-dessous (historisé).' : '.') + '</p>'}
       ${pins.length > 1 ? '<p class="terr-sub">Département partagé : les leads restent à attribuer manuellement.</p>' : ''}
-      ${edit && lignes.length ? `<label class="terr-sub" style="display:block;margin-top:8px">Réaffecter ${lignes.length > 1 ? 'le principal' : 'ce département'} (historisé)
+      ${edit ? `<label class="terr-sub" style="display:block;margin-top:8px">${!lignes.length ? 'Attribuer ce département' : 'Réaffecter ' + (lignes.length > 1 ? 'le principal' : 'ce département')} (historisé)
         <select id="terr-realloc" style="margin-top:4px;width:100%"><option value="">Choisir un commercial…</option>${liste.map(x => `<option value="${x.pin}">${this._esc(x.nom)}</option>`).join('')}</select></label>` : ''}
       </section>`;
   },
 
   async _reaffecter(pin) {
-    const s = this.state, ligne = s.secteurs.find(x => x.code === s.dep); if (!ligne || !pin) return;
-    const avant = ligne.pin_cds;
-    const { error } = await SheetsAPI._sb.from('secteurs_cp').update({ pin_cds: Number(pin), maj_par: Number(Session.pin), updated_at: new Date().toISOString() }).eq('id', ligne.id);
-    if (error) { Toast.afficher('Modification refusée : ' + error.message, 'erreur'); return; }
-    ligne.pin_cds = Number(pin);
+    const s = this.state, ligne = s.secteurs.find(x => x.code === s.dep); if (!s.dep || !pin) return;
+    let avant = ligne ? ligne.pin_cds : null;
+    if (ligne) {
+      const { error } = await SheetsAPI._sb.from('secteurs_cp').update({ pin_cds: Number(pin), maj_par: Number(Session.pin), updated_at: new Date().toISOString() }).eq('id', ligne.id);
+      if (error) { Toast.afficher('Modification refusée : ' + error.message, 'erreur'); return; }
+      ligne.pin_cds = Number(pin);
+    } else {   // département à attribuer : première attribution = nouvelle ligne de secteur
+      const { data, error } = await SheetsAPI._sb.from('secteurs_cp').insert({ portee: 'DEPARTEMENT', code: s.dep, pin_cds: Number(pin), statut: 'ACTIF', partage: false, note: 'Attribué depuis Territoires', maj_par: Number(Session.pin) }).select();
+      if (error) { Toast.afficher('Attribution refusée : ' + error.message, 'erreur'); return; }
+      s.secteurs.push((data && data[0]) || { portee: 'DEPARTEMENT', code: s.dep, pin_cds: Number(pin), statut: 'ACTIF' });
+    }
     if (window.AdminSecteurs && AdminSecteurs._tracer) AdminSecteurs._tracer(`DEPARTEMENT ${s.dep} : ${avant ?? 'aucun'} → ${pin} (carte)`);
     Toast.afficher(`Département ${s.dep} réaffecté à ${window.resolveCDS(pin)}`, 'succes');
     this.render();

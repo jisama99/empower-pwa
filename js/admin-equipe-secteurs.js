@@ -50,7 +50,7 @@ window.EquipeContacts = {
 window.AdminSecteurs = {
   state: { lignes: null, log: null, chargement: false, filtre: '', message: '' },
 
-  peutEditer() { return Session.estManager() || Session.estChannel(); },
+  peutEditer() { return Session.estManager() || Session.estChannel() || Session.estExterne(); },
 
   nbDepartements(pin) {
     if (pin == null || !this.state.lignes) return null;
