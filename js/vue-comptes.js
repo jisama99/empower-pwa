@@ -172,7 +172,7 @@ window.VueComptes = {
     this.render();
     try {
       const [raw, objectifs, cdsApi, visites, appels, params, vuesFiltres] = await Promise.all([
-        SheetsAPI.lire('EMPOWER_MDB', 'COMPTES'),
+        SheetsAPI.lire('EMPOWER_MDB', 'COMPTES', { nocache: true }),   // CA à jour : jamais le cache de 30 min
         SheetsAPI.lire('EMPOWER_MDB', 'OBJECTIFS_PRIMES'),
         SheetsAPI.lireCDS(), // V5 BUG1 — liste CDS dynamique (inclut Alexandra)
         SheetsAPI.lire('EMPOWER_MDB', 'VISITES').catch(() => []),
@@ -222,8 +222,8 @@ window.VueComptes = {
   _statutCompte(c) {
     const stocke = window.statutStockeVersBadge ? window.statutStockeVersBadge(c) : null;
     if (stocke) return stocke;
-    const qActif = window.caQuarterActif(c, this.state.quarter);
-    if (qActif !== null && qActif > 0) return 'actif';
+    const fy27Cumul = window.caFY27Cumul(c);
+    if (fy27Cumul !== null && fy27Cumul > 0) return 'actif';
     const fy26 = window.parseCA(c.CA_FY26);
     if (fy26 !== null && fy26 > 0) return 'a_reactiver';
     return 'silencieux';
@@ -673,7 +673,7 @@ window.VueComptes = {
               <span class="cc-sec">${badgeDernierAppel}</span>
               <span class="cc-sec">${this._badgePriorite(c.Priorite)}</span>
               <span class="cc-sec" style="margin-left:auto;font-size:12px;color:var(--c-muted)">FY26 ${caFY26}</span>
-              <span class="cc-ca" style="font-size:13px;font-weight:700;color:var(--c-title)">FY27 ${this.state.quarter} ${caQ1 !== 'n.c.' ? caQ1 : 'n.c.'}</span>
+              <span class="cc-ca" style="font-size:13px;font-weight:700;color:var(--c-title)" title="${(window.caFY27Detail(c) || []).map(x => x[0] + ' ' + window.fmtCA(x[1]) + ' €').join(' · ')}">FY27 ${window.caFY27Cumul(c) !== null ? window.fmtCA(window.caFY27Cumul(c)) : 'n.c.'} <span style="font-weight:400;font-size:11px;color:var(--c-muted)">${this.state.quarter} ${caQ1 !== 'n.c.' ? caQ1 : 'n.c.'}</span></span>
             </div>
             <div class="cc-nom" onclick="VueComptes.ouvrirFiche('${c.ID_Compte}')">${c.Nom_Compte || 'n.c.'}</div>
             <div class="cc-infos" onclick="VueComptes.ouvrirFiche('${c.ID_Compte}')">
@@ -736,14 +736,13 @@ window.VueComptes = {
                 const dteDA = this._dernierContact(c) || '';
                 const joursDA = dteDA ? Math.max(0, Math.floor((Date.now() - new Date(dteDA).getTime()) / 86400000)) : null;
                 const rowStyle = (joursDA !== null && joursDA > 45) ? 'border-left:3px solid var(--c-danger);background:rgba(217,48,37,.04)' : '';
-                // Delta % — quarter actif annualisé (×4) vs CA FY26, coloré vert/rouge (Bloc 4)
-                const fy26Num = window.parseCA(c.CA_FY26);
-                const q1Num   = window.caQuarterActif(c, this.state.quarter);
+                // Delta % : trimestres FY27 complets contre les mêmes trimestres de FY26 (le trimestre en cours, partiel, n'est pas annualisé)
                 let deltaHtml = '';
-                if (fy26Num && q1Num !== null) {
-                  const delta = Math.round(((q1Num * 4) - fy26Num) / fy26Num * 100);
+                const pe = window.caPeriodeEgale(c, this.state.quarter);
+                if (pe && pe.fy26 > 0) {
+                  const delta = Math.round((pe.fy27 - pe.fy26) / pe.fy26 * 100);
                   const coul = delta >= 0 ? 'var(--c-success)' : 'var(--c-danger)';
-                  deltaHtml = `<br><span style="font-size:10px;font-weight:700;color:${coul}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)}% (annualisé)</span>`;
+                  deltaHtml = `<br><span style="font-size:10px;font-weight:700;color:${coul}" title="FY27 ${pe.trimestres} contre FY26 ${pe.trimestres}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)}% (${pe.trimestres} vs FY26)</span>`;
                 }
                 const estDoublonRow = doublons.has(normaliserNom(c.Nom_Compte || ''));
                 return `<tr style="${rowStyle}">

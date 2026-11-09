@@ -81,8 +81,8 @@ window.VueFicheCompte = {
     this.state.suppressionEnCours = false;
     await NonSuivis.charger();   // Lot 3 — état « non suivi » (vue SQL)
     const [comptes, rawV17, visites, appels, params, sellinSem] = await Promise.all([
-      SheetsAPI.lire('EMPOWER_MDB', 'COMPTES'),
-      SheetsAPI.lire('V17', 'COMPTES_HISTORIQUES'),
+      SheetsAPI.lire('EMPOWER_MDB', 'COMPTES', { nocache: true }),   // CA à jour : jamais le cache de 30 min
+      SheetsAPI.lire('V17', 'COMPTES_HISTORIQUES', { nocache: true }),
       SheetsAPI.lire('EMPOWER_MDB', 'VISITES'),
       SheetsAPI.lire('EMPOWER_MDB', 'PHONING'),
       SheetsAPI.lire('EMPOWER_MDB', 'PARAMS').catch(() => []),
@@ -103,7 +103,8 @@ window.VueFicheCompte = {
     this.state.compte  = compte;
     this.state.sellinSemaines = SellInFlag.dernieres(sellinSem, compte._uuid);
     this.state.historiqueAttrib = await NonSuivis.historique(compte._uuid);
-    this.state.v17     = rawV17.find(r => normaliserNom(r.RESELLER) === nomNorm) || null;
+    // Rapprochement Sell-In : identifiant du compte d'abord (alias de nom), nom normalisé ensuite
+    this.state.v17     = rawV17.find(r => r.Compte_ID && String(r.Compte_ID) === String(compte._uuid)) || rawV17.find(r => normaliserNom(r.RESELLER) === nomNorm) || null;
     this.state.visites = visites.filter(v => String(v.ID_Cible) === String(idCompte))
       .sort((a, b) => new Date(b.Date) - new Date(a.Date));
     // Fournisseur de leads (EXTERNE) : aucune visite terrain visible sur la fiche
@@ -542,10 +543,14 @@ window.VueFicheCompte = {
           ${Session.estExterne() ? '' : `<div class="id-ligne"><span>Prochaine visite</span><strong>${this._dateLigne(this._prochaineVisitePlanifiee())}</strong></div>`}
           <div class="id-ligne"><span>CA FY25</span><strong>${window.fmtCA(this.state.v17?.['CA FY25 €'] ?? c.CA_FY25)} €</strong></div>
           <div class="id-ligne"><span>CA FY26</span><strong>${window.fmtCA(this.state.v17?.['CA FY26 €'] ?? c.CA_FY26)} €</strong></div>
-          <div class="id-ligne"><span>Dernier Q (${this.state.quarter}·27)</span><strong>${(() => {
-            const v = window.caQuarterActif(this.state.v17, this.state.quarter, 'sellin') ?? window.caQuarterActif(c, this.state.quarter);
+          <div class="id-ligne"><span>CA FY27 (cumul)</span><strong>${(() => {
+            const v = window.caFY27Cumul(this.state.v17, 'sellin') ?? window.caFY27Cumul(c);
             return v !== null ? window.fmtCA(v) : 'n.c.';
           })()} €</strong></div>
+          <div class="id-ligne"><span>Détail FY27</span><strong>${(() => {
+            const d = this.state.v17 ? window.caFY27Detail(this.state.v17, 'sellin') : window.caFY27Detail(c);
+            return d.length ? d.map(x => `${x[0]} ${window.fmtCA(x[1])} €`).join(' · ') : 'n.c.';
+          })()}</strong></div>
           <div class="id-ligne"><span>Potentiel</span><strong>${c.POTENTIEL || this.state.v17?.POTENTIEL_UPSELL || 'n.c.'}</strong></div>
           ${this.state.v17?.GROSSISTE_PRINCIPAL ? `<div class="id-ligne"><span>Grossiste</span><strong>${this.state.v17.GROSSISTE_PRINCIPAL}</strong></div>` : ''}
         </div>
@@ -621,7 +626,8 @@ window.VueFicheCompte = {
     if (this.state.ongletId !== c.ID_Compte) { this.state.ongletId = c.ID_Compte; this.state.onglet = 'resume'; }
     const fy25 = window.parseCA(v17?.['CA FY25 €'] ?? c.CA_FY25) ?? 0;
     const fy26 = window.parseCA(v17?.['CA FY26 €'] ?? c.CA_FY26) ?? 0;
-    const fy27 = (window.caQuarterActif(v17, this.state.quarter, 'sellin') ?? window.caQuarterActif(c, this.state.quarter)) ?? 0;
+    const fy27 = (window.caFY27Cumul(v17, 'sellin') ?? window.caFY27Cumul(c)) ?? 0;
+    const det27 = v17 ? window.caFY27Detail(v17, 'sellin') : window.caFY27Detail(c);
     const maxCA = Math.max(fy25, fy26, fy27, 1);
     const dernier = [this._dernierVisiteRealisee && this._dernierVisiteRealisee(), (this.state.appels[0] || {}).Date].filter(Boolean).map(d => String(d.Date || d).slice(0, 10)).sort().pop() || c.Date_Derniere_Action || null;
     const o = this.state.onglet, nbAct = this.state.visites.length + this.state.appels.length;
@@ -638,7 +644,7 @@ window.VueFicheCompte = {
           ${c.Note_initiale ? `<div class="pa-note">${c.Note_initiale}</div>` : ''}</div>` : '<div class="pas-de-donnees">Aucune action planifiée</div>'}</div>`;
     const chiffres = `<div class="bloc-fiche"><div class="bloc-titre">CA Historique</div>
         ${!v17 ? '<div class="pas-de-v17">Pas de correspondance V17, données MDB</div>' : ''}
-        <div class="graphique-ca">${this._barreCA('FY25', fy25, maxCA)}${this._barreCA('FY26', fy26, maxCA)}${this._barreCA(this.state.quarter + '·27', fy27, maxCA)}</div>
+        <div class="graphique-ca">${this._barreCA('FY25', fy25, maxCA)}${this._barreCA('FY26', fy26, maxCA)}${this._barreCA('FY27 cumul', fy27, maxCA)}${det27.map(x => this._barreCA(x[0] + '·27', x[1], maxCA)).join('')}</div>
         ${v17 ? `<div class="grille-identite" style="margin-top:12px">
           <div class="id-ligne"><span>Évolution FY26 vs FY25</span><strong>${(() => { const ev = window.parseCA(v17['EVOL_FY26_VS_FY25_%']); return ev !== null ? ev + ' %' : (v17['EVOL_FY26_VS_FY25_%'] ? String(v17['EVOL_FY26_VS_FY25_%']) : 'n.c.'); })()}</strong></div>
           <div class="id-ligne"><span>Potentiel upsell</span><strong>${v17.POTENTIEL_UPSELL || 'n.c.'}</strong></div>

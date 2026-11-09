@@ -191,6 +191,8 @@ const SheetsAPI = {
       canal: 'CANAL', mode_contact: 'MODE_CONTACT', secteur: 'SECTEUR', has_empower: 'Has_EMPOWER',
       flag_action: 'Flag_Action', priorite: 'Priorite', statut_compte: 'Statut',
       ca_fy25: 'CA_FY25', ca_fy26: 'CA_FY26', ca_q1fy27: 'CA_Q1FY27',
+      // CA FY26 par trimestre (comparaison à période égale avec FY27)
+      ca_q1fy26: 'CA_Q1FY26', ca_q2fy26: 'CA_Q2FY26', ca_q3fy26: 'CA_Q3FY26', ca_q4fy26: 'CA_Q4FY26',
       // BLOC 04 §3/§5 (09/2026) — colonnes migrées côté sync-sellin v11,
       // jamais exposées côté frontend jusqu'ici.
       ca_q2fy27: 'CA_Q2FY27', ca_q3fy27: 'CA_Q3FY27', ca_q4fy27: 'CA_Q4FY27',

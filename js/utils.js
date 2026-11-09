@@ -1259,6 +1259,35 @@ window.Topbar = Topbar;
     return ['Q1', 'Q2', 'Q3', 'Q4'].reduce((s, q) => s + (parseCA(c[`CA_${q}FY27`]) || 0), 0);
   }
 
+  // Suivi du CA (11/2026) : cumul FY27 (Q1 à Q4) depuis un compte (forme « comptes ») ou une ligne sellin_agregats (forme « sellin »).
+  function caFY27Cumul(obj, forme) {
+    if (!obj) return null;
+    let total = 0, vu = false;
+    for (const q of ['Q1', 'Q2', 'Q3', 'Q4']) {
+      const v = parseCA(obj[forme === 'sellin' ? `CA ${q}FY27 €` : `CA_${q}FY27`]);
+      if (v !== null) { total += v; vu = true; }
+    }
+    return vu ? total : null;
+  }
+  // Détail par trimestre FY27 : [['Q1', 1234], ['Q2', 0], ...] (valeurs absentes ignorées).
+  function caFY27Detail(obj, forme) {
+    return ['Q1', 'Q2', 'Q3', 'Q4'].map(q => [q, obj ? parseCA(obj[forme === 'sellin' ? `CA ${q}FY27 €` : `CA_${q}FY27`]) : null]).filter(x => x[1] !== null);
+  }
+  // Comparaison à période égale : trimestres FY27 complets (avant le trimestre actif) contre les mêmes trimestres de FY26.
+  function caPeriodeEgale(c, quarterActif) {
+    const n = /^Q([1-4])$/.test(quarterActif) ? Number(quarterActif[1]) : 1;
+    if (n < 2 || !c) return null;
+    let fy27 = 0, fy26 = 0, ok26 = false;
+    for (let i = 1; i < n; i++) {
+      fy27 += parseCA(c[`CA_Q${i}FY27`]) || 0;
+      const v = parseCA(c[`CA_Q${i}FY26`]); if (v !== null) { fy26 += v; ok26 = true; }
+    }
+    return ok26 ? { fy27, fy26, trimestres: n === 2 ? 'Q1' : `Q1 à Q${n - 1}` } : null;
+  }
+
+  window.caFY27Cumul = caFY27Cumul;
+  window.caFY27Detail = caFY27Detail;
+  window.caPeriodeEgale = caPeriodeEgale;
   window.parseCA = parseCA;
   window.fmtCA   = fmtCA;
   window.caQuarterActifCle = caQuarterActifCle;
