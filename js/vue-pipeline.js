@@ -913,6 +913,11 @@ window.VuePipeline = {
         <button onclick="Router.retour()" class="btn-retour">←</button>
         <h1>EMPOWER TRACKER</h1>
         <span class="badge-compteur" id="tracker-compteur-header">${leads.length} leads</span>
+        ${(Session.estManager() || Session.estChannel() || Session.estExterne()) ? `
+        <span style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn-secondaire tracker-export-inline" style="width:auto;padding:6px 12px;font-size:12px" onclick="TrackerExcel.ouvrir('export')">Exporter Excel</button>
+          <button class="btn-secondaire tracker-export-inline" style="width:auto;padding:6px 12px;font-size:12px" onclick="TrackerExcel.ouvrir('import')">Importer Excel</button>
+        </span>` : ''}
       </header>
 
       <!-- Toggle Kanban / Table — tabs premium -->
@@ -1179,9 +1184,6 @@ window.VuePipeline = {
     return `
       <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:12px 12px 0;position:relative">
         <span style="font-size:12px;color:var(--c-text-2)">${leads.length} lead(s)</span>
-        ${(Session.estManager() || Session.estChannel() || Session.estExterne()) ? `
-        <button class="btn-secondaire tracker-export-inline" style="width:auto;padding:6px 12px;font-size:12px" onclick="TrackerExcel.ouvrir('export')">Exporter Excel</button>
-        <button class="btn-secondaire tracker-export-inline" style="width:auto;padding:6px 12px;font-size:12px" onclick="TrackerExcel.ouvrir('import')">Importer Excel</button>` : ''}
         <button class="btn-secondaire" style="width:auto;padding:6px 12px;font-size:12px" onclick="VuePipeline.ouvrirColonnesMenu()">Colonnes</button>
         ${this.state.colonnesMenuOuvert ? `
         <div style="position:absolute;top:100%;right:0;z-index:50;margin-top:4px;padding:10px;background:var(--bg-warm-white);border:1.5px solid var(--c-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-modal);min-width:180px">
