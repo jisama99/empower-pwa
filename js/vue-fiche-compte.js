@@ -17,6 +17,7 @@ window.VueFicheCompte = {
   state: {
     compte: null, v17: null, visites: [], appels: [], chargement: true,
     editCoord: false, onglet: 'resume', ongletId: null,
+    notes: [], noteTexte: '', noteType: 'NOTE', noteEnCours: false,
     formCoord: { adresse: '', ville: '', code_postal: '', departement: '', tel: '', email: '', contact_nom: '', contact_fonction: '', site_web: '' },
     sauvegardeEnCours: false,
     modalRapportPhoning: false,
@@ -113,7 +114,50 @@ window.VueFicheCompte = {
     // vrai appel : exclue de "Appels (N)"/dernier appel (cf. estAppelRealise).
     this.state.appels  = appels.filter(a => String(a.ID_Cible) === String(idCompte) && estAppelRealise(a))
       .sort((a, b) => new Date(b.Date) - new Date(a.Date));
+    // Notes du compte (journal) : jamais bloquant, la fiche s'affiche même si la table est indisponible
+    this.state.notes = [];
+    this.state.noteTexte = '';
+    try {
+      const { data } = await SheetsAPI._sb.from('comptes_notes').select('*').eq('compte_id', compte._uuid).order('created_at', { ascending: false }).limit(200);
+      this.state.notes = data || [];
+    } catch (e) { /* notes indisponibles */ }
     this.state.chargement = false;
+  },
+
+  async ajouterNote() {
+    const c = this.state.compte, st = this.state;
+    const texte = String(st.noteTexte || '').trim();
+    if (!c || st.noteEnCours) return;
+    if (!texte) { Toast.afficher('Saisissez une note', 'erreur'); return; }
+    st.noteEnCours = true; this._rerender();
+    try {
+      const { data, error } = await SheetsAPI._sb.rpc('compte_note_ajouter', { p_compte: c._uuid, p_texte: texte, p_type: st.noteType });
+      if (error) throw new Error(error.message);
+      if (!data || data.ok !== true) throw new Error((data && data.erreur) || 'Note non enregistrée');
+      const r = await SheetsAPI._sb.from('comptes_notes').select('*').eq('compte_id', c._uuid).order('created_at', { ascending: false }).limit(200);
+      st.notes = (r && r.data) || st.notes;
+      st.noteTexte = ''; st.noteType = 'NOTE';
+      Toast.afficher('Note ajoutée, les commerciaux concernés sont prévenus', 'succes');
+    } catch (e) {
+      Toast.afficher('' + e.message, 'erreur');
+    }
+    st.noteEnCours = false; this._rerender();
+  },
+
+  _renderNotes() {
+    const st = this.state;
+    const dateFr = d => { const x = new Date(d); return isNaN(x) ? '' : x.toLocaleDateString('fr-FR') + ' ' + x.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
+    const roles = { ADMIN: 'Admin', CHANNEL_MANAGER: 'Channel', CDS: 'Commercial', EXTERNE: 'Externe' };
+    const liste = st.notes.length
+      ? st.notes.map(n => `<div class="carte-visite">
+          <div class="visite-date">${this._h(dateFr(n.created_at))} · ${this._h(n.auteur_nom || 'Inconnu')}${n.auteur_role ? ` (${this._h(roles[n.auteur_role] || n.auteur_role)})` : ''}${n.type === 'MAJ_INFOS' ? ' · <strong>Mise à jour des infos</strong>' : ''}</div>
+          <div style="font-size:13.5px;line-height:1.5;white-space:pre-line">${this._h(n.texte)}</div></div>`).join('')
+      : '<div class="vide-liste">Aucune note sur ce compte</div>';
+    return `<div class="bloc-fiche"><div class="bloc-titre">Ajouter une note</div>
+        <textarea maxlength="2000" rows="3" placeholder="Note, ou précision sur une mise à jour des infos du compte…" style="width:100%;box-sizing:border-box" oninput="VueFicheCompte.state.noteTexte=this.value">${this._h(st.noteTexte)}</textarea>
+        <label style="display:flex;flex-direction:row;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer"><input style="margin:0;width:auto;flex:none" type="checkbox" ${st.noteType === 'MAJ_INFOS' ? 'checked' : ''} onchange="VueFicheCompte.state.noteType=this.checked?'MAJ_INFOS':'NOTE'"/> Concerne une mise à jour des infos du compte</label>
+        <button class="btn-primaire" style="width:auto" ${st.noteEnCours ? 'disabled' : ''} onclick="VueFicheCompte.ajouterNote()">${st.noteEnCours ? 'Envoi...' : 'Enregistrer et prévenir les commerciaux'}</button></div>
+      <div class="bloc-fiche"><div class="bloc-titre">Notes (${st.notes.length})</div>${liste}</div>`;
   },
 
   // Rend la fiche via le bon conteneur selon le contexte d'ouverture : panneau
@@ -631,7 +675,7 @@ window.VueFicheCompte = {
     const maxCA = Math.max(fy25, fy26, fy27, 1);
     const dernier = [this._dernierVisiteRealisee && this._dernierVisiteRealisee(), (this.state.appels[0] || {}).Date].filter(Boolean).map(d => String(d.Date || d).slice(0, 10)).sort().pop() || c.Date_Derniere_Action || null;
     const o = this.state.onglet, nbAct = this.state.visites.length + this.state.appels.length;
-    const onglets = [['resume', 'Résumé'], ['contact', 'Contact et localisation'], ['activite', `Activité (${nbAct})`], ['chiffres', 'Chiffres']];
+    const onglets = [['resume', 'Résumé'], ['contact', 'Contact et localisation'], ['activite', `Activité (${nbAct})`], ['notes', `Notes (${this.state.notes.length})`], ['chiffres', 'Chiffres']];
 
     const resume = `${this._renderChecklist(c)}
       ${window.EquipeContacts ? EquipeContacts.carteDuCommercial(c.PIN_CDS_Assigne) : ''}
@@ -650,7 +694,7 @@ window.VueFicheCompte = {
           <div class="id-ligne"><span>Potentiel upsell</span><strong>${v17.POTENTIEL_UPSELL || 'n.c.'}</strong></div>
           <div class="id-ligne"><span>Score potentiel</span><strong>${v17.SCORE_POTENTIEL != null && v17.SCORE_POTENTIEL !== '' ? String(v17.SCORE_POTENTIEL) + '/100' : 'n.c.'}</strong></div></div>` : ''}</div>`;
     const activite = `<div class="bloc-fiche"><div class="bloc-titre">Activité (${nbAct})</div>${this._renderActiviteUnifiee()}</div>`;
-    const corps = { resume, contact: this._renderBlocIdentite(c), activite, chiffres }[o] || resume;
+    const corps = { resume, contact: this._renderBlocIdentite(c), activite, notes: this._renderNotes(), chiffres }[o] || resume;
 
     return `${this._renderHero(c, fy26, dernier)}
       <div class="cs-onglets" role="tablist">${onglets.map(([k, l]) => `<button role="tab" aria-selected="${o === k}" onclick="VueFicheCompte.setOnglet('${k}')">${l}</button>`).join('')}</div>
