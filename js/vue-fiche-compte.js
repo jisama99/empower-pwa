@@ -226,11 +226,27 @@ window.VueFicheCompte = {
     this.state.sauvegardeEnCours = true;
     this._rerender();
     try {
+      // Changements réels (avant/après), pour la note automatique de l'Externe
+      const libelles = { Adresse: 'Adresse', Ville: 'Ville', Code_Postal: 'Code postal', Departement: 'Département', Tel: 'Téléphone', Email: 'E-mail', Contact_Nom: 'Contact', Contact_Fonction: 'Fonction', Site_Web: 'Site web' };
+      const coupe = v => { const t = String(v == null ? '' : v).trim(); return t ? (t.length > 80 ? t.slice(0, 80) + '…' : t) : 'vide'; };
+      const changements = Object.keys(champs)
+        .filter(k => String(c[k] == null ? '' : c[k]).trim() !== String(champs[k] == null ? '' : champs[k]).trim())
+        .map(k => `${libelles[k] || k} : ${coupe(c[k])} → ${coupe(champs[k])}`);
       await SheetsAPI.mettreAJour('EMPOWER_MDB', 'COMPTES', c.ID_Compte, champs);
       // Update local state
       Object.assign(this.state.compte, champs);
       this.state.editCoord = false;
       Toast.afficher('Coordonnées mises à jour', 'succes');
+      // Externe : une note « mise à jour des infos » est ajoutée seule et prévient commercial, channel et admin
+      if (Session.estExterne() && changements.length) {
+        try {
+          const { data } = await SheetsAPI._sb.rpc('compte_note_ajouter', { p_compte: c._uuid, p_texte: ('Infos mises à jour — ' + changements.join(' ; ')).slice(0, 2000), p_type: 'MAJ_INFOS' });
+          if (data && data.ok) {
+            const r = await SheetsAPI._sb.from('comptes_notes').select('*').eq('compte_id', c._uuid).order('created_at', { ascending: false }).limit(200);
+            this.state.notes = (r && r.data) || this.state.notes;
+          }
+        } catch (e) { /* note automatique non bloquante : la mise à jour est déjà enregistrée */ }
+      }
     } catch(e) {
       Toast.afficher('' + e.message, 'erreur');
     }
@@ -280,6 +296,14 @@ window.VueFicheCompte = {
       await SheetsAPI.mettreAJour('EMPOWER_MDB', 'COMPTES', idCompte, champs);
       Object.assign(this.state.compte, champs);
       Toast.afficher(devenirEmpower ? 'Compte marqué EMPOWER' : 'Compte repassé Grossiste', 'succes');
+      // Externe : le passage en Empower est tracé par une note, qui prévient commercial, channel et admin
+      if (Session.estExterne() && devenirEmpower) {
+        try {
+          await SheetsAPI._sb.rpc('compte_note_ajouter', { p_compte: this.state.compte._uuid, p_texte: 'Compte passé Empower par ' + (Session.nom || 'l\'Externe') + '.', p_type: 'NOTE' });
+          const r = await SheetsAPI._sb.from('comptes_notes').select('*').eq('compte_id', this.state.compte._uuid).order('created_at', { ascending: false }).limit(200);
+          this.state.notes = (r && r.data) || this.state.notes;
+        } catch (e) { /* note automatique non bloquante */ }
+      }
     } catch(e) {
       Toast.afficher('' + e.message, 'erreur');
     }
@@ -576,7 +600,7 @@ window.VueFicheCompte = {
           <div class="id-ligne"><span>EMPOWER${c.Date_Onboarding_Empower ? ` <span style="font-weight:400;color:var(--c-text-2)">· depuis le ${new Date(c.Date_Onboarding_Empower).toLocaleDateString('fr-FR')}</span>` : ''}</span>
             <span style="display:flex;align-items:center;gap:8px">
               <strong>${window.estEmpower(c) ? 'Oui' : 'Non'}</strong>
-              ${Session.estExterne() ? '' : `<button class="btn-lien" style="font-size:12px"
+              ${(Session.estExterne() && window.estEmpower(c)) ? '' : `<button class="btn-lien" style="font-size:12px"
                       onclick="VueFicheCompte.basculerEmpower('${c.ID_Compte}', ${window.estEmpower(c) ? 'false' : 'true'})"
                       ${this.state.empowerEnCours ? 'disabled' : ''}>
                 ${window.estEmpower(c) ? '↩︎ Repasser Grossiste' : 'Marquer Empower'}
