@@ -14,8 +14,8 @@ window.VueComptes = {
     filtreEmpower: 'TOUS', // TOUS | EMPOWER | GROSSISTE — dérivé de has_empower (cf. décisions Bloc 1 §6.4)
     filtreCDSPin: 'TOUS',  // BUG-06 : filtre Manager par CDS
     // Base comptes de l'Externe : activité selon l'année, présence au Tracker
-    filtreAnnee: 'FY27',        // FY25 | FY26 | FY27 : année de référence des commandes
-    filtreActivite: 'TOUS',     // TOUS | ACTIF (a commandé sur l'année) | NON_ACTIF (n'a pas commandé)
+    filtreAnnee: 'TOUS',        // FY25 | FY26 | FY27 : année de référence des commandes
+    filtreActivite: 'TOUS',     // Externe : TOUS | ACTIF (commande FY27) | A_REACTIVER (FY25/26 sans FY27) | SILENCIEUX (jamais)
     filtreTracker: 'TOUS',      // TOUS | OUI | NON
     trackerIds: new Set(), trackerNoms: new Set(), ajoutEnCours: null,
     triPar: 'PRIORITE', chargement: true,
@@ -176,7 +176,7 @@ window.VueComptes = {
     this.state.chargement = true;
     this.render();
     try {
-      const [raw, objectifs, cdsApi, visites, appels, params, vuesFiltres] = await Promise.all([
+      let [raw, objectifs, cdsApi, visites, appels, params, vuesFiltres] = await Promise.all([
         SheetsAPI.lire('EMPOWER_MDB', 'COMPTES', { nocache: true }),   // CA à jour : jamais le cache de 30 min
         SheetsAPI.lire('EMPOWER_MDB', 'OBJECTIFS_PRIMES'),
         SheetsAPI.lireCDS(), // V5 BUG1 — liste CDS dynamique (inclut Alexandra)
@@ -191,12 +191,15 @@ window.VueComptes = {
       const paramMap = Object.fromEntries((params || []).map(p => [p.Parametre, p.Valeur]));
       this.state.quarter = paramMap.QuarterActif || 'Q1';
       // BUG-06 : CDS ne voit que ses comptes dès l'ouverture
+      // Magasins Leclerc : masqués tant que le réglage Administration « Afficher les magasins Leclerc » est décoché.
+      const _pl = (params || []).find(x => x.Parametre === 'AFFICHER_LECLERC');
+      if (String(_pl && _pl.Valeur).toLowerCase() !== 'true') raw = raw.filter(c => !/leclerc/i.test(String(c.Nom_Compte || '')));
       this.state.comptes = raw.filter(c =>
         Session.voitTout() || Session.estExterne() || Number(c.PIN_CDS_Assigne) === Session.pin
       );
       // Lot 3 — le filtre « À reprendre » porte sur TOUS les comptes (un CDS reprend ceux des autres)
       this.state.tousComptes = raw;
-      if (Session.estExterne()) await this._chargerTracker();
+      await this._chargerTracker();
       await NonSuivis.charger();
       if (window.AContacter) await AContacter.charger();
       // Bloc 1 §6.2 — dates dernière visite / dernier appel / prochaine visite
@@ -225,15 +228,7 @@ window.VueComptes = {
   // stocké (mis à jour par un appel/visite ou la conversion Tracker) prime
   // sur le calcul CA, sinon un filtre "Silencieux"/KPI restait incohérent
   // avec le badge affiché sur la carte du même compte.
-  _statutCompte(c) {
-    const stocke = window.statutStockeVersBadge ? window.statutStockeVersBadge(c) : null;
-    if (stocke) return stocke;
-    const fy27Cumul = window.caFY27Cumul(c);
-    if (fy27Cumul !== null && fy27Cumul > 0) return 'actif';
-    const fy26 = window.parseCA(c.CA_FY26);
-    if (fy26 !== null && fy26 > 0) return 'a_reactiver';
-    return 'silencieux';
-  },
+  _statutCompte(c) { return window.getStatutCompte(c); },
 
   // ── Base comptes de l'Externe ──────────────────────────────────────
   ANNEES: ['FY25', 'FY26', 'FY27'],
@@ -242,6 +237,20 @@ window.VueComptes = {
     return window.parseCA(an === 'FY26' ? c.CA_FY26 : c.CA_FY25) ?? 0;
   },
   _aCommande(c, an) { return this._caAnnee(c, an) > 0; },
+  // Statut (tous profils) : règle unique fondée sur les commandes (indépendante du statut stocké).
+  _statutCommandes(c) { return ({ actif: 'ACTIF', a_reactiver: 'A_REACTIVER', silencieux: 'SILENCIEUX' })[window.getStatutCompte(c)]; },
+  _badgeStatutExterne(c) {
+    const m = { ACTIF: ['Actif', 'var(--c-success)'], A_REACTIVER: ['À réactiver', 'var(--c-warning)'], SILENCIEUX: ['Silencieux', 'var(--c-muted)'] };
+    const [lib, col] = m[this._statutCommandes(c)];
+    return `<span class="v7-statut" style="font-weight:700;color:${col}">${lib}</span>`;
+  },
+  // Téléphone + e-mail visibles directement sur la carte / la ligne (tous rôles).
+  _coordonnees(c) {
+    const tel = c.Tel ? String(c.Tel).trim() : '', mail = c.Email ? String(c.Email).trim() : '';
+    if (!tel && !mail) return `<div class="cc-coord cc-coord-vide">Téléphone et e-mail à renseigner</div>`;
+    const esc = t => String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    return `<div class="cc-coord">${tel ? `<a href="tel:${esc(tel.replace(/\s/g, ''))}" onclick="event.stopPropagation()">&#9990; ${esc(tel)}</a>` : ''}${mail ? `<a href="mailto:${esc(mail)}" onclick="event.stopPropagation()">&#9993; ${esc(mail)}</a>` : ''}</div>`;
+  },
   async _chargerTracker() {
     try {
       const leads = await SheetsAPI.lire('EMPOWER_MDB', 'LEADS', { nocache: true });
@@ -254,32 +263,38 @@ window.VueComptes = {
     return this.state.trackerIds.has(String(c.ID_Compte || '')) || this.state.trackerNoms.has(normaliserNom(c.Nom_Compte || ''));
   },
   _compteursExterne() {
-    const an = this.state.filtreAnnee, base = this.state.comptes;
+    const base = this.state.comptes;
     const gros = base.filter(c => !window.estEmpower(c));
+    const nb = st => base.filter(c => this._statutCommandes(c) === st).length;
     return {
       tous: base.length,
-      actifs: base.filter(c => this._aCommande(c, an)).length,
-      non: base.filter(c => !this._aCommande(c, an)).length,
+      actifs: nb('ACTIF'),
+      reactiver: nb('A_REACTIVER'),
+      silencieux: nb('SILENCIEUX'),
       convertir: gros.length,
-      convertirActifs: gros.filter(c => this._aCommande(c, an)).length,
+      convertirActifs: gros.filter(c => this._statutCommandes(c) === 'ACTIF').length,
       empower: base.length - gros.length,
       auTracker: base.filter(c => this._auTracker(c)).length,
     };
   },
-  setAnnee(a) { this.state.filtreAnnee = a; this.render(); },
+  setAnnee(a) { this.state.filtreAnnee = this.state.filtreAnnee === a ? 'TOUS' : a; this.render(); },
   setActivite(v) { this.state.filtreActivite = this.state.filtreActivite === v ? 'TOUS' : v; this.render(); },
   setTrackerFiltre(v) { this.state.filtreTracker = this.state.filtreTracker === v ? 'TOUS' : v; this.render(); },
   setEmpowerExterne(v) { this.state.filtreEmpower = this.state.filtreEmpower === v ? 'TOUS' : v; this.render(); },
   _renderBarreExterne() {
-    if (!Session.estExterne()) return '';
     const s = this.state, n = this._compteursExterne(), an = s.filtreAnnee;
     const chip = (lib, nb, on, fn) => `<button class="btn-filtre ${on ? 'actif' : ''}" onclick="${fn}">${lib}${nb != null ? ` (${nb})` : ''}</button>`;
-    return `<div class="barre-externe" style="display:flex;flex-direction:column;gap:8px;margin:8px 0">
+    return `<div class="barre-externe" style="display:flex;flex-direction:column;gap:8px;margin:8px 0;flex:1 1 100%;width:100%;box-sizing:border-box">
       <div class="filtres-flags" style="flex-wrap:wrap;align-items:center">
-        <strong style="font-size:12px;color:var(--c-text-2)">Commandes en</strong>
+        <strong style="font-size:12px;color:var(--c-text-2)">Statut</strong>
+        ${chip('Actifs', n.actifs, s.filtreActivite === 'ACTIF', "VueComptes.setActivite('ACTIF')")}
+        ${chip('À réactiver', n.reactiver, s.filtreActivite === 'A_REACTIVER', "VueComptes.setActivite('A_REACTIVER')")}
+        ${chip('Silencieux', n.silencieux, s.filtreActivite === 'SILENCIEUX', "VueComptes.setActivite('SILENCIEUX')")}
+      </div>
+      <div style="font-size:12px;color:var(--c-text-2)">Actif : a commandé en FY27. À réactiver : a commandé en FY25 ou FY26, pas en FY27. Silencieux : jamais commandé.</div>
+      <div class="filtres-flags" style="flex-wrap:wrap;align-items:center">
+        <strong style="font-size:12px;color:var(--c-text-2)">A commandé en</strong>
         ${this.ANNEES.map(a => `<button class="btn-filtre ${an === a ? 'actif' : ''}" onclick="VueComptes.setAnnee('${a}')">${a}</button>`).join('')}
-        ${chip('Ont commandé', n.actifs, s.filtreActivite === 'ACTIF', "VueComptes.setActivite('ACTIF')")}
-        ${chip('N\'ont pas commandé', n.non, s.filtreActivite === 'NON_ACTIF', "VueComptes.setActivite('NON_ACTIF')")}
       </div>
       <div class="filtres-flags" style="flex-wrap:wrap;align-items:center">
         ${chip('À convertir Empower', n.convertir, s.filtreEmpower === 'GROSSISTE', "VueComptes.setEmpowerExterne('GROSSISTE')")}
@@ -287,17 +302,16 @@ window.VueComptes = {
         ${chip('Déjà au Tracker', n.auTracker, s.filtreTracker === 'OUI', "VueComptes.setTrackerFiltre('OUI')")}
         ${chip('Pas au Tracker', n.tous - n.auTracker, s.filtreTracker === 'NON', "VueComptes.setTrackerFiltre('NON')")}
         ${chip('Fiche à compléter', null, s.filtreFiche === 'A_COMPLETER', "VueComptes.setFiltreFiche('A_COMPLETER')")}
-        <select onchange="VueComptes.setTri(this.value)" style="margin-left:auto">
+        ${Session.estExterne() ? `<select onchange="VueComptes.setTri(this.value)" style="margin-left:auto">
           <option value="CA" ${s.triPar === 'CA' ? 'selected' : ''}>CA FY27 ↓</option>
           <option value="NOM" ${s.triPar === 'NOM' ? 'selected' : ''}>Nom A→Z</option>
           <option value="PRIORITE" ${s.triPar === 'PRIORITE' ? 'selected' : ''}>Priorité</option>
-        </select>
+        </select>` : ''}
       </div>
-      <div style="font-size:12px;color:var(--c-text-2)">Parmi les ${n.convertir} grossistes, ${n.convertirActifs} ont commandé en ${an} : ce sont les premiers à convertir.</div>
+      <div style="font-size:12px;color:var(--c-text-2)">Parmi les ${n.convertir} grossistes, ${n.convertirActifs} sont actifs (FY27) : ce sont les premiers à convertir.</div>
     </div>`;
   },
   _badgesExterne(c) {
-    if (!Session.estExterne()) return '';
     const pill = an => { const v = this._caAnnee(c, an); return `<span class="v7-statut" style="font-size:11px;color:${v > 0 ? 'var(--c-success)' : 'var(--c-muted)'}" title="${an} : ${v > 0 ? window.fmtCA(v) + ' €' : 'aucune commande'}">${an} ${v > 0 ? '✓' : '–'}</span>`; };
     return `${this.ANNEES.map(pill).join('')}${this._auTracker(c) ? '<span class="v7-statut" style="font-size:11px;color:var(--c-primary);font-weight:700">Au Tracker</span>' : ''}`;
   },
@@ -363,10 +377,10 @@ window.VueComptes = {
       l = l.filter(c => !window.estEmpower(c));
     }
 
-    if (Session.estExterne()) {
+    {
       const an = this.state.filtreAnnee;
-      if (this.state.filtreActivite === 'ACTIF') l = l.filter(c => this._aCommande(c, an));
-      else if (this.state.filtreActivite === 'NON_ACTIF') l = l.filter(c => !this._aCommande(c, an));
+      if (this.state.filtreActivite !== 'TOUS') l = l.filter(c => this._statutCommandes(c) === this.state.filtreActivite);
+      if (an !== 'TOUS') l = l.filter(c => this._aCommande(c, an));
       if (this.state.filtreTracker === 'OUI') l = l.filter(c => this._auTracker(c));
       else if (this.state.filtreTracker === 'NON') l = l.filter(c => !this._auTracker(c));
     }
@@ -569,7 +583,7 @@ window.VueComptes = {
     else if (cle === 'tri') this.setTri(v);
   },
   reinitialiserFiltres() {
-    Object.assign(this.state, { filtreFiche: 'TOUS', filtrePalier: 'TOUS', filtreStatut: 'TOUS', filtreEmpower: 'TOUS', filtreCDSPin: 'TOUS', filtreActivite: 'TOUS', filtreTracker: 'TOUS', filtreAnnee: 'FY27', vueFiltreActive: null });
+    Object.assign(this.state, { filtreFiche: 'TOUS', filtrePalier: 'TOUS', filtreStatut: 'TOUS', filtreEmpower: 'TOUS', filtreCDSPin: 'TOUS', filtreActivite: 'TOUS', filtreTracker: 'TOUS', filtreAnnee: 'TOUS', vueFiltreActive: null });
     this.render();
   },
 
@@ -601,7 +615,7 @@ window.VueComptes = {
     app.innerHTML = `
       <header class="header-vue">
         <button onclick="Router.retour()" class="btn-retour">←</button>
-        <h1>${Session.estExterne() ? 'Base comptes' : 'Mes comptes'}</h1>
+        <h1>Base comptes</h1>
         <span class="badge-compteur" id="comptes-compteur">${liste.length}/${total}</span>
       </header>
 
@@ -643,12 +657,6 @@ window.VueComptes = {
         <div class="filtres-flags filtres-desktop" ${Session.estExterne() ? 'style="display:none"' : ''}>
           <button class="btn-filtre ${this.state.filtreStatut === 'TOUS' ? 'actif' : ''}"
                   onclick="VueComptes.setFiltre('TOUS')">Tous</button>
-          <button class="btn-filtre ${this.state.filtreStatut === 'actif' ? 'actif' : ''}"
-                  onclick="VueComptes.setFiltre('actif')">Actif</button>
-          <button class="btn-filtre ${this.state.filtreStatut === 'a_reactiver' ? 'actif' : ''}"
-                  onclick="VueComptes.setFiltre('a_reactiver')">À réactiver</button>
-          <button class="btn-filtre ${this.state.filtreStatut === 'silencieux' ? 'actif' : ''}"
-                  onclick="VueComptes.setFiltre('silencieux')">Silencieux</button>
           <button class="btn-filtre ${this.state.filtreStatut === 'A_REPRENDRE' ? 'actif' : ''}"
                   title="Comptes non suivis : sans propriétaire, SELL IN « non suivi » ou sans activité récente"
                   onclick="VueComptes.setFiltre('A_REPRENDRE')">À reprendre (${NonSuivis.nb()})</button>
@@ -658,7 +666,7 @@ window.VueComptes = {
         </div>
 
         <!-- Filtre EMPOWER / GROSSISTE — dérivé de has_empower (Bloc 1 §6.4) -->
-        <div class="filtres-flags filtres-desktop" ${Session.estExterne() ? 'style="display:none"' : ''}>
+        <div class="filtres-flags filtres-desktop" style="display:none">
           <button class="btn-filtre ${this.state.filtreEmpower === 'TOUS' ? 'actif' : ''}"
                   onclick="VueComptes.setFiltreEmpower('TOUS')">Tous</button>
           <button class="btn-filtre ${this.state.filtreEmpower === 'EMPOWER' ? 'actif' : ''}"
@@ -783,7 +791,7 @@ window.VueComptes = {
           <div class="carte-compte-v2${inactif45 ? ' carte-compte-alerte' : ''}">
             ${alerteInactivite}
             <div class="cc-pills" onclick="VueComptes.ouvrirFiche('${c.ID_Compte}')">
-              ${badgeStatutCompte(c)}
+              ${this._badgeStatutExterne(c)}
               <span class="cc-sec">${this._badgeEmpower(c)}</span>
               ${estDoublon ? `<span style="color:var(--c-warning);font-size:11px;font-weight:700" title="Un autre compte porte le même nom, ouvrir la fiche pour supprimer le doublon">Doublon</span>` : ''}
               ${badgeDernier}
@@ -797,6 +805,7 @@ window.VueComptes = {
               <span class="cc-ca" style="font-size:13px;font-weight:700;color:var(--c-title)" title="${(window.caFY27Detail(c) || []).map(x => x[0] + ' ' + window.fmtCA(x[1]) + ' €').join(' · ')}">FY27 ${window.caFY27Cumul(c) !== null ? window.fmtCA(window.caFY27Cumul(c)) : 'n.c.'} <span style="font-weight:400;font-size:11px;color:var(--c-muted)">${this.state.quarter} ${caQ1 !== 'n.c.' ? caQ1 : 'n.c.'}</span></span>
             </div>
             <div class="cc-nom" onclick="VueComptes.ouvrirFiche('${c.ID_Compte}')">${c.Nom_Compte || 'n.c.'}</div>
+            ${this._coordonnees(c)}
             <div class="cc-infos" onclick="VueComptes.ouvrirFiche('${c.ID_Compte}')">
               <span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> ${c.Ville || 'n.c.'}</span>
               <span>${c.CANAL || 'n.c.'}</span>
@@ -868,8 +877,8 @@ window.VueComptes = {
                 }
                 const estDoublonRow = doublons.has(normaliserNom(c.Nom_Compte || ''));
                 return `<tr style="${rowStyle}">
-                  <td>${badgeStatutCompte(c)} ${this._badgeEmpower(c)}${Session.estExterne() ? '<br>' + this._badgesExterne(c) : ''}${estDoublonRow ? `<br><span style="font-size:10px;font-weight:700;color:var(--c-warning)" title="Un autre compte porte le même nom">Doublon</span>` : ''}${joursDA !== null && joursDA > 45 ? `<br><span style="font-size:10px;font-weight:700;color:var(--c-danger)">⚠ ${joursDA}j</span>` : ''}</td>
-                  <td class="compte-nom" onclick="VueComptes.ouvrirFiche('${c.ID_Compte}')">${c.Nom_Compte || 'n.c.'}</td>
+                  <td>${this._badgeStatutExterne(c)} ${this._badgeEmpower(c)}<br>${this._badgesExterne(c)}${estDoublonRow ? `<br><span style="font-size:10px;font-weight:700;color:var(--c-warning)" title="Un autre compte porte le même nom">Doublon</span>` : ''}${joursDA !== null && joursDA > 45 ? `<br><span style="font-size:10px;font-weight:700;color:var(--c-danger)">⚠ ${joursDA}j</span>` : ''}</td>
+                  <td class="compte-nom" onclick="VueComptes.ouvrirFiche('${c.ID_Compte}')">${c.Nom_Compte || 'n.c.'}${this._coordonnees(c)}</td>
                   <td>${c.Ville || 'n.c.'}</td>
                   <td>${c.CANAL || 'n.c.'}</td>
                   <td class="num" style="color:var(--c-muted)">${caFY25}</td>

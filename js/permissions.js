@@ -17,7 +17,7 @@
       'objectifs', 'primes', 'comptes', 'manager', 'admin',
       'questionnaire', 'reporting', 'photos', 'mailing', 'a_contacter', 'territoires', 'coach', 'kit',
       // Lot 4 — sous-sections d'Administration (droits distincts)
-      'admin_primes', 'admin_baremes', 'admin_reporting',
+      'admin_primes', 'admin_baremes', 'admin_reporting', 'export',
     ],
     // Bloc 2 §1 — 'reporting_cds' : espace d'analyse personnel distinct de
     // l'Accueil (#/dashboard), cf. VueDashboardCDS._contexteReporting().
@@ -36,11 +36,11 @@
     CHANNEL_MANAGER: [
       'home', 'tracker', 'comptes', 'objectifs', 'photos', 'admin',
       'visites_fdv', 'phoning', 'reporting', 'mailing', 'a_contacter', 'territoires', 'coach', 'kit',
-      'admin_reporting',   // Reporting seul : jamais Primes ni Barèmes (voir INTERDITS)
+      'admin_reporting', 'export',   // Reporting seul : jamais Primes ni Barèmes (voir INTERDITS)
     ],
     // Fournisseur de leads (ex-« Invité » : Flavie…) : alimente le Tracker et consulte les comptes (lecture seule).
     EXTERNE: [
-      'tracker', 'comptes', 'territoires', 'kit',
+      'tracker', 'comptes', 'territoires', 'kit', 'export',
     ],
   };
 
@@ -72,6 +72,7 @@
         /^#\/compte\/[^/]+$/.test(h))          return 'comptes';
     if (/^#\/questionnaire(\/[^/]+)?$/.test(h))return 'questionnaire';
     if (/^#\/admin$/.test(h))                  return 'admin';
+    if (/^#\/export$/.test(h))                 return 'export';
     if (/^#\/photos$/.test(h))                 return 'photos';
     if (/^#\/mailing$/.test(h))                return 'mailing';
     if (/^#\/a-contacter$/.test(h))            return 'a_contacter';

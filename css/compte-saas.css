@@ -128,3 +128,21 @@
   .barre-filtres .filtres-flags.filtres-desktop { flex: 0 0 auto; }
   .barre-filtres .filtres-statut { flex: 1 1 380px; }
 }
+
+/* ── Base comptes Externe : barre pleine largeur, coordonnées visibles ── */
+.barre-filtres > .barre-externe { flex: 1 1 100% !important; width: 100%; max-width: none !important; box-sizing: border-box; }
+.barre-externe .filtres-flags { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+#app > #comptes-liste-zone, #comptes-liste-zone { max-width: none !important; width: 100%; box-sizing: border-box; }
+.cc-coord { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; margin: 4px 0; }
+.cc-coord a { color: var(--c-title, #343F48); text-decoration: none; }
+.cc-coord a:hover { text-decoration: underline; }
+.cc-coord-vide { color: var(--c-warning, #b26a00); font-size: 12px; }
+.desktop-table-data-view .cc-coord { font-size: 12px; font-weight: 400; margin: 2px 0 0; gap: 2px 10px; }
+
+/* ── Boutons : Importer (plein ardoise, toujours visible sur le Tracker), Exporter (contour, Administration) ── */
+.btn-import-tracker { display: inline-flex; align-items: center; gap: 6px; background: #343F48; color: #fff; border: 1px solid #343F48; border-radius: var(--radius-sm, 8px); padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; width: auto; white-space: nowrap; }
+.btn-import-tracker:hover { background: #4A5660; }
+.export-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; }
+.export-col { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; cursor: pointer; }
+.export-go { width: auto; padding: 10px 22px; background: #343F48; color: #fff; border: 1px solid #343F48; }
+.export-go:disabled { opacity: .5; cursor: not-allowed; }

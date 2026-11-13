@@ -1799,7 +1799,17 @@ window.VueAdmin = {
           <button id="btn-export-base-complete" class="btn-secondaire" style="padding:8px 14px;width:auto;flex-shrink:0" onclick="VueAdmin.exporterBaseComplete()">Excel</button>
         </div>
       </div>`;
-    return completHtml + filtrePickupHtml + trackerExportHtml + this.EXPORT_GROUPES.map(groupe => `
+    const exportColonnesHtml = `
+      <div style="margin-bottom:18px;padding:12px;border-radius:var(--radius-sm);background:var(--c-bg);border:1px solid var(--c-border)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700">Export Base comptes / Base Tracker (choix des colonnes)</div>
+            <div style="font-size:11px;color:var(--c-text-2);margin-top:2px">Choisissez la base, cochez les colonnes voulues, téléchargez en Excel.</div>
+          </div>
+          <button class="btn-secondaire" style="padding:8px 14px;width:auto;flex-shrink:0" onclick="Router.aller('#/export')">Ouvrir</button>
+        </div>
+      </div>`;
+    return exportColonnesHtml + completHtml + filtrePickupHtml + trackerExportHtml + this.EXPORT_GROUPES.map(groupe => `
       <div style="margin-bottom:18px">
         <div style="font-size:12px;font-weight:700;color:var(--c-title);letter-spacing:.04em;margin-bottom:8px;padding-bottom:6px;">${groupe.titre}</div>
         ${groupe.exports.map(e => `

@@ -915,8 +915,7 @@ window.VuePipeline = {
         <span class="badge-compteur" id="tracker-compteur-header">${leads.length} leads</span>
         ${(Session.estManager() || Session.estChannel() || Session.estExterne()) ? `
         <span style="margin-left:auto;display:flex;gap:8px">
-          <button class="btn-secondaire tracker-export-inline" style="width:auto;padding:6px 12px;font-size:12px" onclick="TrackerExcel.ouvrir('export')">Exporter Excel</button>
-          <button class="btn-secondaire tracker-export-inline" style="width:auto;padding:6px 12px;font-size:12px" onclick="TrackerExcel.ouvrir('import')">Importer Excel</button>
+          <button class="btn-import-tracker" onclick="TrackerExcel.ouvrir('import')" title="Importer des leads depuis un fichier Excel">Importer Excel</button>
         </span>` : ''}
       </header>
 
@@ -987,7 +986,6 @@ window.VuePipeline = {
       <div id="tracker-resultats-zone">${this._renderResultatsZone(leads, voitTous)}</div>
 
       ${peutSaisir ? '<button class="fab" onclick="VuePipeline.ouvrirSaisie()" title="Nouveau lead">＋</button>' : ''}
-      ${(Session.estManager() || Session.estChannel() || Session.estExterne()) ? `<button class="fab fab-export" onclick="TrackerExcel.ouvrir('export')" title="Excel : exporter ou importer" style="background:var(--c-success);font-size:18px"><span class="material-symbols-outlined" aria-hidden="true">download</span></button>` : ''}
       ${NavBar('tracker')}
       ${FusionTabs.portefeuille()}
       ${this._renderModal()}

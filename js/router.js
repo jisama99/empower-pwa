@@ -58,6 +58,7 @@ const Router = {
     { pattern: /^#\/questionnaire\/([^/]+)$/,      vue: 'VueQuestionnaire',      auth: true, param: 1 },
     { pattern: /^#\/manager$/,                      vue: 'VueDashboardManager',   auth: true  },
     { pattern: /^#\/admin$/,                        vue: 'VueAdmin',              auth: true  },
+    { pattern: /^#\/export$/,                       vue: 'VueExportBase',         auth: true  },
 
     // ── Rétro-compat (redirects silencieux) ──
     { pattern: /^#\/pipeline$/,  redirect: '#/empower-tracker' },
