@@ -645,9 +645,7 @@ window.VueComptes = {
         <button class="tab-btn-premium" onclick="Router.aller('#/comptes-historiques')">Historique CA</button>
       </div>`}
 
-      ${Session.estExterne() ? '' : this._renderJauges()}
-
-      ${Session.estExterne() ? '' : this._renderATraiter()}
+      <!-- Jauges d'activation Empower, suivi du remplissage et « À traiter » : réservés à l'écran Tracker, plus affichés ici. -->
 
       <div class="barre-filtres">
         <input type="search" id="recherche-comptes" class="fb-recherche" placeholder="Rechercher un compte, une ville, un code postal…"
