@@ -189,3 +189,10 @@
   #comptes-liste-zone .desktop-table-data-view th:nth-child(10) { width: 10%; }
   #comptes-liste-zone .desktop-table-data-view td:last-child .btn-visiter { white-space: normal; }
 }
+
+/* ── Filtres avancés (autres profils) : mêmes rubriques et même style que le bloc principal ── */
+.fb-avance { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--c-border, #e3e6e8); }
+.fb-avance .cs-puces { display: flex; flex-wrap: wrap; gap: 6px; }
+.fb-avance .cs-puce { font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--c-border, #d9dde1); background: var(--cs-fond, #F1F3F4); color: var(--c-text-2, #4A5660); cursor: pointer; }
+.fb-avance .cs-puce[aria-pressed="true"] { background: #343F48; color: #fff; border-color: #343F48; }
+.fb-select { font-size: 13px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--c-border, #d9dde1); background: var(--cs-fond, #F1F3F4); color: var(--c-title, #343F48); }

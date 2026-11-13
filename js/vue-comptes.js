@@ -493,7 +493,6 @@ window.VueComptes = {
     const s = this.state, pal = [['DORMANT', 'Dormant'], ['EVEIL', 'Éveil'], ['ACTIF', 'Actif'], ['AMBASSADEUR', 'Ambassadeur']];
     const nbFiche = s.comptes.filter(c => !ContactsObjectif.etat(c).contact).length;
     return `<div class="cs-puces" role="group" aria-label="Filtres objectifs">
-      <button class="cs-puce" aria-pressed="${s.filtreFiche === 'A_COMPLETER'}" onclick="VueComptes.setFiltreFiche('A_COMPLETER')">Fiche à compléter (${nbFiche})</button>
       ${pal.map(([k, l]) => `<button class="cs-puce" aria-pressed="${s.filtrePalier === k}" onclick="VueComptes.setFiltrePalier('${k}')">${l}</button>`).join('')}</div>`;
   },
 
@@ -654,56 +653,37 @@ window.VueComptes = {
                oninput="VueComptes.setRecherche(this.value)"/>
 
         ${this._renderBarreExterne()}
-        ${Session.estExterne() ? '' : `${this._renderPuces()}
-        <div class="filtres-mobile">
-          ${this._renderPastilles(cdsList)}
-        </div>`}
-
-        <!-- Feuille de route Phase 2 — vues de filtre sauvegardées -->
-        <div class="filtres-flags filtres-vues filtres-desktop" style="align-items:center">
-          <select style="flex:1;min-width:140px" onchange="VueComptes.appliquerVueFiltre(this.value)">
-            <option value="">Vues sauvegardées…</option>
-            ${this.state.vuesFiltres.map(v => `<option value="${v.id}" ${this.state.vueFiltreActive === v.id ? 'selected' : ''}>${v.nom}</option>`).join('')}
-          </select>
-          <button class="btn-filtre" title="Enregistrer les filtres actuels" onclick="VueComptes.demanderSauvegardeVue()"><span class="material-symbols-outlined" aria-hidden="true">save</span></button>
-          ${this.state.vueFiltreActive ? `<button class="btn-filtre" title="Supprimer cette vue" onclick="VueComptes.supprimerVueFiltre()"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>` : ''}
+        <div class="fb-grille fb-avance">
+          ${Session.estExterne() ? '' : `<div class="fb-lib">PALIER</div><div class="fb-ligne">${this._renderPuces()}</div>
+          <div class="fb-lib">SUIVI</div>
+          <div class="fb-ligne">
+            <button class="fb-pill ${this.state.filtreStatut === 'TOUS' ? 'on' : ''}" onclick="VueComptes.setFiltre('TOUS')">Tous</button>
+            <button class="fb-pill ${this.state.filtreStatut === 'A_REPRENDRE' ? 'on' : ''}" title="Comptes non suivis : sans propriétaire, SELL IN « non suivi » ou sans activité récente" onclick="VueComptes.setFiltre('A_REPRENDRE')">À reprendre<b>${NonSuivis.nb()}</b></button>
+            ${Session.voitTout() ? `<button class="fb-pill ${this.state.filtreStatut === 'SANS_CDS' ? 'on' : ''}" onclick="VueComptes.setFiltre('SANS_CDS')">Sans CDS</button>` : ''}
+          </div>
+          <div class="fb-lib">TRI</div>
+          <div class="fb-ligne">
+            <select class="fb-select" onchange="VueComptes.setTri(this.value)">
+              <option value="PRIORITE" ${this.state.triPar === 'PRIORITE' ? 'selected' : ''}>Priorité</option>
+              <option value="CA"       ${this.state.triPar === 'CA'       ? 'selected' : ''}>CA FY27 ↓</option>
+              <option value="NOM"      ${this.state.triPar === 'NOM'      ? 'selected' : ''}>Nom A→Z</option>
+            </select>
+            ${Session.voitTout() ? `<select class="fb-select" onchange="VueComptes.setFiltreCDS(this.value)">
+              <option value="TOUS">Tous CDS</option>
+              ${cdsList.map(c => `<option value="${c.pin}" ${this.state.filtreCDSPin == c.pin ? 'selected' : ''}>${c.nom}</option>`).join('')}
+            </select>` : ''}
+          </div>`}
+          <div class="fb-lib">VUES</div>
+          <div class="fb-ligne filtres-vues filtres-desktop">
+            <select class="fb-select" onchange="VueComptes.appliquerVueFiltre(this.value)">
+              <option value="">Vues sauvegardées…</option>
+              ${this.state.vuesFiltres.map(v => `<option value="${v.id}" ${this.state.vueFiltreActive === v.id ? 'selected' : ''}>${v.nom}</option>`).join('')}
+            </select>
+            <button class="fb-pill" title="Enregistrer les filtres actuels" onclick="VueComptes.demanderSauvegardeVue()">Enregistrer ces filtres</button>
+            ${this.state.vueFiltreActive ? `<button class="fb-pill" title="Supprimer cette vue" onclick="VueComptes.supprimerVueFiltre()">Supprimer la vue</button>` : ''}
+          </div>
         </div>
-
-        <!-- BUG-05 : filtres statut calculé -->
-        <div class="filtres-flags filtres-desktop" ${Session.estExterne() ? 'style="display:none"' : ''}>
-          <button class="btn-filtre ${this.state.filtreStatut === 'TOUS' ? 'actif' : ''}"
-                  onclick="VueComptes.setFiltre('TOUS')">Tous</button>
-          <button class="btn-filtre ${this.state.filtreStatut === 'A_REPRENDRE' ? 'actif' : ''}"
-                  title="Comptes non suivis : sans propriétaire, SELL IN « non suivi » ou sans activité récente"
-                  onclick="VueComptes.setFiltre('A_REPRENDRE')">À reprendre (${NonSuivis.nb()})</button>
-          ${Session.voitTout() ? `
-          <button class="btn-filtre ${this.state.filtreStatut === 'SANS_CDS' ? 'actif' : ''}"
-                  onclick="VueComptes.setFiltre('SANS_CDS')">Sans CDS</button>` : ''}
-        </div>
-
-        <!-- Filtre EMPOWER / GROSSISTE — dérivé de has_empower (Bloc 1 §6.4) -->
-        <div class="filtres-flags filtres-desktop" style="display:none">
-          <button class="btn-filtre ${this.state.filtreEmpower === 'TOUS' ? 'actif' : ''}"
-                  onclick="VueComptes.setFiltreEmpower('TOUS')">Tous</button>
-          <button class="btn-filtre ${this.state.filtreEmpower === 'EMPOWER' ? 'actif' : ''}"
-                  onclick="VueComptes.setFiltreEmpower('EMPOWER')">Empower</button>
-          <button class="btn-filtre ${this.state.filtreEmpower === 'GROSSISTE' ? 'actif' : ''}"
-                  onclick="VueComptes.setFiltreEmpower('GROSSISTE')">Grossiste</button>
-        </div>
-
-        <div class="filtres-statut filtres-desktop" style="display:${Session.estExterne() ? 'none' : 'flex'};gap:8px;flex-wrap:wrap">
-          <select onchange="VueComptes.setTri(this.value)">
-            <option value="PRIORITE" ${this.state.triPar === 'PRIORITE' ? 'selected' : ''}>Priorité</option>
-            <option value="CA"       ${this.state.triPar === 'CA'       ? 'selected' : ''}>CA FY27 ↓</option>
-            <option value="NOM"      ${this.state.triPar === 'NOM'      ? 'selected' : ''}>Nom A→Z</option>
-          </select>
-          ${Session.voitTout() ? `
-          <!-- BUG-06 : filtre par CDS pour le Manager -->
-          <select onchange="VueComptes.setFiltreCDS(this.value)" style="flex:1">
-            <option value="TOUS">Tous CDS</option>
-            ${cdsList.map(c => `<option value="${c.pin}" ${this.state.filtreCDSPin == c.pin ? 'selected' : ''}>${c.nom}</option>`).join('')}
-          </select>` : ''}
-        </div>
+        ${Session.estExterne() ? '' : `<div class="filtres-mobile">${this._renderPastilles(cdsList)}</div>`}
       </div>
 
       <div class="liste-comptes avec-nav" id="comptes-liste-zone">${this._renderListeZone(liste, doublons, cdsList)}</div>

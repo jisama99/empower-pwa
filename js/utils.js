@@ -415,10 +415,11 @@ function NavBar(actif) {
   };
   // Externe : Tracker et Base comptes sont deux entrées distinctes du volet.
   const _externe = (typeof Session !== 'undefined' && Session.estExterne && Session.estExterne());
-  if (_externe) {
+  {
+    // Tous profils : Tracker et Base comptes sont deux entrées distinctes du volet.
     delete ALIAS_ACTIF.tracker;
-    TOUS.find(i => i.id === 'admin').hash = '#/export';
-    SECTIONS[0] = { lbl: null, ids: ['tracker', 'comptes', 'territoires', 'kit'] };
+    if (_externe) TOUS.find(i => i.id === 'admin').hash = '#/export';
+    SECTIONS[0] = { lbl: null, ids: _externe ? ['tracker', 'comptes', 'territoires', 'kit'] : ['home', 'coach', 'tracker', 'comptes', 'territoires', 'kit'] };
     const ic = TOUS.find(i => i.id === 'comptes');
     ic.lbl = 'Base comptes';
     ic.icone = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>';
@@ -441,7 +442,7 @@ function NavBar(actif) {
   // mobileNav:false → nav-sidebar-only → caché mobile, visible uniquement sidebar desktop
   // Pictogrammes Marvesting (blancs, pour fond ardoise) ; repli sur le SVG d'origine si absent
   const PICTO = window.PICTOS_MARVESTING = window.PICTOS_MARVESTING || { home: 'ordinateur', tracker: 'relance', a_contacter: 'relance', comptes: 'magasin', coach: 'etiquette_prix', territoires: 'localisation', visites: 'horloge', visites_fdv: 'horloge', reporting: 'bouclier_valide', reporting_cds: 'bouclier_valide', analyse: 'bouclier_valide', primes: 'etiquette_prix', photos: 'mobile', admin: 'equipe' };
-  if (_externe) PICTO.comptes = null;
+  PICTO.comptes = null;
   const imgPicto = id => `<img class="mi-ico" src="img/icones/${PICTO[id]}.png" alt="" width="22" height="22">`;
   function _itemHtml(i) {
     const cls = [
