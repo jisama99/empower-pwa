@@ -294,7 +294,7 @@ window.VueFicheCompte = {
   // de suivi. Accès : le CDS propriétaire du compte, ou un manager (ADMIN) —
   // jamais CHANNEL_MANAGER (lecture seule, même règle que le reste de l'app).
   _peutAjouterAuTracker(c) {
-    return Session.estManager() || (Session.estCDS() && Number(c.PIN_CDS_Assigne) === Session.pin);
+    return Session.estManager() || Session.estExterne() || (Session.estCDS() && Number(c.PIN_CDS_Assigne) === Session.pin);
   },
 
   ouvrirAjoutTrackerDepuisCompte() {
@@ -313,6 +313,14 @@ window.VueFicheCompte = {
     if (this.state.ajoutTrackerEnCours) return;
     this.state.ajoutTrackerEnCours = true;
     this._rerender();
+    // Externe : le lead est créé par la fonction base compte_vers_tracker (droits, doublons, notifications)
+    if (Session.estExterne()) {
+      const ok = await VueComptes.ajouterAuTrackerRpc(c, note);
+      if (ok) this._trackerAjouteDepuisFiche = true;
+      this.state.ajoutTrackerEnCours = false;
+      this._rerender();
+      return;
+    }
     try {
       // Anti-doublon : jamais deux fois le même compte dans le Tracker.
       const prospects = await SheetsAPI.lire('EMPOWER_MDB', 'LEADS');
@@ -568,11 +576,11 @@ window.VueFicheCompte = {
           <div class="id-ligne"><span>EMPOWER${c.Date_Onboarding_Empower ? ` <span style="font-weight:400;color:var(--c-text-2)">· depuis le ${new Date(c.Date_Onboarding_Empower).toLocaleDateString('fr-FR')}</span>` : ''}</span>
             <span style="display:flex;align-items:center;gap:8px">
               <strong>${window.estEmpower(c) ? 'Oui' : 'Non'}</strong>
-              <button class="btn-lien" style="font-size:12px"
+              ${Session.estExterne() ? '' : `<button class="btn-lien" style="font-size:12px"
                       onclick="VueFicheCompte.basculerEmpower('${c.ID_Compte}', ${window.estEmpower(c) ? 'false' : 'true'})"
                       ${this.state.empowerEnCours ? 'disabled' : ''}>
                 ${window.estEmpower(c) ? '↩︎ Repasser Grossiste' : 'Marquer Empower'}
-              </button>
+              </button>`}
               ${!window.estEmpower(c) && this._peutAjouterAuTracker(c) ? `
               <button class="btn-lien" style="font-size:12px;color:var(--c-primary)"
                       title="Démarre le suivi d'onboarding EMPOWER dans le Tracker"

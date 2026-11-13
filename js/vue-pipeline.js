@@ -207,7 +207,7 @@ window.VuePipeline = {
                   && String(p.deleted   || '').toUpperCase() !== 'TRUE')
         // BLOC 5 : exclure les comptes déjà convertis (Flag_converti=TRUE) pour CDS/CHANNEL_MANAGER
         .filter(p => {
-          if (Session.estManager()) return true; // ADMIN voit tout
+          if (Session.estManager() || Session.estExterne()) return true; // ADMIN et EXTERNE voient tout, y compris les leads convertis
           return String(p.Flag_converti || '').toUpperCase() !== 'TRUE';
         })
         // Bug audit (clic carte X ouvre le lead Y) — 8 leads en base ont

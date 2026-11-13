@@ -29,7 +29,6 @@
   function estExt() { return !!(window.Session && Session.estExterne()); }
   function leadsPerimetre() {
     const v = VP(); let l = (v && v.state && v.state.leads) || [];
-    if (estExt()) l = l.filter(x => v._estLeadExterne(x));
     return l;
   }
   function leadsExport() {
@@ -437,7 +436,7 @@
   function htmlExport() {
     const o = etat.onglets, n = leadsExport().length;
     const cases = [['synthese', 'Synthèse', 'Compteurs par statut, taux de contact et de conversion'], ['leads', 'Leads', 'Le tableau complet, qui sert aussi de modèle d\'import'], ['relancer', 'À relancer', 'Sans contact +45 jours, actions en retard, Welcome Pack dépassé'], ['aide', 'Aide à l\'import', 'Règles et valeurs autorisées']];
-    const lbl = estExt() ? 'mes leads' : 'tout le Tracker';
+    const lbl = 'tout le Tracker';
     return `
       <div style="font-size:12px;font-weight:700;color:var(--c-text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Onglets à exporter</div>
       ${cases.map(c => `<label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:6px;background:var(--c-card,#EEF0F1);border-radius:14px;cursor:pointer">
