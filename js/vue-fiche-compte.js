@@ -689,6 +689,24 @@ window.VueFicheCompte = {
         ${act.cible === 'fiche' ? `<button class="btn-secondaire" style="width:auto" onclick="${cible}">Compléter la fiche</button>` : ''}</div>`;
   },
 
+  // Coordonnées visibles d'emblée dans le Résumé (téléphone, e-mail, adresse, contact, site).
+  _renderCoordonneesResume(c) {
+    const h = x => this._h(x), tel = c.Tel ? String(c.Tel).trim() : '', mail = c.Email ? String(c.Email).trim() : '';
+    const ligne = (lib, val, lien) => `<div class="id-ligne"><span>${lib}</span><strong>${val ? (lien ? `<a href="${lien}">${h(val)}</a>` : h(val)) : '<em style="font-weight:400;color:var(--c-muted)">à renseigner</em>'}</strong></div>`;
+    const adr = [c.Adresse, [c.Code_Postal, c.Ville].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    const site = c.Site_Web ? String(c.Site_Web).trim() : '';
+    const contact = [c.Contact_Nom, c.Contact_Fonction].filter(Boolean).join(' · ');
+    return `<div class="bloc-fiche"><div class="bloc-titre">Coordonnées
+        <button class="btn-lien" style="margin-left:auto;font-size:13px" onclick="VueFicheCompte.setOnglet('contact');VueFicheCompte.ouvrirEditionCoordonnees()">Modifier</button></div>
+      <div class="grille-identite">
+        ${ligne('Téléphone', tel, tel ? 'tel:' + h(tel.replace(/\s/g, '')) : '')}
+        ${ligne('E-mail', mail, mail ? 'mailto:' + h(mail) : '')}
+        ${ligne('Contact', contact)}
+        ${ligne('Adresse', adr)}
+        ${ligne('Site web', site, /^https?:\/\//i.test(site) ? h(site) : '')}
+      </div></div>`;
+  },
+
   _renderChecklist(c) {
     const e = ContactsObjectif.etat(c);
     return `<div class="bloc-fiche"><div class="bloc-titre">Complétude de la fiche · objectif 31/12/2026</div>
@@ -709,7 +727,8 @@ window.VueFicheCompte = {
     const o = this.state.onglet, nbAct = this.state.visites.length + this.state.appels.length;
     const onglets = [['resume', 'Résumé'], ['contact', 'Contact et localisation'], ['activite', `Activité (${nbAct})`], ['notes', `Notes (${this.state.notes.length})`], ['chiffres', 'Chiffres']];
 
-    const resume = `${this._renderChecklist(c)}
+    const resume = `${this._renderCoordonneesResume(c)}
+      ${this._renderChecklist(c)}
       ${window.EquipeContacts ? EquipeContacts.carteDuCommercial(c.PIN_CDS_Assigne) : ''}
       ${window.Mandats ? Mandats.blocFiche(c) : ''}
       ${SellInFlag.blocFiche(c, this.state.sellinSemaines)}

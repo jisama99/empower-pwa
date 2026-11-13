@@ -127,7 +127,8 @@
   function accordesPour(role) {
     const s = (typeof Session !== 'undefined') ? Session : null;
     if (s && s.role === role && role !== 'ADMIN' && Array.isArray(s.droits)) {
-      return s.droits;
+      // 'export' (Administration > Export) est un droit de rôle : jamais retiré par des droits personnalisés plus anciens.
+      return s.droits.indexOf('export') === -1 && (MATRICE[role] || []).indexOf('export') !== -1 ? s.droits.concat('export') : s.droits;
     }
     return MATRICE[role] || [];
   }

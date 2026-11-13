@@ -111,8 +111,8 @@ window.VueComptes = {
     if (inline) {
       if (this.state.ficheDockeeChargement) return `<div class="cs-fiche-carte">${skeletonListe(4)}</div>`;
       const c = VueFicheCompte.state.compte;
-      return `<div class="cs-fiche-carte"><div class="bloc-titre" style="position:sticky;top:0;background:var(--c-surface,#fff);z-index:1;padding-bottom:8px">${c.Nom_Compte}
-          <button class="btn-lien" style="margin-left:auto;font-size:13px" onclick="VueComptes.fermerFicheDockee()">Fermer</button></div>
+      return `<div class="cs-fiche-carte"><div class="bloc-titre cs-fiche-entete">${c.Nom_Compte}
+          <button class="btn-fermer-fiche" onclick="VueComptes.fermerFicheDockee()" aria-label="Fermer la fiche">&#10005; Fermer</button></div>
           ${VueFicheCompte.renderContenuFiche()}
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
             <button class="btn-action btn-visite" style="width:auto;flex:1" onclick="VueQuestionnaire._visitePlanifiee=null;Router.aller('#/questionnaire/${c.ID_Compte}')">Visite</button>
@@ -132,9 +132,9 @@ window.VueComptes = {
     return `
       <div class="modal-overlay modal-docked" onclick="if(event.target===this)VueComptes.fermerFicheDockee()">
         <div class="modal modal-docked-panel" style="overflow-y:auto">
-          <div class="bloc-titre" style="position:sticky;top:0;background:var(--c-surface);z-index:1;padding-bottom:8px">
+          <div class="bloc-titre cs-fiche-entete">
             ${c.Nom_Compte}
-            <button class="btn-lien" style="margin-left:auto;font-size:13px" onclick="VueComptes.fermerFicheDockee()">Fermer</button>
+            <button class="btn-fermer-fiche" onclick="VueComptes.fermerFicheDockee()" aria-label="Fermer la fiche">&#10005; Fermer</button>
           </div>
           ${VueFicheCompte.renderContenuFiche()}
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
@@ -627,9 +627,9 @@ window.VueComptes = {
         <button class="tab-btn-premium" onclick="Router.aller('#/comptes-historiques')">Historique CA</button>
       </div>`}
 
-      ${this._renderJauges()}
+      ${Session.estExterne() ? '' : this._renderJauges()}
 
-      ${this._renderATraiter()}
+      ${Session.estExterne() ? '' : this._renderATraiter()}
 
       <div class="barre-filtres">
         <input type="search" id="recherche-comptes" placeholder="Compte, ville, CP, département…"

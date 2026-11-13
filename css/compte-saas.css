@@ -146,3 +146,8 @@
 .export-col { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; cursor: pointer; }
 .export-go { width: auto; padding: 10px 22px; background: #343F48; color: #fff; border: 1px solid #343F48; }
 .export-go:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Fiche compte docké : en-tête collant avec bouton Fermer bien visible ── */
+.cs-fiche-entete { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; background: var(--c-surface, #fff); padding: 4px 0 10px; }
+.btn-fermer-fiche { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; background: #343F48; color: #fff; border: 0; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-fermer-fiche:hover { background: #4A5660; }
