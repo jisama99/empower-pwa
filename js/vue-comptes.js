@@ -283,32 +283,50 @@ window.VueComptes = {
   setEmpowerExterne(v) { this.state.filtreEmpower = this.state.filtreEmpower === v ? 'TOUS' : v; this.render(); },
   _renderBarreExterne() {
     const s = this.state, n = this._compteursExterne(), an = s.filtreAnnee;
-    const chip = (lib, nb, on, fn) => `<button class="btn-filtre ${on ? 'actif' : ''}" onclick="${fn}">${lib}${nb != null ? ` (${nb})` : ''}</button>`;
-    return `<div class="barre-externe" style="display:flex;flex-direction:column;gap:8px;margin:8px 0;flex:1 1 100%;width:100%;box-sizing:border-box">
-      <div class="filtres-flags" style="flex-wrap:wrap;align-items:center">
-        <strong style="font-size:12px;color:var(--c-text-2)">Statut</strong>
-        ${chip('Actifs', n.actifs, s.filtreActivite === 'ACTIF', "VueComptes.setActivite('ACTIF')")}
-        ${chip('À réactiver', n.reactiver, s.filtreActivite === 'A_REACTIVER', "VueComptes.setActivite('A_REACTIVER')")}
-        ${chip('Silencieux', n.silencieux, s.filtreActivite === 'SILENCIEUX', "VueComptes.setActivite('SILENCIEUX')")}
+    const pill = (lib, nb, on, fn) => `<button class="fb-pill ${on ? 'on' : ''}" onclick="${fn}">${lib}${nb != null ? `<b>${nb}</b>` : ''}</button>`;
+    const actifs = [];
+    const lbSt = { ACTIF: 'Actifs', A_REACTIVER: 'À réactiver', SILENCIEUX: 'Silencieux' };
+    if (s.filtreActivite !== 'TOUS') actifs.push([lbSt[s.filtreActivite], `VueComptes.setActivite('${s.filtreActivite}')`]);
+    if (an !== 'TOUS') actifs.push(['Commandé en ' + an, `VueComptes.setAnnee('${an}')`]);
+    if (s.filtreEmpower === 'GROSSISTE') actifs.push(['À convertir Empower', "VueComptes.setEmpowerExterne('GROSSISTE')"]);
+    if (s.filtreEmpower === 'EMPOWER') actifs.push(['Déjà Empower', "VueComptes.setEmpowerExterne('EMPOWER')"]);
+    if (s.filtreTracker === 'OUI') actifs.push(['Déjà au Tracker', "VueComptes.setTrackerFiltre('OUI')"]);
+    if (s.filtreTracker === 'NON') actifs.push(['Pas au Tracker', "VueComptes.setTrackerFiltre('NON')"]);
+    if (s.filtreFiche === 'A_COMPLETER') actifs.push(['Fiche à compléter', "VueComptes.setFiltreFiche('A_COMPLETER')"]);
+    const nbRes = this.listeFiltree.length;
+    const chips = actifs.map(([l, fn]) => `<button class="fb-chip" onclick="${fn}" title="Retirer ce filtre">${l} &#10005;</button>`).join('');
+    return `<div class="barre-externe fb-grille-wrap">
+      <div class="fb-grille">
+        <div class="fb-lib">STATUT</div>
+        <div class="fb-ligne">
+          ${pill('Actifs', n.actifs, s.filtreActivite === 'ACTIF', "VueComptes.setActivite('ACTIF')")}
+          ${pill('À réactiver', n.reactiver, s.filtreActivite === 'A_REACTIVER', "VueComptes.setActivite('A_REACTIVER')")}
+          ${pill('Silencieux', n.silencieux, s.filtreActivite === 'SILENCIEUX', "VueComptes.setActivite('SILENCIEUX')")}
+          <span class="fb-aide" title="Actif : a commandé en FY27. À réactiver : a commandé en FY25 ou FY26 mais pas en FY27. Silencieux : n'a jamais commandé.">&#9432; règle</span>
+        </div>
+        <div class="fb-lib">A COMMANDÉ EN</div>
+        <div class="fb-ligne"><span class="fb-seg">${this.ANNEES.map(a => `<button class="${an === a ? 'on' : ''}" onclick="VueComptes.setAnnee('${a}')">${a}</button>`).join('')}</span></div>
+        <div class="fb-lib">CANAL</div>
+        <div class="fb-ligne">
+          ${pill('À convertir Empower', n.convertir, s.filtreEmpower === 'GROSSISTE', "VueComptes.setEmpowerExterne('GROSSISTE')")}
+          ${pill('Déjà Empower', n.empower, s.filtreEmpower === 'EMPOWER', "VueComptes.setEmpowerExterne('EMPOWER')")}
+        </div>
+        <div class="fb-lib">TRACKER</div>
+        <div class="fb-ligne">
+          ${pill('Déjà au Tracker', n.auTracker, s.filtreTracker === 'OUI', "VueComptes.setTrackerFiltre('OUI')")}
+          ${pill('Pas au Tracker', n.tous - n.auTracker, s.filtreTracker === 'NON', "VueComptes.setTrackerFiltre('NON')")}
+          ${pill('Fiche à compléter', null, s.filtreFiche === 'A_COMPLETER', "VueComptes.setFiltreFiche('A_COMPLETER')")}
+        </div>
       </div>
-      <div style="font-size:12px;color:var(--c-text-2)">Actif : a commandé en FY27. À réactiver : a commandé en FY25 ou FY26, pas en FY27. Silencieux : jamais commandé.</div>
-      <div class="filtres-flags" style="flex-wrap:wrap;align-items:center">
-        <strong style="font-size:12px;color:var(--c-text-2)">A commandé en</strong>
-        ${this.ANNEES.map(a => `<button class="btn-filtre ${an === a ? 'actif' : ''}" onclick="VueComptes.setAnnee('${a}')">${a}</button>`).join('')}
+      <div class="fb-pied">
+        <div class="fb-chips">${chips || '<span class="fb-aide">Aucun filtre actif</span>'}</div>
+        <div class="fb-droite"><strong>${nbRes} compte${nbRes > 1 ? 's' : ''}</strong>${actifs.length ? ' · <button class="btn-lien" onclick="VueComptes.reinitialiserFiltres()">Réinitialiser</button>' : ''}
+          ${Session.estExterne() ? ` · Tri <select onchange="VueComptes.setTri(this.value)">
+            <option value="CA" ${s.triPar === 'CA' ? 'selected' : ''}>CA FY27 ↓</option>
+            <option value="NOM" ${s.triPar === 'NOM' ? 'selected' : ''}>Nom A→Z</option>
+            <option value="PRIORITE" ${s.triPar === 'PRIORITE' ? 'selected' : ''}>Priorité</option>
+          </select>` : ''}</div>
       </div>
-      <div class="filtres-flags" style="flex-wrap:wrap;align-items:center">
-        ${chip('À convertir Empower', n.convertir, s.filtreEmpower === 'GROSSISTE', "VueComptes.setEmpowerExterne('GROSSISTE')")}
-        ${chip('Déjà Empower', n.empower, s.filtreEmpower === 'EMPOWER', "VueComptes.setEmpowerExterne('EMPOWER')")}
-        ${chip('Déjà au Tracker', n.auTracker, s.filtreTracker === 'OUI', "VueComptes.setTrackerFiltre('OUI')")}
-        ${chip('Pas au Tracker', n.tous - n.auTracker, s.filtreTracker === 'NON', "VueComptes.setTrackerFiltre('NON')")}
-        ${chip('Fiche à compléter', null, s.filtreFiche === 'A_COMPLETER', "VueComptes.setFiltreFiche('A_COMPLETER')")}
-        ${Session.estExterne() ? `<select onchange="VueComptes.setTri(this.value)" style="margin-left:auto">
-          <option value="CA" ${s.triPar === 'CA' ? 'selected' : ''}>CA FY27 ↓</option>
-          <option value="NOM" ${s.triPar === 'NOM' ? 'selected' : ''}>Nom A→Z</option>
-          <option value="PRIORITE" ${s.triPar === 'PRIORITE' ? 'selected' : ''}>Priorité</option>
-        </select>` : ''}
-      </div>
-      <div style="font-size:12px;color:var(--c-text-2)">Parmi les ${n.convertir} grossistes, ${n.convertirActifs} sont actifs (FY27) : ce sont les premiers à convertir.</div>
     </div>`;
   },
   _badgesExterne(c) {
@@ -632,7 +650,7 @@ window.VueComptes = {
       ${Session.estExterne() ? '' : this._renderATraiter()}
 
       <div class="barre-filtres">
-        <input type="search" id="recherche-comptes" placeholder="Compte, ville, CP, département…"
+        <input type="search" id="recherche-comptes" class="fb-recherche" placeholder="Rechercher un compte, une ville, un code postal…"
                value="${this.state.recherche}"
                style="border:1.5px solid var(--c-border);border-radius:var(--radius-sm);padding:8px 12px;font-size:14px;width:100%"
                oninput="VueComptes.setRecherche(this.value)"/>
