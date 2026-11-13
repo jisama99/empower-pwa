@@ -172,3 +172,20 @@
 .fb-chip { font-size: 12px; border: 0; border-radius: 999px; padding: 3px 10px; background: rgba(255,109,104,.16); color: #343F48; cursor: pointer; }
 .fb-droite strong { color: var(--c-title, #343F48); font-weight: 600; }
 @media (max-width: 560px) { .fb-grille { grid-template-columns: 1fr; gap: 6px; } .fb-lib { margin-top: 6px; } }
+
+/* ── Tableau Comptes : tient dans la largeur disponible, volet déployé ou replié (plus de colonne rognée) ── */
+@media (min-width: 900px) {
+  #comptes-liste-zone .desktop-table-wrap { overflow-x: hidden; }
+  #comptes-liste-zone .desktop-table-data-view { table-layout: fixed; width: 100% !important; min-width: 0 !important; }
+  #comptes-liste-zone .desktop-table-data-view td, #comptes-liste-zone .desktop-table-data-view th { padding: 10px 6px !important; overflow-wrap: anywhere; white-space: normal; }
+  #comptes-liste-zone .desktop-table-data-view th:nth-child(1), #comptes-liste-zone .desktop-table-data-view td:nth-child(1) { width: 14% !important; max-width: none !important; }
+  #comptes-liste-zone .desktop-table-data-view th:nth-child(2) { width: 20%; }
+  #comptes-liste-zone .desktop-table-data-view th:nth-child(3) { width: 12%; }
+  #comptes-liste-zone .desktop-table-data-view th:nth-child(4) { width: 8%; }
+  #comptes-liste-zone .desktop-table-data-view th:nth-child(5), #comptes-liste-zone .desktop-table-data-view th:nth-child(6) { width: 6%; }
+  #comptes-liste-zone .desktop-table-data-view th:nth-child(7) { width: 8%; }
+  #comptes-liste-zone .desktop-table-data-view th:nth-child(8) { width: 8%; }
+  #comptes-liste-zone .desktop-table-data-view th:nth-child(9) { width: 8%; }
+  #comptes-liste-zone .desktop-table-data-view th:nth-child(10) { width: 10%; }
+  #comptes-liste-zone .desktop-table-data-view td:last-child .btn-visiter { white-space: normal; }
+}
